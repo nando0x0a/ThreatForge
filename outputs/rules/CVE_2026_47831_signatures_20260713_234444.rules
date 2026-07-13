@@ -1,0 +1,23 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-47831
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-13T23:44:44.804204Z
+# Status:    OK
+# ---
+
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-47831 HIGH priority detection - ANALYST REVIEW REQUIRED - insufficient CVE context available";
+  flow:established,to_server;
+  reference:cve,2026-47831;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental, priority_tier STANDARD, priority_score 50;
+  classtype:attempted-admin; sid:9026001; rev:1; )
+
+> **⚠ ANALYST REVIEW REQUIRED — DRAFT RULE**
+> CVE-2026-47831 is 4 days old and no advisory detail, KEV context, or confirmed network-observable indicators were available at rule generation time. The rule above is a **placeholder stub** that matches only on flow direction and will produce high false-positive rates if deployed as-is. **Do not promote to production without:**
+> 1. Confirming the affected protocol and default port(s)
+> 2. Obtaining packet captures or PoC traffic samples to derive accurate `content`, `pcre`, or `byte_test` match conditions
+> 3. Validating that network-layer traffic is detectable (this vulnerability may be locally exploitable only, making a network-layer Suricata rule inappropriate)
+> 4. Updating `sid`, `rev`, and metadata fields per your local rule management policy
