@@ -1,0 +1,2 @@
+Write a patch recommendation and Ansible playbook as described in the
+system prompt. Return the playbook as valid YAML.

@@ -1,0 +1,24 @@
+# Example Suricata rules for few-shot context (signatures module only)
+# These are structural examples — do not copy match logic verbatim
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2021-44228 Log4j JNDI injection attempt";
+  flow:established,to_server; http.header; content:"${jndi:";
+  nocase; reference:cve,2021-44228;
+  metadata:mitre_technique_id T1190, is_kev true, status experimental;
+  classtype:attempted-admin; sid:9000001; rev:1; )
+
+alert tcp $EXTERNAL_NET any -> $HOME_NET 22 (
+  msg:"THREATFORGE CVE-2024-6387 OpenSSH regreSSHion exploit attempt";
+  flow:established,to_server; dsize:>1400;
+  threshold:type both, track by_src, count 5, seconds 10;
+  reference:cve,2024-6387;
+  metadata:mitre_technique_id T1190, is_kev true, status experimental;
+  classtype:attempted-admin; sid:9000002; rev:1; )
+
+alert dns $HOME_NET any -> any 53 (
+  msg:"THREATFORGE CVE-2020-1350 SIGRed DNS exploit attempt";
+  flow:established; dns.query; content:"|00 ff|"; offset:2;
+  reference:cve,2020-1350;
+  metadata:mitre_technique_id T1190, is_kev true, status experimental;
+  classtype:attempted-admin; sid:9000003; rev:1; )

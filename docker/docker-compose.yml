@@ -1,0 +1,41 @@
+services:
+  threatforge:
+    image: threatforge
+    container_name: threatforge
+    restart: unless-stopped
+
+    env_file:
+      - /opt/docker/threatforge/config/.env
+
+    volumes:
+      - /opt/docker/threatforge/outputs:/opt/threatforge/outputs
+      - /opt/docker/threatforge/logs:/opt/threatforge/logs
+      - /opt/docker/threatforge/config/products.txt:/opt/threatforge/config/products.txt:ro
+
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/opt/threatforge/src
+      - PDCP_API_KEY=${PDTM_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - GITHUB_BRANCH=${GITHUB_BRANCH:-main}
+
+    networks:
+      - infra
+
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import anthropic; print('ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  infra:
+    external: true

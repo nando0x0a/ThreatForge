@@ -1,0 +1,4 @@
+Write one Suricata rule as described in the system prompt.
+Use the observable behaviour from the advisory and KEV context
+to populate content and pcre match fields.
+Return ONLY the rule text.

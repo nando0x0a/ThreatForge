@@ -1,0 +1,3 @@
+Write CrowdStrike Event Search and nfdump queries as described in the
+system prompt. Queries should be ready to run with placeholder values
+clearly marked.

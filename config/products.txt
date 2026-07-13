@@ -1,0 +1,9 @@
+# ThreatForge product inventory
+# One product per line. Format: product_name,tier
+# tier: 1 = internet-facing/auth/production, 2 = internal, 3 = dev/test
+apache httpd,1
+nginx,1
+openssh,1
+jenkins,2
+ubuntu,1
+windows,1

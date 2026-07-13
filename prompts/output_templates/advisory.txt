@@ -1,0 +1,3 @@
+Write a management security advisory as described in the system prompt.
+Use the CVE context and priority tier provided to set urgency and tone.
+Format output as Markdown. No CVE numbers in the executive summary.

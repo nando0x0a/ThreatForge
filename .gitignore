@@ -1,0 +1,8 @@
+config/.env
+outputs/
+logs/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+/tmp/
