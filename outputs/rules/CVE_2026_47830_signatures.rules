@@ -1,0 +1,20 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-47830
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-14T10:59:16.025910Z
+# Status:    OK
+# ---
+
+alert smb $HOME_NET any -> $HOME_NET 445 (
+  msg:"THREATFORGE CVE-2026-47830 BOSH Windows Stemcell BOSH.Utils.psm1 executable overwrite via SMB - local privilege escalation attempt";
+  flow:established,to_server; content:"|ff|SMB"; depth:8; content:"BOSH.Utils.psm1"; nocase; distance:0;
+  reference:cve,2026-47830;
+  metadata:mitre_technique_id T1574, is_kev false, status experimental;
+  classtype:attempted-admin; sid:9000004; rev:1; )
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-47830
+# [2] www.cloudfoundry.org — https://www.cloudfoundry.org/blog/cve-2026-47830-incorrect-permission-assignment-allows-local-privilege-escalation-to-system-via-executable-overwrite/
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-47830
