@@ -1,0 +1,140 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-54528
+# Product:   jupyterlab
+# Tags:      [HIGH]
+# Score:     20
+# Tier:      MONITOR
+# Generated: 2026-07-14T21:08:51.751402Z
+# Status:    OK
+# ---
+
+# Threat Hunting Queries — CVE-2026-54528
+### JupyterLab Git Information Disclosure via Case-Insensitive Path Bypass
+**DRAFT FOR ANALYST REVIEW — Validate all queries and thresholds before production deployment.**
+
+---
+
+## Analyst Context
+
+CVE-2026-54528 affects JupyterLab Git < 0.54.0 [3]. The vulnerability arises from use of `fnmatch.fnmatchcase()` in `GitHandler.prepare()` to enforce `excluded_paths`, which is case-sensitive and therefore bypassable on case-insensitive filesystems (e.g., Windows NTFS, macOS HFS+) [1][4]. An authenticated user can read directories that should be excluded from Git exposure — such as credential stores, private keys, or internal configuration directories — by requesting paths with mixed or unexpected casing. No public proof-of-concept is known at this time.
+
+**CVSS: 7.1 HIGH** [1] | **Priority Tier: MONITOR** | **No known active exploitation.**
+
+> ⚠️ No specific malicious IPs, domains, or file hashes are associated with this CVE. Queries below target behavioural patterns. Placeholder IoC values (`x.x.x.x`, `malicious.example.com`) are used where no specific indicators exist. Replace with environment-specific values upon collection.
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — HTTP Requests to JupyterLab Git API with Suspicious Path Casing
+
+Targets web requests to the JupyterLab Git API endpoint using unusual casing that could indicate path-bypass attempts against `excluded_paths`. Look for process-level network activity from the Jupyter process.
+
+event_simpleName IN ("NetworkConnectIP4", "NetworkConnectIP6")
+  LocalPort IN (8888, 8889, 8890, 8000, 8080)
+| search ContextImageFileName = "*jupyter*"
+    OR ContextImageFileName = "*python*"
+| stats count, dc(RemoteIP) AS unique_remote_ips
+    by ComputerName, UserName, ContextImageFileName,
+       LocalPort, RemoteIP
+| where count > 10
+| sort -count
+
+> **Analyst note:** JupyterLab defaults to port 8888 [3]. Adjust `LocalPort` to match your deployment. High `unique_remote_ips` from a single Jupyter process may indicate scanning or enumeration.
+
+---
+
+### Query 2 — Sensitive File or Directory Access Following Jupyter Process Activity
+
+Targets file read events on paths commonly excluded in JupyterLab Git configurations (e.g., `.env`, SSH keys, credential files) that occur within the context of a Jupyter-related process. The bypass [2] allows excluded directories to be read, so look for file access on excluded path patterns.
+
+event_simpleName IN ("DnsRequest", "NetworkConnectIP4")
+| search ContextImageFileName MATCHES "(?i).*(jupyter|nbclassic|lab).*"
+| join type=inner
+  [search event_simpleName="CriticalFileAccessed"
+   | search TargetFileName MATCHES "(?i).*(\\.env|\\.ssh|secrets|credentials|\\.git/config|token|private_key).*"]
+  ON aid
+| stats count by ComputerName, UserName, ContextImageFileName,
+              TargetFileName, RemoteIP
+| sort -count
+
+> **Analyst note:** `CriticalFileAccessed` requires Falcon sensor file monitoring to be configured for these paths. If unavailable, pivot to `ProcessRollup2` + `TargetFileName` via EDR timeline. Tune `TargetFileName` regex to match your organisation's `excluded_paths` configuration.
+
+---
+
+### Query 3 — Lateral Movement / Post-Exploitation from Jupyter Process Tree
+
+If an attacker reads excluded paths (e.g., SSH private keys, `.env` API tokens), a follow-on process execution is a key escalation signal. Targets child processes spawned from Jupyter that are anomalous for normal notebook workflows.
+
+event_simpleName="ProcessRollup2"
+| search ParentBaseFileName MATCHES "(?i).*(jupyter|python|python3|ipython).*"
+| search FileName IN ("curl", "wget", "bash", "sh", "powershell",
+                      "cmd", "nc", "ncat", "ssh", "scp", "git",
+                      "python", "python3", "perl", "ruby")
+| where CommandLine MATCHES "(?i).*(http|ftp|://).*"
+        OR CommandLine MATCHES "(?i).*(base64|decode|exec|eval).*"
+        OR CommandLine MATCHES "(?i).*(id|whoami|uname|hostname).*"
+| stats count by ComputerName, UserName, ParentBaseFileName,
+              FileName, CommandLine
+| sort -count
+
+> **Analyst note:** Data scientists legitimately run shell commands from notebooks. Cross-reference `UserName` against expected notebook users and correlate timing with any file access alerts from Query 2.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — High-Frequency Inbound Connections to Jupyter Ports from Single Source
+
+Targets potential enumeration of `excluded_paths` via repeated HTTP requests, which would produce elevated inbound connection counts to Jupyter's listening port from a single external or internal source.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port 8888 or dst port 8889 or dst port 8000' \
+  -A srcip,dstip,dstport \
+  -s record/flows \
+  -n 50 \
+  -o "fmt:%sa -> %da:%dp  flows=%fl  bytes=%byt  first=%ts  last=%te" \
+  | sort -k4 -rn | head -30
+
+> **Analyst note:** Replace port list with the port your Jupyter deployment uses. A single source IP generating hundreds of flows to a Jupyter port in a short window warrants investigation, especially if the host is not a known Jupyter client. Adjust `-r` path to your collector path.
+
+---
+
+### Query 2 — Unusual Outbound Data Volume from Jupyter Host (Potential Exfiltration)
+
+If excluded paths (e.g., credential files, secrets) are successfully read, an attacker may exfiltrate data. Targets anomalous outbound byte volumes from hosts known to run JupyterLab.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src ip 192.168.x.x/24 and src port 8888 and bytes > 500000' \
+  -A srcip,dstip,dstport \
+  -s record/bytes \
+  -n 20 \
+  -o "fmt:%sa -> %da:%dp  pkts=%pkt  bytes=%byt  duration=%td  first=%ts"
+
+> **Analyst note:** Replace `192.168.x.x/24` with the subnet containing your Jupyter servers. A threshold of 500 KB per flow from a Jupyter port is a starting heuristic — tune based on baseline. Legitimate notebook data can be large; correlate with user activity and time of day.
+
+---
+
+### Query 3 — Connections from Jupyter Host to Anomalous External Destinations (Post-Exploitation C2)
+
+If post-exploitation follows credential theft, the compromised Jupyter host may initiate outbound C2 connections. Targets outbound TCP from Jupyter hosts to non-standard external destinations.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp \
+      and src ip 192.168.x.x/24 \
+      and dst port in [443,80,4444,1337,8080,9090] \
+      and not dst ip 10.0.0.0/8 \
+      and not dst ip 172.16.0.0/12 \
+      and not dst ip 192.168.0.0/16 \
+      and flags S' \
+  -A srcip,dstip,dstport \
+  -s record/flows \
+  -n 30 \
+  -o "fmt:%sa -> %da:%dp  flags=%flg  pkts=%pkt  bytes=%byt  first=%ts"
+
+> **Analyst
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-54528
+# [2] github.com — https://github.com/jupyterlab/jupyterlab-git/commit/460035275b5963dc96e364e60ba6a73717fbd033
+# [3] github.com — https://github.com/jupyterlab/jupyterlab-git/releases/tag/v0.54.0
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-54528
