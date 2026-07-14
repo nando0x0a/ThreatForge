@@ -1,0 +1,40 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-10698
+# Product:   moveit
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# Generated: 2026-07-14T20:57:58.221750Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only. The vulnerability is a SQL injection in the Custom Reports
+# module of Progress MOVEit Transfer [1][2][3]. Observable behaviour is based
+# on the likely HTTP request path to the Custom Reports endpoint and common
+# SQL injection payload patterns (e.g., quote characters, SQL keywords) in
+# POST body or URI parameters. No packet-capture (PCAP) data source is
+# available to this pipeline — this pattern is NOT verified against captured
+# exploit traffic. Analyst review is strongly recommended before deployment;
+# the endpoint path and parameter names are inferred from product knowledge
+# and advisory description, not confirmed from PoC or PCAP evidence.
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-10698 Progress MOVEit Transfer Custom Reports SQL injection attempt";
+  flow:established,to_server;
+  http.method; content:"POST";
+  http.uri; content:"/api/v1/reports"; nocase;
+  http.request_body;
+  pcre:"/(\%27|\'|\-\-|\%23|#|\bUNION\b|\bSELECT\b|\bDROP\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bOR\b\s+\d+\s*=\s*\d+)/i";
+  reference:cve,2026-10698;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:web-application-attack; sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10698
+[2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10698
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10698
+# [2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10698
