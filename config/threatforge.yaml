@@ -125,11 +125,6 @@ scoring:
     - mysql
     - postgresql
 
-  poc_domains:
-    - github.com
-    - exploit-db.com
-    - packetstormsecurity.com
-
 output_menu:
   1:
     key: advisory
@@ -184,6 +179,11 @@ prompts:
     - If specific technical detail is unavailable, note that clearly rather than
       fabricating indicators or patterns.
     - Tag all rule metadata and output headers with the CVE ID for traceability.
+    - If the context includes a SEVERITY DISCREPANCY BETWEEN SOURCES block, you
+      MUST surface it explicitly in the output — name both sources (NVD/vulnx
+      and CVE.org) and both scores/severities. Never silently pick one score
+      and omit the other; the analyst needs to see the disagreement to judge
+      it themselves.
 
   few_shot_rules: |
     # Example Suricata rules for few-shot context (signatures module only)

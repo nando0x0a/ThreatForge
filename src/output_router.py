@@ -50,17 +50,29 @@ class OutputRouter:
 
     def _build_header(self, cve_data: dict, result: dict, output_num: int) -> str:
         tags_str = " ".join(f"[{t}]" for t in cve_data.get("tags", []))
-        return (
-            f"# ThreatForge Output — {result.get('output_type', '').upper()}\n"
-            f"# CVE:       {cve_data.get('cve_id', '')}\n"
-            f"# Product:   {cve_data.get('product', '')}\n"
-            f"# Tags:      {tags_str}\n"
-            f"# Score:     {cve_data.get('composite_score', 0)}\n"
-            f"# Tier:      {cve_data.get('tier_label', '')}\n"
-            f"# Generated: {datetime.utcnow().isoformat()}Z\n"
-            f"# Status:    {'REVIEW_NEEDED' if result.get('review_needed') else 'OK'}\n"
-            f"# ---"
-        )
+        lines = [
+            f"# ThreatForge Output — {result.get('output_type', '').upper()}",
+            f"# CVE:       {cve_data.get('cve_id', '')}",
+            f"# Product:   {cve_data.get('product', '')}",
+            f"# Tags:      {tags_str}",
+            f"# Score:     {cve_data.get('composite_score', 0)}",
+            f"# Tier:      {cve_data.get('tier_label', '')}",
+        ]
+
+        disc = cve_data.get("context", {}).get("severity_discrepancy") or {}
+        if disc.get("has_discrepancy"):
+            lines.append(
+                f"# SEVERITY DISCREPANCY: NVD/vulnx says {disc['nvd_score']} "
+                f"({disc['nvd_severity']}) — CVE.org (CNA, v{disc['cna_version']}) says "
+                f"{disc['cna_score']} ({disc['cna_severity']}). See {disc['cna_source_url']}"
+            )
+
+        lines += [
+            f"# Generated: {datetime.utcnow().isoformat()}Z",
+            f"# Status:    {'REVIEW_NEEDED' if result.get('review_needed') else 'OK'}",
+            "# ---",
+        ]
+        return "\n".join(lines)
 
     def _log_run(self, cve_data: dict, output_num: int, result: dict, filepath: Path) -> None:
         log_entry = {

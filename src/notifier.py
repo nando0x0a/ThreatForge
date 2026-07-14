@@ -52,8 +52,14 @@ class DiscordNotifier:
                 f"   Tags: {tags_str}  Score: {cve.get('composite_score', 0)}",
                 f"   **{cve.get('tier_label', 'UNKNOWN')}**",
                 f"   {cve.get('context', {}).get('description', '')[:120]}...",
-                "",
             ]
+            disc = cve.get("context", {}).get("severity_discrepancy") or {}
+            if disc.get("has_discrepancy"):
+                lines.append(
+                    f"   ⚠️ **Severity disputed**: NVD says {disc['nvd_severity']} "
+                    f"({disc['nvd_score']}) — CVE.org says {disc['cna_severity']} ({disc['cna_score']})"
+                )
+            lines.append("")
         lines += [
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             "**What would you like me to produce?**",

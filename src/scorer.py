@@ -12,7 +12,6 @@ class Scorer:
         scoring = cfg["scoring"]
         self.weights = scoring["weights"]
         self.widely_used = scoring["widely_used"]
-        self.poc_domains = scoring["poc_domains"]
         self.tier_labels = {int(k): v for k, v in scoring["tier_labels"].items()}
         self.tier_thresholds = scoring["tier_thresholds"]
         self.cvss_crit_threshold = scoring["cvss_crit_threshold"]
@@ -59,8 +58,9 @@ class Scorer:
             tags.append("WIDE")
             score += w["WIDE"]
 
-        refs = cve_data.get("references", [])
-        if any(d in r for r in refs for d in self.poc_domains):
+        # vulnx flags PoC availability directly (is_poc) — more reliable than
+        # guessing from reference-URL domains, which vulnx doesn't expose anyway.
+        if cve_data.get("is_poc", False):
             tags.append("POC")
             score += w["POC"]
 

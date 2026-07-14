@@ -137,6 +137,36 @@ def query_vulnx_global() -> list[dict]:
     return results
 
 
+def query_vulnx_id(cve_id: str) -> dict:
+    """Fetch a specific CVE's real record via `vulnx id` — used by --cve.
+    Unlike `vulnx search`, this returns a single object, not {"results": [...]}."""
+    fd, output_file = tempfile.mkstemp(prefix=f"vulnx_id_{cve_id}_", suffix=".json")
+    os.close(fd)
+    try:
+        with open(output_file, "w") as out_f:
+            subprocess.run(
+                ["vulnx", "id", cve_id, "-j"],
+                stdout=out_f,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+        with open(output_file) as f:
+            content = f.read().strip()
+        if not content:
+            log.warning(f"vulnx id {cve_id}: no data found")
+            return {}
+        return json.loads(content)
+    except subprocess.CalledProcessError as e:
+        log.warning(f"vulnx id failed for {cve_id}: {e.stderr}")
+        return {}
+    except json.JSONDecodeError as e:
+        log.warning(f"vulnx id returned unparseable output for {cve_id}: {e}")
+        return {}
+    finally:
+        Path(output_file).unlink(missing_ok=True)
+
+
 def _derive_product_label(cve_raw: dict) -> str:
     affected = cve_raw.get("affected_products") or []
     products = sorted({p.get("product") for p in affected if p.get("product")})
@@ -158,7 +188,13 @@ def run_pipeline(
 
     if single_cve:
         log.info(f"Processing single CVE: {single_cve}")
-        cve_data = {"cve_id": single_cve, "product": "manual", "tier": 2}
+        cve_data = query_vulnx_id(single_cve)
+        if not cve_data:
+            log.warning(f"No data found for {single_cve} — skipping")
+            return []
+        cve_data["cve_id"] = cve_data.get("cve_id", single_cve)
+        cve_data["product"] = _derive_product_label(cve_data)
+        cve_data["tier"] = 2
         context = assembler.assemble(cve_data)
         scored = scorer.score(cve_data, context)
         enriched_cves.append({**cve_data, "context": context, **scored})

@@ -5,6 +5,8 @@ import logging
 import requests
 from typing import Optional
 
+import cve_org_lookup
+
 log = logging.getLogger("context_assembler")
 
 CISA_KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
@@ -69,7 +71,7 @@ class ContextAssembler:
         cve_id = cve_data.get("cve_id", "")
         context = {
             "cve_id": cve_id,
-            "description": cve_data.get("cve_description", ""),
+            "description": cve_data.get("description", ""),
             "cvss_score": cve_data.get("cvss_score", 0),
             "severity": cve_data.get("severity", "unknown"),
             "is_kev": cve_data.get("is_kev", False),
@@ -78,10 +80,11 @@ class ContextAssembler:
             "kev_required_action": "",
             "rce_in_kev": False,
             "advisory_summary": "",
-            "cvss_vector": cve_data.get("cvss_vector", ""),
+            "cvss_vector": cve_data.get("cvss_metrics", ""),
             "cvss_components": {},
             "allows_rce": False,
             "rce_vector": "unknown",
+            "severity_discrepancy": {},
         }
 
         if context["is_kev"] and cve_id in self.kev:
@@ -104,13 +107,18 @@ class ContextAssembler:
         return context
 
     def enrich_advisory(self, context: dict, cve_data: dict) -> dict:
-        """Fetch advisory reference summaries (network I/O). Call only for the
-        final, already-trimmed CVE set — not every scoring candidate."""
-        references = cve_data.get("references", [])
+        """Fetch advisory reference summaries and cross-check severity against
+        cve.org (network I/O). Call only for the final, already-trimmed CVE
+        set — not every scoring candidate."""
+        references = [c.get("url") for c in cve_data.get("citations", []) if c.get("url")]
         for ref in references[:2]:
             summary = fetch_advisory_summary(ref)
             if summary:
                 context["advisory_summary"] += summary[:500] + " "
+
+        context["severity_discrepancy"] = cve_org_lookup.check_discrepancy(
+            context["cvss_score"], context["cve_id"]
+        )
         return context
 
     def format_for_prompt(self, context: dict) -> str:
@@ -130,4 +138,12 @@ class ContextAssembler:
             lines.append("RCE: YES — network-exploitable (AV:N/PR:N/UI:N)")
         if context["advisory_summary"]:
             lines.append(f"Advisory Context: {context['advisory_summary'][:800]}")
+        disc = context.get("severity_discrepancy")
+        if disc and disc.get("has_discrepancy"):
+            lines.append(
+                "SEVERITY DISCREPANCY BETWEEN SOURCES — cite both explicitly in the output:\n"
+                f"  Source A — NVD (via vulnx): CVSS {disc['nvd_score']} ({disc['nvd_severity']})\n"
+                f"  Source B — CVE.org (CNA-published, CVSS v{disc['cna_version']}): "
+                f"{disc['cna_score']} ({disc['cna_severity']}) — {disc['cna_source_url']}"
+            )
         return "\n".join(lines)
