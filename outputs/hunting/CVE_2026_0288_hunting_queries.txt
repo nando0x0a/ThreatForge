@@ -1,0 +1,136 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-0288
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# Generated: 2026-07-14T20:36:04.114335Z
+# Status:    OK
+# ---
+
+> **DRAFT FOR ANALYST REVIEW** — CVE-2026-0288 | PAN-OS User-ID Terminal Server Agent Buffer Overflow
+> All queries below are proposed drafts. Validate placeholder values, adapt field names to your environment, and review with your security team before operational use. No public PoC is known at time of writing [2].
+
+---
+
+## ⚠️ Severity Discrepancy Between Sources
+
+| Source | CVSS Score |
+|--------|-----------|
+| NVD [1] | **7.5 (HIGH)** |
+| Palo Alto Networks Advisory [2] | **7.2 (HIGH)** |
+
+Both scores land in the HIGH band, but the 0.3-point difference should be reviewed by the analyst. The vendor score [2] may reflect additional environmental context or scoring methodology differences. Use the vendor advisory score for patch prioritisation decisions until NVD finalises its analysis.
+
+---
+
+## CVE-2026-0288 — Threat Hunting Queries
+
+**Vulnerability Summary:**
+Multiple buffer overflow vulnerabilities in the PAN-OS User-ID Terminal Server (TS) Agent component [2]. Exploitation requires no authentication and no user interaction, with network-level access only (AV:N/PR:N/UI:N) [1]. Both denial-of-service and arbitrary code execution outcomes are possible [2]. No public PoC is currently known [2], and exploit maturity is reported as UNREPORTED [2].
+
+The User-ID TS Agent typically communicates over **TCP port 5007** (default PAN-OS TS Agent port). Analysts should confirm the port in use in their environment before running queries.
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Inbound Network Connections to TS Agent Port from Unexpected Sources
+
+Targets unexpected external or untrusted hosts initiating connections to the TS Agent listener port. Legitimate TS Agent traffic should originate from a small, known set of internal Windows hosts.
+
+event_simpleName=NetworkReceiveAcceptIP
+| search LocalPort=5007
+| eval is_internal=if(match(RemoteIP, "^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)"), "YES", "NO")
+| where is_internal="NO"
+| stats count, values(RemoteIP) as SrcIPs by ComputerName, LocalPort, FileName
+| sort -count
+
+> **Analyst note:** Legitimate TS Agent deployments receive connections only from known internal Palo Alto firewall management IPs. Any external source IP hitting port 5007 warrants immediate review. Adjust the RFC-1918 regex to match your addressing scheme.
+
+---
+
+### Query 2 — Post-Exploitation Process Spawning from PAN-OS TS Agent Process
+
+Targets child process creation from the TS Agent binary following a potential buffer overflow exploitation leading to code execution [1][2]. Process names are illustrative — confirm the actual TS Agent process name (`AgentService.exe` or similar) in your PAN-OS deployment.
+
+event_simpleName=ProcessRollup2
+| search ParentBaseFileName IN ("AgentService.exe", "TsAgent.exe", "pansys.exe")
+| eval suspicious=if(FileName IN ("cmd.exe", "powershell.exe", "wscript.exe",
+    "cscript.exe", "mshta.exe", "regsvr32.exe", "rundll32.exe", "certutil.exe",
+    "bitsadmin.exe", "net.exe", "net1.exe", "whoami.exe", "nltest.exe"), "YES", "NO")
+| where suspicious="YES"
+| stats count by ComputerName, UserName, ParentBaseFileName, FileName, CommandLine
+| sort -count
+
+> **Analyst note:** Buffer overflow RCE exploitation [2] may result in shellcode spawning interpreter or reconnaissance processes. CommandLine content should be reviewed for encoded payloads, download cradles, or lateral movement commands. False positives are expected to be very low given the specificity of the parent process filter.
+
+---
+
+### Query 3 — Filesystem Artefacts — Suspicious Writes in TS Agent Working Directory
+
+Targets unexpected file drops in directories associated with the TS Agent, which could indicate payload staging following successful exploitation [1][2].
+
+event_simpleName=NewExecutableWritten OR event_simpleName=PeFileWritten
+| search TargetDirectoryName IN (
+    "*\\Palo Alto Networks\\*",
+    "*\\TS Agent\\*",
+    "*\\AgentService\\*",
+    "C:\\Program Files (x86)\\Palo Alto Networks\\*"
+  )
+| eval ext=lower(mvindex(split(TargetFileName, "."), -1))
+| eval suspicious_ext=if(ext IN ("exe","dll","bat","ps1","vbs","js","hta","bin","tmp"), "YES", "NO")
+| where suspicious_ext="YES"
+| stats count by ComputerName, UserName, TargetDirectoryName, TargetFileName, SHA256HashData
+| sort -count
+
+> **Analyst note:** Hash all identified files against threat intelligence feeds. Legitimate PAN-OS agent updates should be signed; verify Authenticode signatures on any flagged executables. Submit unknown hashes to sandbox analysis.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — Traffic to TS Agent Port from External or Untrusted Hosts
+
+Identifies flows destined to TCP/5007 (TS Agent default) [2] originating outside trusted internal ranges. Replace `x.x.x.x/x` with the subnet(s) hosting your TS Agent infrastructure.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port 5007 and not src net 10.0.0.0/8 and not src net 172.16.0.0/12 and not src net 192.168.0.0/16' \
+  -o 'fmt:%ts %sa %da %sp %dp %pkt %byt %fl' \
+  -s record/bytes -n 50
+
+> **Analyst note:** No public IoC IPs are available for CVE-2026-0288 at this time. Use placeholder `x.x.x.x` filters once threat intel provides specific attacker infrastructure. Any flow from a public IP to the TS Agent port is high-fidelity suspicious given the unauthenticated RCE nature of this vulnerability [1][2].
+
+---
+
+### Query 2 — Anomalous Traffic Volume / Potential DoS or Exploit Spray Against TS Agent
+
+Detects high-frequency flows to port 5007 that may indicate exploit scanning, DoS attempts, or buffer overflow payload delivery at scale [2].
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port 5007' \
+  -A srcip,dstip \
+  -s srcip/flows \
+  -n 30 \
+  -o 'fmt:%sa %da %fl %pkt %byt'
+
+> **Analyst note:** A single source IP generating more than ~50 flows to port 5007 in a short window (e.g., 5 minutes) is anomalous. Buffer overflow exploit attempts may manifest as unusual packet sizes — compare average bytes-per-packet against baseline. Correlate high-flow sources against threat intel feeds.
+
+---
+
+### Query 3 — Protocol Anomaly — Unusually Large Packets on TS Agent Port (Potential Overflow Payload)
+
+Buffer overflow vulnerabilities are often exploited by sending oversized or malformed packets [1][2]. This query surfaces flows with abnormally high average packet sizes on the TS Agent port.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port 5007 and bytes > 65000' \
+  -A srcip,dstip,srcport \
+  -o 'fmt:%ts %sa %sp %da %dp %pkt %byt %fl' \
+  -s record/bytes -n 20
+
+> **Analyst note:** The byte threshold (65000) is a starting heuristic — tune based on your baseline TS Agent traffic profile. Legitimate TS Agent protocol messages are typically small (authentication tokens, user-ID mappings). Single flows carrying >65KB may indicate crafted payloads designed to trigger the buffer
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0288
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0288
+# [3] security.paloaltonetworks.com — https://security.paloaltonetworks.com/
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0288
