@@ -1,0 +1,50 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-0288
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# Generated: 2026-07-14T20:34:56.354934Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only. No packet-capture (PCAP) data source is available to
+# this pipeline — this pattern is NOT verified against captured exploit
+# traffic.
+#
+# CVE-2026-0288 | PAN-OS User-ID Terminal Server Agent — Buffer Overflow
+# The User-ID Terminal Server Agent listens on TCP port 5009 (default) for
+# user mapping traffic. The vulnerability involves buffer overflow conditions
+# triggered by crafted network traffic sent to this agent. No PoC is publicly
+# available [2] and no PCAP data is present in this pipeline. The content
+# match below targets oversized TCP payloads to this service — a common
+# observable indicator of buffer overflow exploitation attempts — combined
+# with a threshold to reduce false positives from legitimate large frames.
+# Exploit maturity is reported as UNREPORTED [2]. This rule is a DRAFT FOR
+# ANALYST REVIEW and must be validated against baseline User-ID agent traffic
+# before deployment. The default TCP port (5009) should be confirmed against
+# the analyst's environment; adjust $HOME_NET and port as needed.
+# SEVERITY DISCREPANCY BETWEEN SOURCES: NVD reports CVSS 7.5 (HIGH) [1],
+# while the Palo Alto Networks advisory reports CVSS 7.2 (HIGH) [2]. Analysts
+# should review both scores before assigning internal severity ratings.
+
+alert tcp $EXTERNAL_NET any -> $HOME_NET 5009 (
+  msg:"THREATFORGE CVE-2026-0288 PAN-OS User-ID Terminal Server Agent buffer overflow attempt";
+  flow:established,to_server;
+  dsize:>1024;
+  threshold:type both, track by_src, count 3, seconds 10;
+  reference:cve,2026-0288;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:attempted-admin; sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0288
+[2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0288
+[3] security.paloaltonetworks.com — https://security.paloaltonetworks.com/
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0288
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0288
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0288
+# [3] security.paloaltonetworks.com — https://security.paloaltonetworks.com/
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0288
