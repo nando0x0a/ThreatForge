@@ -11,6 +11,18 @@ pipeline:
   epss_threshold: 0.5      # EPSS probability above which the [EPSS] tag applies
   new_threshold_days: 3    # CVE age below which the [NEW] tag applies
 
+# Daily automated run — disabled by default. When disabled, ThreatForge only
+# runs when triggered manually (via `docker exec ... src/cli.py` or
+# `orchestrate.py` directly); the container stays up and healthy either way,
+# since manual runs need it alive regardless.
+#
+# The scheduler is set up once when the container starts, so changing either
+# value here requires a container restart to take effect:
+#   docker compose -f docker/docker-compose.yml up -d --force-recreate
+scheduler:
+  enabled: false
+  cron: "30 1 * * *"   # cron expression (supercronic syntax), only used when enabled: true
+
 # Local outputs/ folder housekeeping. Outputs are drafts for analyst review
 # (see runs.jsonl for a permanent record of every generation, independent of
 # whether the file itself still exists) — there's no GitHub publishing, so
