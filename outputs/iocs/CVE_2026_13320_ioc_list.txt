@@ -1,0 +1,81 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-13320
+# Product:   gitlab
+# Tags:      [HIGH]
+# Score:     20
+# Tier:      MONITOR
+# Generated: 2026-07-14T21:14:49.609898Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-13320
+# Generated: 2025-07-18
+# Confidence: See per-section notes
+# ⚠️ DRAFT — For analyst review only. Do not action without validation.
+
+---
+
+## Network Indicators
+*No specific malicious IP addresses or infrastructure identified from available sources.*
+
+## Domain Indicators
+*No specific malicious domains identified from available sources.*
+
+## URL Indicators
+*No specific exploit URLs identified from available sources.*
+
+## File Indicators
+*No file hashes or malicious payloads identified from available sources.*
+
+## User-Agent Indicators
+*No specific malicious user-agent strings associated with exploitation identified from available sources.*
+
+---
+
+## URI Path Indicators
+*Confidence: LOW — Derived from vulnerability class and affected product; not confirmed from advisory context.*
+
+The advisory context [2][3] does not expose specific vulnerable endpoints. The following URI patterns represent plausible attack surface areas for a stored XSS in GitLab CE/EE [1] and should be treated as investigative leads only, not confirmed IoCs:
+
+URI: /*/issues/*/notes           # Issue comments — common stored XSS vector in GitLab
+URI: /*/merge_requests/*/notes   # MR comments — common stored XSS vector in GitLab
+URI: /*/wikis/*                  # Wiki pages — common stored XSS vector
+URI: /*/snippets/*               # Snippets — common stored XSS vector
+URI: /profile                    # User profile fields — plausible XSS injection point
+URI: /*/milestones/*             # Milestone descriptions — plausible injection point
+⚠️ Specific vulnerable endpoint(s) are not disclosed in available advisory material [2][3]. These paths are inferred from GitLab's architecture and the stored XSS vulnerability class. Analyst should consult GitLab's full patch diff at [3] to confirm affected endpoints.
+
+---
+
+## Behavioural Patterns
+*In lieu of specific IoCs, the following observable behaviours are relevant for detection and hunting:*
+
+- **Stored XSS payload injection:** Authenticated HTTP POST requests to GitLab user-controlled content fields (comments, descriptions, wikis, snippets, profiles) containing unsanitized script content. Look for `<script>`, `javascript:`, `onerror=`, `onload=`, `data:text/html` or equivalent encoding variants in request bodies to GitLab API or web endpoints [1].
+- **Cross-user session activity:** Unusual JavaScript execution triggered in victim browser sessions; may appear as out-of-character API calls originating from victim accounts shortly after viewing attacker-controlled content.
+- **Authentication prerequisite:** Exploitation requires an authenticated session [1]. Unauthenticated requests to content-injection endpoints should be filtered; focus hunting on authenticated (session-cookie or PAT-bearing) requests containing script-like patterns.
+- **Affected version range:** GitLab CE/EE versions ≥ 15.7 and < 18.11.7, 19.0.x < 19.0.4, and 19.1.x < 19.1.2 [1][2]. Log sources from instances in these ranges warrant elevated scrutiny.
+- **No public PoC known** as of generation date; exploitation is likely lower-volume and targeted at this stage.
+
+---
+
+## Notes
+
+- **No specific IoCs (IPs, domains, hashes, URLs) were recoverable** from the provided advisory context [2][3]. The advisory HTML fragment contains only GitLab UI/cookie-consent JavaScript and is not a technical advisory with exploitation detail.
+- **No CISA KEV entry** is present for CVE-2026-13320; no known exploitation in the wild has been recorded at this time.
+- **PoC availability:** No public proof-of-concept is known, reducing immediate risk of widespread automated exploitation.
+- **CVSS 7.3 HIGH** [1] — authenticated requirement is the primary risk reducer; monitor for privilege escalation chains following successful XSS (e.g., token theft, account takeover).
+- **Priority Tier: MONITOR** — Patch per GitLab's guidance [2]; escalate to RESPOND if exploitation evidence emerges.
+- All URI patterns above are analyst hypotheses and must be validated against the actual patch before use in production detection rules.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-13320
+[2] docs.gitlab.com — https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-1-2-released/
+[3] gitlab.com — https://gitlab.com/gitlab-org/gitlab/-/work_items/604063
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-13320
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-13320
+# [2] docs.gitlab.com — https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-1-2-released/
+# [3] gitlab.com — https://gitlab.com/gitlab-org/gitlab/-/work_items/604063
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-13320
