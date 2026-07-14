@@ -1,0 +1,67 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-48282
+# Product:   coldfusion
+# Tags:      [KEV] [RCE] [CRIT] [POC]
+# Score:     130
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T11:51:09.653985Z
+# Status:    OK
+# ---
+
+# Confidence: PoC known — see [6][7]. 4 public proof-of-concept(s) are known to exist.
+# No packet-capture (PCAP) data source is available to this pipeline — this
+# pattern is NOT verified against captured exploit traffic.
+#
+# CVE-2026-48282 — Adobe ColdFusion path traversal leading to RCE (APSB26-68).
+# Affected versions: ColdFusion <= 2025.9 and <= 2023.20 [1].
+# CISA KEV confirmed; actively exploited in the wild [2].
+# Network-exploitable: AV:N/PR:N/UI:N, CVSS 10.0 CRITICAL [1].
+#
+# Match rationale: ColdFusion path traversal attacks targeting RCE commonly
+# abuse the ColdFusion RDS (Remote Development Service) HTTP endpoint
+# (/CFIDE/main/ide.cfm, /CFIDE/componentutils/, or similar restricted
+# CFIDE paths). The PoC repository names reference "coldfusion-rds-detection"
+# [6][7], indicating the RDS interface is the attack surface. Path traversal
+# sequences (../, %2e%2e%2f, etc.) embedded in requests to CFIDE paths are
+# the observable network indicator targeted by this rule.
+#
+# The advisory (APSB26-68) and watchTowr Labs research [3] confirm improper
+# path restriction in the ColdFusion server component reachable over HTTP.
+# Shadowserver honeypot data [4] shows active scanning against this CVE.
+#
+# ANALYST REVIEW REQUIRED before deployment. This is a proposed draft.
+# The PCRE below matches common path traversal encodings; tune threshold
+# and HOME_NET port list ($CF_PORTS or 8500,80,443) to your environment.
+# False-positive risk: moderate — CFIDE requests without traversal sequences
+# are routine in ColdFusion deployments; the traversal content match is
+# the primary discriminator.
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-48282 Adobe ColdFusion RDS path traversal RCE attempt";
+  flow:established,to_server;
+  http.uri;
+  content:"/CFIDE/"; nocase;
+  pcre:"/\/CFIDE\/[^?#]*(?:\.\.(?:\/|%2f)|%2e%2e(?:%2f|\/)|%252e%252e)/iU";
+  http.method; content:!"HEAD";
+  reference:cve,2026-48282;
+  reference:url,labs.watchtowr.com/its-37oc-and-all-we-can-think-about-is-coldfusion-adobe-coldfusion-security-bulletin-apsb26-68-cve-bonanza/;
+  metadata:mitre_technique_id T1190, is_kev true, status experimental;
+  classtype:attempted-admin;
+  sid:9000048; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-48282
+[2] CISA Known Exploited Vulnerabilities Catalog — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+[3] labs.watchtowr.com — https://labs.watchtowr.com/its-37oc-and-all-we-can-think-about-is-coldfusion-adobe-coldfusion-security-bulletin-apsb26-68-cve-bonanza/
+[4] dashboard.shadowserver.org — https://dashboard.shadowserver.org/statistics/honeypot/vulnerability/map/?day=2026-07-11&host_type=src&vulnerability=cve-2026-48282
+[5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-48282
+[6] PoC (gh-nomi-sec) — https://github.com/g0thamRabb1t/cve-2026-48282-coldfusion-rds-detection
+[7] PoC (gh-nomi-sec) — https://github.com/g0thamRabb1t/CVE-2026-48282-coldfusion-rds-detection
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-48282
+# [2] CISA Known Exploited Vulnerabilities Catalog — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+# [3] labs.watchtowr.com — https://labs.watchtowr.com/its-37oc-and-all-we-can-think-about-is-coldfusion-adobe-coldfusion-security-bulletin-apsb26-68-cve-bonanza/
+# [4] dashboard.shadowserver.org — https://dashboard.shadowserver.org/statistics/honeypot/vulnerability/map/?day=2026-07-11&host_type=src&vulnerability=cve-2026-48282
+# [5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-48282
+# [6] PoC (gh-nomi-sec) — https://github.com/g0thamRabb1t/cve-2026-48282-coldfusion-rds-detection
+# [7] PoC (gh-nomi-sec) — https://github.com/g0thamRabb1t/CVE-2026-48282-coldfusion-rds-detection
