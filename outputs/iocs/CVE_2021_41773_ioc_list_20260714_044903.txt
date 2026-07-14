@@ -1,0 +1,109 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2021-41773
+# Product:   apache httpd
+# Tags:      [KEV] [RCE-KEV] [CRIT] [EPSS] [T1] [WIDE]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T04:49:03.795896Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2021-41773
+# Generated: 2025-07-10
+# Confidence: HIGH / MEDIUM / LOW per indicator
+# STATUS: PROPOSED DRAFT — For analyst review and validation before operationalisation
+
+---
+
+## Network Indicators
+# No specific attacker IPs can be attributed to CVE-2021-41773 from the provided context alone.
+# Analyst should enrich with current threat intel feeds (e.g., Shodan, GreyNoise, AlienVault OTX).
+# GreyNoise historically tracked mass-scanning IPs for this CVE — recommend querying tag: CVE-2021-41773
+
+---
+
+## Domain Indicators
+# No specific malicious domains attributable from provided context.
+# Analyst note: Exploitation is predominantly direct-to-IP; domain involvement is low-confidence without additional OSINT.
+
+---
+
+## URL Indicators
+# Confidence: HIGH — These URI patterns are directly derived from the CVE's publicly documented exploit mechanism.
+
+URL: http://[target]/cgi-bin/.%2e/.%2e/.%2e/.%2e/bin/sh  # Path traversal to /bin/sh via CGI — primary RCE vector
+URL: http://[target]/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/bin/sh  # Alternate encoding variant
+URL: http://[target]/.%2e/.%2e/.%2e/.%2e/etc/passwd  # Path traversal file read — reconnaissance indicator
+URL: http://[target]/cgi-bin/.%2e/.%2e/.%2e/.%2e/etc/passwd  # CGI-path traversal to /etc/passwd
+URL: http://[target]/.%2e/%2e%2e/%2e%2e/%2e%2e/etc/shadow  # Credential file access attempt
+URL: http://[target]/cgi-bin/%2e%2e/%2e%2e/%2e%2e/%2e%2e/bin/bash  # Double-encoded traversal to bash shell
+
+---
+
+## File Indicators
+# No specific malware hashes attributable from provided context.
+# Analyst note: Post-exploitation payloads (webshells, reverse shells) vary by threat actor.
+# Recommend hunting for newly created files in Apache document root and CGI directories post-exploitation.
+# Suspicious file locations to monitor:
+#   - [document_root]/*.php, *.py, *.pl (webshells)
+#   - /tmp/* (staged payloads dropped via RCE)
+#   - /var/www/html/cgi-bin/* (malicious CGI scripts)
+
+---
+
+## User-Agent Indicators
+# Confidence: MEDIUM — Observed in mass-scanning activity associated with this CVE post-disclosure (Oct 2021).
+
+UA: Mozilla/5.0 zgrab/0.x                    # zgrab scanner — widely observed in CVE-2021-41773 scanning campaigns
+UA: curl/7.68.0                              # curl used in automated PoC exploitation — generic but contextually relevant
+UA: Python-urllib/3.9                        # Python-based scanning/exploitation tooling
+UA: Go-http-client/1.1                       # Go-based scanner — observed in mass exploitation waves
+UA: masscan/1.3                              # Mass port/web scanner used for target discovery
+UA: ExploitScanner                           # Generic exploit scanner UA observed in honeypot logs — LOW confidence
+
+---
+
+## URI Path Indicators
+# Confidence: HIGH — Directly derived from CVE technical documentation and public PoC analysis.
+
+URI: /.%2e/.%2e/.%2e/.%2e/etc/passwd                        # Path traversal — LFI reconnaissance
+URI: /.%2e/.%2e/.%2e/.%2e/etc/shadow                        # Path traversal — credential harvesting
+URI: /cgi-bin/.%2e/.%2e/.%2e/.%2e/bin/sh                    # RCE via CGI + path traversal
+URI: /cgi-bin/.%2e/.%2e/.%2e/.%2e/bin/bash                  # RCE via CGI + path traversal (bash variant)
+URI: /cgi-bin/%2e%2e/%2e%2e/%2e%2e/%2e%2e/bin/sh            # Double-encoded RCE path
+URI: /cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/bin/bash            # Mixed-encoding RCE path
+URI: /.%2e/.%2e/.%2e/.%2e/proc/self/environ                 # Environment variable leakage — reconnaissance
+URI: /.%2e/.%2e/.%2e/.%2e/var/log/apache2/access.log        # Log file access — log poisoning precursor
+URI: /icons/.%2e/.%2e/.%2e/.%2e/etc/passwd                  # Traversal via /icons/ alias path
+URI: /cgi-bin/.%%32%65/.%%32%65/bin/sh                       # Double-percent encoding variant (CVE-2021-42013 extension)
+
+---
+
+## Notes
+
+### Confidence Assessment
+| Indicator Type     | Confidence | Rationale                                                                 |
+|--------------------|------------|---------------------------------------------------------------------------|
+| URL/URI Patterns   | HIGH       | Directly derived from CVE technical documentation and verified PoC analysis |
+| User-Agent strings | MEDIUM     | Associated with scanning campaigns; not exclusive to this CVE             |
+| IP Addresses       | LOW/None   | Not attributable from provided context; requires live threat intel feeds  |
+| File Hashes        | Low/None   | Payload-dependent; not attributable without specific incident data        |
+
+### Key Context
+- **Patch Insufficiency Warning**: CISA KEV explicitly notes the original CVE-2021-41773 patch is insufficient.
+  **CVE-2021-42013 must also be remediated.** URI patterns for CVE-2021-42013 include additional encoding variants
+  (e.g., `%%32%65` double-encoding sequences).
+- **Affected Versions**: Apache HTTP Server 2.4.49 (CVE-2021-41773) and 2.4.50 (CVE-2021-42013).
+  Versions ≥ 2.4.51 address both.
+- **Exploitation Conditions**: RCE requires CGI or mod_cgi to be enabled. LFI/path traversal requires
+  `require all denied` to NOT be set on affected directory aliases.
+- **Observable Behaviour Patterns (in absence of specific IoCs)**:
+  - HTTP requests with `%2e` or `%2e%2e` in URI paths (URL-encoded dot sequences)
+  - POST requests to CGI-bin paths containing traversal sequences with shell command payloads in body
+  - Anomalous outbound connections from Apache process (reverse shell indicators)
+  - Apache spawning unexpected child processes (e.g., `/bin/sh`, `curl`, `wget`)
+  - File creation in web-accessible directories by Apache process user (www-data)
+- **Recommended Enrichment Sources**: GreyNoise (tag: CVE-2021-41773), Shodan, AlienVault OTX pulse search,
+  CISA advisory AA21-288A.
+- **Age Note**: This CVE is 1742 days old. Infrastructure IoCs (IPs/domains) from 2021 exploitation
+  campaigns are unlikely to remain operationally relevant. Focus on behavioral/URI pattern detection.

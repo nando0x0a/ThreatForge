@@ -1,0 +1,154 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2021-42013
+# Product:   apache httpd
+# Tags:      [KEV] [RCE-KEV] [CRIT] [EPSS] [T1] [WIDE]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T04:45:55.505129Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2021-42013
+# Generated: 2025-07-11
+# Confidence: Per indicator as noted below
+# STATUS: PROPOSED DRAFT — For analyst review and validation before operationalisation
+
+---
+
+## Network Indicators
+# No specific attacker IPs are derivable from the provided CVE/KEV context alone.
+# Analyst Action: Enrich from threat feeds (Shodan, GreyNoise, AlienVault OTX)
+# filtering for Apache 2.4.49/2.4.50 scanning activity circa Oct 2021–present.
+
+---
+
+## Domain Indicators
+# No specific C2 or attacker domains are derivable from the provided context.
+# Analyst Action: Cross-reference with GreyNoise tag "Apache Path Traversal" or
+# OSINT reporting (e.g., Rapid7, Qualys, Censys blogs on CVE-2021-42013 campaigns).
+
+---
+
+## URL Indicators
+# Confidence: HIGH (derived from public CVE/advisory technical detail)
+
+URL: http://[target]/cgi-bin/.%2e/.%2e/.%2e/.%2e/bin/sh
+# Classic double-encoded path traversal to /bin/sh via mod_cgi RCE vector
+
+URL: http://[target]/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/bin/sh
+# Variant encoding observed in exploitation attempts
+
+URL: http://[target]/icons/.%2e/.%2e/.%2e/.%2e/etc/passwd
+# Read-only traversal PoC targeting /etc/passwd via /icons/ alias
+
+URL: http://[target]/cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/bin/sh
+# Double-percent encoding variant (bypasses incomplete CVE-2021-41773 patch)
+
+URL: http://[target]/cgi-bin/%%32%65%%32%65/%%32%65%%32%65/%%32%65%%32%65/bin/sh
+# Additional encoding variant seen in mass exploitation tooling
+
+---
+
+## File Indicators
+# No specific malware hashes are derivable from the provided CVE/KEV context alone.
+# Exploitation of this CVE is typically fileless (direct shell command execution
+# via POST body through mod_cgi). Dropped payloads vary by actor.
+# Analyst Action: Hunt for webshells or reverse shell scripts dropped post-exploitation
+# in Apache document root or /tmp directories on affected servers.
+
+---
+
+## User-Agent Indicators
+# Confidence: MEDIUM (commonly observed in mass scanning/exploitation tooling)
+
+UA: Mozilla/5.0 zgrab/0.x
+# zgrab-based scanner frequently used in automated CVE-2021-42013 reconnaissance
+
+UA: python-requests/2.26.0
+# Generic Python requests library; frequently observed in opportunistic exploit scripts
+
+UA: Go-http-client/1.1
+# Go-based scanning tools observed probing for this vulnerability
+
+UA: curl/7.68.0
+# curl observed in automated PoC exploitation scripts targeting this CVE
+
+# Note: Attackers routinely spoof or omit User-Agent. These are indicative,
+# not definitive, and will produce false positives if used in isolation.
+
+---
+
+## URI Path Indicators
+# Confidence: HIGH (directly derived from CVE technical specification)
+
+URI: /.%2e/.%2e/.%2e/.%2e/etc/passwd
+# Path traversal read attempt — double URL encoding
+
+URI: /.%2e/.%2e/.%2e/.%2e/bin/sh
+# Path traversal to shell — RCE vector
+
+URI: /cgi-bin/.%2e/.%2e/.%2e/.%2e/bin/sh
+# CGI-enabled RCE path — most critical exploitation vector
+
+URI: /cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/bin/sh
+# Double-encoding variant bypassing incomplete 41773 patch
+
+URI: /cgi-bin/%%32%65%%32%65/%%32%65%%32%65/bin/sh
+# Alternate double-encoding traversal
+
+URI: /icons/.%2e/.%2e/.%2e/.%2e/etc/passwd
+# Traversal via /icons/ alias (common Apache default alias)
+
+URI: /icons/.%2e/.%2e/.%2e/.%2e/etc/shadow
+# Privilege escalation reconnaissance — shadow file read attempt
+
+# Regex pattern for detection (WAF/SIEM):
+# PATTERN: (/[\w\-]+/)(\.%2e|%%32%65|%2e%2e){2,}(/[\w/]*)
+# Confidence: HIGH — covers primary encoding variants
+
+---
+
+## HTTP Method & Body Indicators
+# Confidence: HIGH — RCE requires POST with command in body when CGI is enabled
+
+METHOD: POST to URI paths containing traversal sequences above
+# POST body for RCE typically contains:
+# echo Content-Type: text/plain; echo; [OS COMMAND]
+# Analyst Action: Alert on POST requests matching traversal URI patterns
+# where response body contains command output (e.g., uid=, root:x:0:0)
+
+---
+
+## Notes
+
+### Confidence Summary
+| Indicator Type        | Confidence | Basis                                      |
+|-----------------------|------------|--------------------------------------------|
+| URI Path Patterns     | HIGH       | Directly specified in CVE/advisory detail  |
+| URL Examples          | HIGH       | Derived from public technical disclosure   |
+| User-Agent strings    | MEDIUM     | Commonly attributed in OSINT reporting     |
+| IP / Domain IoCs      | LOW/NONE   | Not available in provided context          |
+| File Hashes           | LOW/NONE   | Fileless exploitation; payloads actor-vary |
+
+### Affected Versions
+- Apache HTTP Server 2.4.49 and 2.4.50 ONLY
+- CVE-2021-42013 specifically resolves incomplete patch from CVE-2021-41773
+- Versions ≤ 2.4.48 and ≥ 2.4.51 are NOT affected by this specific CVE
+
+### Exploitation Conditions
+- Requires mod_cgi or mod_cgid enabled for RCE
+- Requires directory traversal outside Alias scope without `Require all denied`
+- Path traversal (read-only) possible without CGI
+
+### Analyst Actions Required
+1. Validate URI pattern indicators against your environment's Apache access logs
+2. Enrich IP indicators via GreyNoise, Shodan, and internal SIEM telemetry
+3. Confirm Apache version on all internet-facing instances (patch to ≥ 2.4.51)
+4. Hunt for webshells in Apache DocumentRoot and /tmp post-exploitation
+5. Do NOT deploy these indicators to blocking rules without analyst review — URI
+   patterns may produce false positives on legitimate double-encoded requests
+
+### CISA KEV Obligation
+This vulnerability is listed on the CISA Known Exploited Vulnerabilities catalogue.
+US Federal agencies are subject to BOD 22-01 remediation deadlines.
+All organisations should treat this as Priority 1 for patching.

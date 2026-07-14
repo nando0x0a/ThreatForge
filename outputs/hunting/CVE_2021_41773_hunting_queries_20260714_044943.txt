@@ -1,0 +1,134 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2021-41773
+# Product:   apache httpd
+# Tags:      [KEV] [RCE-KEV] [CRIT] [EPSS] [T1] [WIDE]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T04:49:43.559302Z
+# Status:    OK
+# ---
+
+# Threat Hunting Queries — CVE-2021-41773
+## Apache HTTP Server Path Traversal / RCE
+**DRAFT FOR ANALYST REVIEW — Validate all IoCs and thresholds before production use**
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Suspicious Child Processes Spawned by Apache HTTP Server (RCE Post-Exploitation)
+Targets the primary exploitation path: CGI-enabled Apache spawning unexpected shells or interpreters via path traversal RCE.
+
+event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+| search ParentBaseFileName IN ("httpd", "apache2", "httpd.worker")
+| search FileName IN ("sh", "bash", "dash", "python", "python3", "perl",
+                      "curl", "wget", "nc", "ncat", "netcat", "id", "whoami",
+                      "uname", "env", "base64")
+| eval suspicion=case(
+    FileName IN ("nc","ncat","netcat"), "HIGH — reverse shell candidate",
+    FileName IN ("curl","wget"),        "HIGH — possible dropper execution",
+    FileName IN ("sh","bash","dash"),   "MEDIUM — shell spawned by Apache",
+    true(),                             "LOW — interpreter spawned by Apache"
+  )
+| stats count, values(CommandLine) as CommandLines,
+         values(suspicion) as SuspicionLevel
+  by ComputerName, UserName, ParentBaseFileName, FileName
+| sort -count
+> **Analyst note:** Apache spawning `/bin/sh` or `/bin/bash` is a primary indicator of CGI-based RCE via this CVE. Filter known CI/CD hosts or legitimate CGI deployments before escalating.
+
+---
+
+### Query 2 — Outbound Network Connections Initiated by Apache Worker Processes (Reverse Shell / C2 Beacon)
+Targets post-exploitation egress from the Apache process itself or its children.
+
+event_simpleName="NetworkConnectIP4"
+| search (LocalAddressIP4=* AND RemoteAddressIP4=*)
+| search ImageFileName IN ("*httpd*", "*apache2*", "*sh", "*bash",
+                            "*curl*", "*wget*", "*python*", "*perl*")
+| where RemotePort IN (4444, 1234, 9001, 8888, 31337, 443, 80, 8080)
+| eval riskPort=if(RemotePort IN (4444,1234,9001,8888,31337),
+                   "HIGH — common reverse shell port",
+                   "MEDIUM — common web port, verify context")
+| stats count, values(RemotePort) as Ports,
+         values(riskPort) as PortRisk,
+         dc(RemoteAddressIP4) as UniqueRemoteIPs
+  by ComputerName, ImageFileName, RemoteAddressIP4
+| sort -count
+> **Analyst note:** Apache processes initiating outbound connections — especially to non-infrastructure IPs on non-standard ports — are strong escalation candidates. Cross-reference `RemoteAddressIP4` values against threat intel feeds.
+
+---
+
+### Query 3 — File System Artefacts: Web Shell Writes and Suspicious Drops in Web Root
+Targets web shell staging or dropper writes following successful exploitation.
+
+event_simpleName IN ("PeFileWritten", "NewScriptWritten", "SuspiciousScriptWritten",
+                     "GenericFileWrite")
+| search (FilePath IN ("*/var/www/*", "*/htdocs/*", "*/html/*",
+                        "*/cgi-bin/*", "*/srv/http/*", "*/usr/share/apache2/*")
+          OR FileName IN ("*.php", "*.pl", "*.py", "*.sh", "*.cgi", "*.phtml",
+                           "*.php5", "*.phar"))
+| eval riskLevel=case(
+    FileName IN ("*.php","*.phtml","*.php5","*.phar"), "HIGH — PHP web shell candidate",
+    FileName IN ("*.sh","*.pl","*.py","*.cgi"),         "HIGH — script drop in web path",
+    true(),                                             "MEDIUM — file write in web root"
+  )
+| stats count, values(FileName) as DroppedFiles,
+         values(FilePath) as FilePaths,
+         values(riskLevel) as RiskLevel
+  by ComputerName, UserName, ParentBaseFileName
+| sort -count
+> **Analyst note:** Writes by `httpd`/`apache2` parent processes to CGI directories are high-confidence indicators. Differentiate from legitimate deployment pipelines using `UserName` and `ParentBaseFileName` context.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — Traffic to Known Malicious IPs on Apache/HTTP Ports
+Replace `x.x.x.x` values with IPs from current threat intel feeds (e.g., GreyNoise CVE-2021-41773 tags).
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port in [80,443,8080,8443] and \
+      dst ip in [x.x.x.x, x.x.x.x, x.x.x.x]' \
+  -o 'fmt:%ts %sa %da %dp %byt %pkt %fl' \
+  -s record/bytes -n 50
+> **Analyst note:** Substitute placeholder IPs with GreyNoise CVE-tagged scanners or CISA-published IoCs for CVE-2021-41773. GreyNoise provides a dedicated tag: `Apache HTTP Server Path Traversal`.
+
+---
+
+### Query 2 — Path Traversal Pattern Scanning Detection via Anomalous HTTP Request Volumes
+Identifies hosts generating high request volumes toward Apache servers — characteristic of automated exploitation scanning.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port in [80,443,8080] and flags S' \
+  -A srcip,dstip \
+  -s record/flows \
+  -n 30 \
+  -o 'fmt:%sa %da %fl %byt %pkt'
+> **Analyst note:** Path traversal exploitation tools (e.g., Metasploit module `exploit/multi/http/apache_normalize_path_rce`) generate high SYN/flow counts from single source IPs. Flag source IPs with >200 flows to a single destination Apache server within a short window. Threshold should be tuned to baseline.
+
+---
+
+### Query 3 — Anomalous Outbound Connections FROM Apache Servers (Reverse Shell Egress)
+Identifies unexpected outbound TCP sessions originating from your Apache server infrastructure — indicating successful RCE with reverse shell callback.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src ip in [YOUR_APACHE_SERVER_RANGE/24] and \
+      not dst port in [80,443,8080,8443,53,25,587,22] and \
+      dst ip not in [YOUR_INTERNAL_RANGE/8]' \
+  -A srcip,dstip,dstport \
+  -s record/flows \
+  -n 50 \
+  -o 'fmt:%ts %sa %da %dp %fl %byt'
+> **Analyst note:** Replace `YOUR_APACHE_SERVER_RANGE` with your web server subnet CIDR and `YOUR_INTERNAL_RANGE` with internal RFC1918 space. Outbound sessions from web servers to external IPs on ports 4444, 9001, 1234, or 31337 are strong reverse shell indicators and should be immediately escalated.
+
+---
+
+## Hunting Notes
+
+### What to Look For
+
+| Indicator | Confidence | Description |
+|---|---|---|
+| `httpd`/`apache2` spawning `/bin/sh` or `/bin/bash` | **HIGH** | Primary RCE indicator via CGI path traversal |
+| `curl` or `wget` executed by Apache child process | **HIGH** | Dropper/implant staging post-exploitation |
+| PHP/CGI file writes to `/var/www/` or `/cgi-bin/` by Apache process |

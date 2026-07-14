@@ -1,0 +1,17 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2021-41773
+# Product:   apache httpd
+# Tags:      [KEV] [RCE-KEV] [CRIT] [EPSS] [T1] [WIDE]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T04:48:27.928060Z
+# Status:    OK
+# ---
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2021-41773 Apache HTTP Server path traversal RCE attempt";
+  flow:established,to_server; http.uri; content:"/.%2e/"; nocase;
+  pcre:"/\/(?:\.%2[eE]|%2[eE]\.){1,}\/(?:cgi-bin\/|bin\/|etc\/|usr\/)/i";
+  reference:cve,2021-41773;
+  metadata:mitre_technique_id T1190, is_kev true, status experimental;
+  classtype:attempted-admin; sid:9000004; rev:1; )
