@@ -1,0 +1,163 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2021-41773
+# Product:   apache httpd
+# Tags:      [KEV] [RCE-KEV] [CRIT] [EPSS] [T1] [WIDE]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T04:13:28.298611Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **DRAFT — For analyst review before deployment. Verify package versions against your distribution and environment before executing.**
+
+**CVE:** CVE-2021-41773
+**Affected Product:** Apache HTTP Server (httpd) versions 2.4.49 only. Note: the original patch for CVE-2021-41773 was incomplete; CVE-2021-42013 extends this vulnerability to Apache HTTP Server 2.4.50. Both versions are affected and must be remediated.
+**Fixed Version:** Apache HTTP Server 2.4.51 or later (resolves both CVE-2021-41773 and CVE-2021-42013). On Debian/Ubuntu systems, the fixed package is `apache2` at the distribution-backported version containing upstream 2.4.51+. Confirm the exact fixed package version for your distribution via `apt-cache policy apache2` after updating the cache.
+**Urgency:** IMMEDIATE — within 2 hours of approval. This vulnerability is actively exploited in the wild (CISA KEV), carries a CVSS score of 9.8, and enables unauthenticated remote code execution via path traversal against CGI-enabled or misconfigured Apache instances. The original patch was insufficient; treat both CVE-2021-41773 and CVE-2021-42013 as co-remediation requirements.
+**Rollback Risk:**
+- Upgrading `apache2` may reload virtual host configurations; any syntax errors in existing configs will prevent the service from restarting. Run `apache2ctl configtest` before and after patching.
+- Custom modules compiled against 2.4.49 or 2.4.50 may be incompatible with 2.4.51+. Identify third-party modules (`apache2ctl -M`) before patching.
+- To revert: pin the previous package version with `apt-mark hold apache2` and reinstall the prior version from package cache if available, or restore from a pre-patch system snapshot. Document the pre-patch version with `apache2 -v` before executing the playbook.
+- If CGI is enabled (`mod_cgi`, `mod_cgid`), consider disabling it as an interim control if patching cannot be immediately applied.
+
+---
+
+## Ansible Remediation Playbook
+
+---
+# DRAFT — Proposed remediation playbook for analyst review before execution.
+# CVE: CVE-2021-41773 (co-remediates CVE-2021-42013)
+# Affected Product: Apache HTTP Server 2.4.49 / 2.4.50
+# Fixed Version: Apache HTTP Server 2.4.51+
+# Urgency: IMMEDIATE — CISA KEV, CVSS 9.8, actively exploited RCE
+# Last updated: see ansible_date_time in audit log task
+
+- name: "Remediate CVE-2021-41773 (and CVE-2021-42013) on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  become: true
+  vars:
+    cve_id: "CVE-2021-41773"
+    cve_id_related: "CVE-2021-42013"
+    affected_package: "apache2"
+    service_name: "apache2"
+    minimum_safe_upstream_version: "2.4.51"
+
+  pre_tasks:
+    - name: Capture pre-patch Apache version for audit
+      ansible.builtin.command:
+        cmd: apache2 -v
+      register: pre_patch_version
+      changed_when: false
+      failed_when: false
+
+    - name: Log pre-patch Apache version
+      ansible.builtin.debug:
+        msg: >
+          [PRE-PATCH] Host: {{ inventory_hostname }} |
+          {{ cve_id }} / {{ cve_id_related }} remediation starting |
+          Current version: {{ pre_patch_version.stdout | default('apache2 not found or not running') }}
+
+    - name: Validate Apache config syntax before patching
+      ansible.builtin.command:
+        cmd: apache2ctl configtest
+      register: config_test_result
+      changed_when: false
+      failed_when: config_test_result.rc != 0
+      # Abort if config is already broken — do not proceed to patch on a broken config
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Upgrade affected package to latest available (must resolve to >= 2.4.51)
+      ansible.builtin.apt:
+        name: "{{ affected_package }}"
+        state: latest
+      register: patch_result
+
+    - name: Capture post-patch Apache version
+      ansible.builtin.command:
+        cmd: apache2 -v
+      register: post_patch_version
+      changed_when: false
+      failed_when: false
+
+    - name: Validate Apache config syntax after package upgrade
+      ansible.builtin.command:
+        cmd: apache2ctl configtest
+      register: post_patch_config_test
+      changed_when: false
+      failed_when: post_patch_config_test.rc != 0
+      # Abort before restart if upgrade introduced a config problem
+
+    - name: Restart Apache service if package was upgraded
+      ansible.builtin.service:
+        name: "{{ service_name }}"
+        state: restarted
+      when: patch_result.changed
+
+    - name: Verify Apache service is running after restart
+      ansible.builtin.service:
+        name: "{{ service_name }}"
+        state: started
+        enabled: true
+
+    - name: Audit log — patch applied
+      ansible.builtin.debug:
+        msg: >
+          [AUDIT] {{ cve_id }} / {{ cve_id_related }} patched on {{ inventory_hostname }}
+          at {{ ansible_date_time.iso8601 }} |
+          Package changed: {{ patch_result.changed }} |
+          Pre-patch: {{ pre_patch_version.stdout_lines[0] | default('unknown') }} |
+          Post-patch: {{ post_patch_version.stdout_lines[0] | default('unknown') }} |
+          ANALYST REVIEW REQUIRED: Confirm post-patch version >= {{ minimum_safe_upstream_version }}
+
+    - name: ALERT — Flag if package was NOT upgraded (may already be patched or pinned)
+      ansible.builtin.debug:
+        msg: >
+          [WARN] {{ cve_id }}: Package '{{ affected_package }}' was not upgraded on
+          {{ inventory_hostname }}. Verify manually that the installed version is >=
+          {{ minimum_safe_upstream_version }}. The host may already be patched, or
+          the package may be held/pinned.
+      when: not patch_result.changed
+
+  post_tasks:
+    - name: Check for mod_cgi or mod_cgid (exposure indicator)
+      ansible.builtin.command:
+        cmd: apache2ctl -M
+      register: loaded_modules
+      changed_when: false
+      failed_when: false
+
+    - name: Warn if CGI modules are loaded (increases CVE-2021-41773 attack surface)
+      ansible.builtin.debug:
+        msg: >
+          [SECURITY NOTICE] {{ inventory_hostname }} has CGI modules loaded
+          (mod_cgi or mod_cgid detected). CVE-2021-41773 is directly exploitable
+          for RCE when CGI is enabled. Analyst should confirm CGI is required;
+          disable if not needed. Review: https://httpd.apache.org/security/vulnerabilities_24.html
+      when: >
+        ('cgi_module' in loaded_modules.stdout) or
+        ('cgid_module' in loaded_modules.stdout)
+
+---
+
+## Validation Steps
+
+> All validation steps should be reviewed and executed by a qualified analyst after playbook completion.
+
+**1. Confirm installed Apache version resolves CVE-2021-41773 and CVE-2021-42013:**
+apache2 -v
+# Expected: Server version must be Apache/2.4.51 or later
+
+**2. Check distribution package version:**
+apt-cache policy apache2
+# Confirm "Installed:" shows a version backported to include the 2.4.51 fix
+# Cross-reference with your distribution's security advisory (e.g., USN for Ubuntu, DSA for Debian)
+
+**3. Verify the service is running and stable:**
+systemctl status apache2
