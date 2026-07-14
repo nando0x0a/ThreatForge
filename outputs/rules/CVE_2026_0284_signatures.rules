@@ -1,0 +1,31 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-0284
+# Product:   palo alto pan-os
+# Tags:      [RCE] [CRIT] [T1]
+# Score:     90
+# Tier:      CRITICAL — ACT NOW
+# SEVERITY DISCREPANCY: NVD/vulnx says 9.9 (CRITICAL) — CVE.org (CNA, v4.0) says 4.7 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-0284
+# Generated: 2026-07-14T10:53:43.950574Z
+# Status:    OK
+# ---
+
+⚠️ SEVERITY DISCREPANCY DETECTED — ANALYST REVIEW REQUIRED BEFORE DEPLOYMENT
+
+Source [1] NVD scores this CVSS 9.9 CRITICAL; Source [2] (Palo Alto vendor advisory) rates urgency MODERATE with a severity of 4.7 MEDIUM; Source [3] CVE.org (CNA-published, CVSS v4.0) scores this 4.7 MEDIUM. The rule below reflects the higher NVD score in priority tagging per standing policy, but analysts must adjudicate the discrepancy before treating this as confirmed CRITICAL. The vendor's own advisory [2] assigns MODERATE urgency, which may indicate limited real-world exploitability at this time.
+
+-- PROPOSED DRAFT FOR ANALYST REVIEW --
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-0284 PAN-OS LSVPN XML Injection attempt";
+  flow:established,to_server;
+  http.uri; content:"/ssl-vpn/"; nocase;
+  http.request_body;
+  pcre:"/(?:<|\&lt;)[^\x00-\x1f\x7f]*(?:&#x?[0-9a-fA-F]+;|%3[cCeE]|<!|\]\]>|CDATA)/i";
+  threshold:type limit, track by_src, count 3, seconds 60;
+  reference:cve,2026-0284;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:attempted-admin; sid:9000284; rev:1; )
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0284
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0284
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0284
