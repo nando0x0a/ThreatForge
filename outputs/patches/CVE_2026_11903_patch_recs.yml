@@ -1,0 +1,148 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2026-11903
+# Product:   moveit
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# Generated: 2026-07-14T20:56:32.126063Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **DRAFT FOR ANALYST REVIEW** — Verify all version strings, package names, and service identifiers against your environment before executing.
+
+**CVE:** CVE-2026-11903
+
+**Affected Product:** Progress MOVEit Transfer [1][2]
+- 2026.0.0 up to (not including) 2026.0.1
+- 2025.1.0 up to (not including) 2025.1.4
+- 2025.0.0 up to (not including) 2025.0.8
+
+**Fixed Version:** [2]
+- 2026.0 branch → 2026.0.1
+- 2025.1 branch → 2025.1.4
+- 2025.0 branch → 2025.0.8
+
+**Urgency:** Within 7 days — Priority Tier is STANDARD. CVSS score is 8.0 (HIGH) [1], but exploitation requires user interaction and no public proof-of-concept is currently known, which moderately reduces immediate risk. Monitor for PoC emergence and re-escalate if one surfaces.
+
+> ⚠️ **SEVERITY NOTE:** Only a single CVSS score of 8.0 (HIGH) is reflected across the available sources [1][3]. No scoring discrepancy between sources was detected. If additional scoring surfaces (e.g., from CISA KEV or vendor advisory), analysts should reassess urgency accordingly.
+
+**Rollback Risk:**
+- MOVEit Transfer is typically deployed as a Windows-based application or via vendor-managed installers, **not** as a native Linux apt package. The Ansible apt playbook below is a **structural template only** — it must be adapted to your actual deployment method (Windows MSI/installer, vendor upgrade script, or containerized deployment).
+- Rollback to the prior version would require re-running the previous installer or restoring from a pre-upgrade snapshot/backup.
+- Potential breakage: Ad Hoc module configuration changes, session disruptions for active transfers, integration credential resets. Test in a staging environment first.
+- Pre-patch: snapshot the host or take a full backup of the MOVEit Transfer database and configuration directory before applying.
+
+---
+
+## Ansible Remediation Playbook
+
+> **⚠️ IMPORTANT — ANALYST REVIEW REQUIRED BEFORE USE:**
+> Progress MOVEit Transfer is not distributed as a Linux apt package [2]. The `apt` module below uses a placeholder package name. This playbook must be replaced or extended with the appropriate mechanism for your environment (e.g., `ansible.builtin.win_package` for Windows MSI, a `shell` task invoking the vendor upgrade script, or a container image pull). The structure is provided for review and adaptation only.
+
+---
+- name: "Remediate CVE-2026-11903 on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  become: true
+  vars:
+    cve_id: "CVE-2026-11903"
+    affected_package: "moveit-transfer"
+    # ANALYST NOTE: 'moveit-transfer' is a placeholder. Progress MOVEit Transfer
+    # is not available via apt. Replace this variable and the upgrade task with
+    # the appropriate installer or package manager for your deployment.
+    # Reference fixed versions: 2026.0.1 / 2025.1.4 / 2025.0.8 [2]
+
+  tasks:
+    - name: "{{ cve_id }} | Pre-flight — assert target OS is Debian-based"
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: >
+          This playbook uses the apt module and targets Debian/Ubuntu hosts.
+          MOVEit Transfer is typically Windows-based. Analyst must verify
+          deployment platform before running this playbook.
+        success_msg: "OS family check passed: {{ ansible_os_family }}"
+
+    - name: "{{ cve_id }} | Pre-patch snapshot reminder"
+      ansible.builtin.debug:
+        msg: >
+          REMINDER: Ensure a system snapshot or MOVEit Transfer database backup
+          has been taken before proceeding. Rollback will require restoring from
+          this backup if the upgrade causes issues.
+
+    - name: "{{ cve_id }} | Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: "{{ cve_id }} | Upgrade affected package to fixed version"
+      ansible.builtin.apt:
+        name: "{{ affected_package }}"
+        state: latest
+        # ANALYST NOTE: If a specific fixed version must be pinned (recommended),
+        # replace 'state: latest' with:
+        #   name: "{{ affected_package }}=<fixed_version>"
+        #   state: present
+        # and set 'allow_downgrade: false'
+      register: patch_result
+
+    - name: "{{ cve_id }} | Restart MOVEit Transfer service if package was upgraded"
+      ansible.builtin.service:
+        name: "moveit-transfer"
+        # ANALYST NOTE: Replace with the actual service name as registered
+        # on your system (e.g., 'MOVEit Transfer' on Windows via win_service).
+        state: restarted
+      when: patch_result.changed
+
+    - name: "{{ cve_id }} | Audit log"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} patch task executed on {{ inventory_hostname }}
+          at {{ ansible_date_time.iso8601 }}.
+          Package changed: {{ patch_result.changed }}.
+          Analyst must validate version post-patch per validation steps.
+
+---
+
+## Validation Steps
+
+> Confirm the patch was applied successfully using the following checks. All steps are manual or read-only.
+
+1. **Verify installed version:**
+   - On the MOVEit Transfer host, navigate to the application's **About** page or admin console and confirm the displayed version matches one of the fixed releases: **2026.0.1**, **2025.1.4**, or **2025.0.8** [2].
+   - On Linux (if using a package): `dpkg -l | grep moveit-transfer` or `rpm -qa | grep moveit` depending on distro.
+
+2. **Check service health:**
+   - Confirm the MOVEit Transfer service is running and accepting connections post-restart.
+   - Review application logs for startup errors: typically located under the MOVEit Transfer installation directory (path specific to your deployment).
+
+3. **Functional smoke test:**
+   - Log in to the MOVEit Transfer web interface and navigate to the **Ad Hoc module** [1][2] — this is the component affected by the stored XSS. Confirm it loads without errors.
+
+4. **XSS payload test (analyst-approved only):**
+   - If your organisation has an approved testing procedure, submit a benign XSS test payload (e.g., `<script>alert(1)</script>`) into an Ad Hoc transfer field in a non-production environment and confirm it is neutralised/escaped in the rendered output, not executed. Do not perform this on production without change control approval.
+
+5. **Review Ansible audit output:**
+   - Confirm `patch_result.changed` was `true` in the play output, indicating the package was actually upgraded (not already at the target version with no action taken).
+
+6. **Cross-reference advisory:**
+   - Re-check the Progress Customer Community bulletin [2] for any post-patch known issues or re-issued patches before closing the remediation ticket.
+
+---
+
+## Dry Run Command
+
+ansible-playbook remediate_CVE-2026-11903.yml --check --diff -i inventory.ini
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-11903
+[2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-11903
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-11903
+# [2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-11903
