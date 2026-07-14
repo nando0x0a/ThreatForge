@@ -1,0 +1,120 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-10698
+# Product:   moveit
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# Generated: 2026-07-14T20:59:05.789392Z
+# Status:    OK
+# ---
+
+# Threat Hunting Queries — CVE-2026-10698
+### Progress MOVEit Transfer — SQL Injection in Custom Reports Module
+> **DRAFT FOR ANALYST REVIEW** — All queries are proposed drafts. Validate against your environment before operationalising. Placeholder IoCs (x.x.x.x, malicious.example.com) must be replaced with confirmed threat-intelligence values prior to deployment.
+
+---
+
+## Vulnerability Summary
+
+CVE-2026-10698 is a SQL injection vulnerability affecting Progress MOVEit Transfer [1][3] in the Custom Reports module, caused by improper neutralisation of special elements in data query logic [1]. Affected versions are 2025.0.0–2025.0.7, 2025.1.0–2025.1.3, and 2026.0.0 [2]. CVSS score is 7.2 (HIGH) [1]. The vulnerability is 6 days old with no public proof-of-concept known at time of writing. No CISA KEV listing has been identified in the provided context.
+
+> **Priority:** STANDARD | Tags: [HIGH] [T1]
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Outbound Network Connections from MOVEit Transfer Service Process
+*Targets unexpected outbound connections initiated by the MOVEit Transfer service process, which may indicate post-exploitation data exfiltration or C2 beaconing following successful SQLi.*
+
+event_simpleName IN ("NetworkConnectIP4", "NetworkConnectIP6")
+| search ImageFileName IN ("*\\MOVEitTransfer*", "*\\MOVEit*", "*\\moveitsvc*", "*\\w3wp.exe")
+| where RemotePort IN (443, 80, 8443, 8080, 4444, 1337)
+| stats count, values(RemoteIP) as RemoteIPs, values(RemotePort) as RemotePorts,
+        dc(RemoteIP) as UniqueRemoteIPs
+  by ComputerName, UserName, ImageFileName
+| where UniqueRemoteIPs > 3
+| sort -count
+> **Analyst note:** MOVEit Transfer runs under IIS (`w3wp.exe`) on Windows. Outbound connections from `w3wp.exe` to non-standard destinations or high counts of unique IPs warrant escalation. Tune the `UniqueRemoteIPs` threshold for your environment.
+
+---
+
+### Query 2 — Suspicious Child Process Spawned by IIS Worker (Post-Exploitation Indicator)
+*SQL injection against a web-accessible module may enable OS command execution or webshell deployment. Targets anomalous child process creation under the IIS worker process hosting MOVEit.*
+
+event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+| search ParentBaseFileName IN ("w3wp.exe", "moveitsvc.exe", "MOVEitTransfer.exe")
+| where FileName IN (
+    "cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe",
+    "cscript.exe", "certutil.exe", "bitsadmin.exe", "mshta.exe",
+    "net.exe", "net1.exe", "whoami.exe", "nltest.exe", "ipconfig.exe"
+  )
+| stats count, values(CommandLine) as CommandLines, earliest(timestamp) as FirstSeen,
+        latest(timestamp) as LastSeen
+  by ComputerName, UserName, ParentBaseFileName, FileName
+| sort -count
+> **Analyst note:** Any of these child processes spawned by `w3wp.exe` in the context of MOVEit Transfer is a high-fidelity indicator. `whoami.exe`, `net.exe`, and `powershell.exe` are especially suspicious. Review `CommandLines` values carefully.
+
+---
+
+### Query 3 — Suspicious File Write to MOVEit Web Root (Webshell Deployment)
+*Following SQL injection, an attacker may attempt to write a webshell to the MOVEit web directory. Targets file creation events in known MOVEit web paths.*
+
+event_simpleName IN ("NewExecutableWritten", "PeFileWritten", "NewScriptWritten")
+| search TargetDirectoryName IN (
+    "*\\MOVEitTransfer\\wwwroot\\*",
+    "*\\inetpub\\wwwroot\\MOVEit*",
+    "*\\MOVEit Transfer\\*"
+  )
+| where TargetFileName LIKE "%.aspx%" OR TargetFileName LIKE "%.asp%"
+    OR TargetFileName LIKE "%.php%" OR TargetFileName LIKE "%.jsp%"
+    OR TargetFileName LIKE "%.config%"
+| stats count, values(TargetFileName) as Files, values(UserName) as Users,
+        earliest(timestamp) as FirstSeen
+  by ComputerName, TargetDirectoryName
+| sort -count
+> **Analyst note:** New `.aspx` or `.asp` files written to the MOVEit web root are a strong indicator of webshell staging. Cross-reference file creation time with inbound HTTP request logs for the Custom Reports endpoint.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — Inbound Traffic to MOVEit HTTPS Port from High-Risk Sources
+*Identifies inbound flows to the standard MOVEit Transfer HTTPS port (443 or 8443). High packet rates or large byte counts from single sources may indicate SQL injection payload delivery or data exfiltration.*
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and (dst port 443 or dst port 8443) and dst ip <MOVEIT_SERVER_IP>' \
+  -A srcip \
+  -s record/bytes \
+  -o "fmt:%ts %te %sa %da %dp %byt %pkt %fl" \
+  -n 50
+> **Analyst note:** Replace `<MOVEIT_SERVER_IP>` with the actual IP of your MOVEit Transfer server(s). Flag source IPs sending >10 MB in a single session or with unusually high packet counts for a short connection duration, which may indicate bulk data extraction via SQL injection.
+
+---
+
+### Query 2 — Anomalous Outbound Data Volume from MOVEit Server (Exfiltration Detection)
+*SQL injection exploitation of the Custom Reports module [1] could enable an attacker to exfiltrate large volumes of database content. Targets high-byte-count outbound flows from the MOVEit host.*
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src ip <MOVEIT_SERVER_IP> and not dst ip <INTERNAL_NETWORK_CIDR>' \
+  -A dstip,dstport \
+  -s record/bytes \
+  -o "fmt:%ts %te %sa %da %dp %byt %pkt %dur" \
+  -n 30
+> **Analyst note:** Replace `<MOVEIT_SERVER_IP>` and `<INTERNAL_NETWORK_CIDR>` with environment-specific values. Outbound flows from the MOVEit server to external IPs exceeding your baseline transfer thresholds — particularly on ports 443, 80, or non-standard ports — warrant immediate review. Establish a rolling 7-day byte-count baseline for comparison.
+
+---
+
+### Query 3 — Traffic to Known Malicious Infrastructure (IoC-Based)
+*Where threat intelligence identifies attacker-controlled IPs associated with MOVEit exploitation campaigns, this query surfaces flows to or from those destinations. Placeholder values must be replaced.*
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and (src ip x.x.x.x or dst ip x.x.x.x or src ip y.y.y.y or dst ip y.y.y.y)' \
+  -s record/bytes \
+  -o "fmt:%ts %te %sa %da %sp %dp %byt %pkt %fl %pr" \
+  -n 100
+> **Analyst note:** **Placeholder IPs must be replaced** with confirmed threat-intelligence IoCs before execution. As of the time of writing, no specific attacker infrastructure has been publicly attributed to CVE-2026-10
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10698
+# [2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10698
