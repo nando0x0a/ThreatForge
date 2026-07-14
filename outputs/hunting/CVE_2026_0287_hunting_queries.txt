@@ -1,0 +1,150 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-0287
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# SEVERITY DISCREPANCY: NVD/vulnx says 7.5 (HIGH) — CVE.org (CNA, v4.0) says 6.6 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-0287
+# Generated: 2026-07-14T20:25:33.328588Z
+# Status:    OK
+# ---
+
+> **DRAFT FOR ANALYST REVIEW — CVE-2026-0287**
+> All queries below are proposed drafts. Validate against your environment before operationalising. Substitute placeholder values (x.x.x.x, malicious.example.com) with confirmed IoCs as intelligence matures.
+
+---
+
+# Threat Hunting Queries — CVE-2026-0287
+**PAN-OS: Denial of Service Vulnerabilities in Network Traffic Processing**
+
+---
+
+## ⚠️ Severity Discrepancy — Analyst Attention Required
+
+There is a scoring disagreement between sources that must be adjudicated before prioritisation decisions are made:
+
+- **NVD [1]:** CVSS 7.5 — **HIGH**
+- **CVE.org / CNA-published (CVSS v4.0) [3]:** 6.6 — **MEDIUM**
+
+The NVD score [1] uses CVSS v3.x (AV:N/AC:L/PR:N/UI:N), reflecting unauthenticated network exploitability. The CNA score [3] uses CVSS v4.0 and arrives at MEDIUM (6.6), which may reflect updated environmental or supplemental metrics applied by Palo Alto Networks as the publishing CNA. The vendor advisory [2] independently rates this **6.6 MEDIUM** with a "Moderate" urgency designation. Analysts should weigh the CNA/vendor score [2][3] carefully — it may incorporate context not captured in the NVD scoring — but should not dismiss the network-exploitable, no-authentication-required attack vector that drives the NVD HIGH rating [1].
+
+**Recommended posture:** Treat as HIGH PRIORITY pending analyst adjudication, consistent with the assigned Priority Tier.
+
+---
+
+## Context Summary
+
+| Field | Value |
+|---|---|
+| CVE | CVE-2026-0287 |
+| Product | Palo Alto Networks PAN-OS |
+| Vulnerability Class | Multiple Denial of Service — dataplane interface traffic processing |
+| Attack Vector | Network (AV:N), No authentication required (PR:N), No user interaction (UI:N) |
+| RCE | Flagged YES — network-exploitable; **note: primary vendor description describes DoS** [2]. Analysts should verify whether RCE is confirmed or inferred from CVSS vector |
+| PoC | No public proof-of-concept known |
+| KEV Status | Not listed in context (no CISA KEV detail provided) |
+| Age | 4 days |
+| Exploit Maturity | UNREPORTED [2] |
+
+> ⚠️ **RCE Flag Note:** The CVE description [1][2][3] consistently describes Denial of Service impact against PAN-OS dataplane interfaces. The RCE tag in the priority metadata conflicts with the advisory detail. Analysts should verify whether a separate RCE component has been identified or whether this flag was set based solely on the CVSS network attack vector. Do not assume RCE capability without vendor confirmation.
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Network Connections from PAN-OS Management Hosts to Anomalous External IPs
+Targets unexpected outbound connections from systems in the PAN-OS management network segment — may indicate post-exploitation callback if a device is compromised beyond DoS.
+
+event_simpleName=NetworkConnect
+| eval RemoteIP_str=if(isnotnull(RemoteIP), RemoteIP, "unknown")
+| search RemoteIP IN ("x.x.x.x")
+  OR (RemotePort IN ("4444","8080","1337","9001","443"))
+| where NOT (RemoteIP LIKE "10.%"
+          OR RemoteIP LIKE "192.168.%"
+          OR RemoteIP LIKE "172.16.%")
+| stats
+    count AS connection_count,
+    values(RemotePort) AS ports_contacted,
+    values(RemoteIP) AS remote_ips,
+    earliest(_time) AS first_seen,
+    latest(_time) AS last_seen
+  by ComputerName, UserName, LocalIP
+| where connection_count > 5
+| sort -connection_count
+
+> **Analyst note:** Replace `x.x.x.x` with confirmed attacker IPs when available. The port list targets common reverse-shell and C2 ports; adjust to your environment's baseline.
+
+---
+
+### Query 2 — Process Execution Anomalies on PAN-OS Adjacent Linux Hosts (Post-Exploitation Indicator)
+Targets shell spawning, credential access, and lateral movement tooling that may follow a successful exploitation of a firewall management interface. Applicable to Linux-based management jump hosts or orchestration systems near PAN-OS devices.
+
+event_simpleName IN ("ProcessRollup2","SyntheticProcessRollup2")
+| search (
+    FileName IN ("bash","sh","python","python3","curl","wget","nc","ncat","socat","chmod","base64")
+    AND ParentBaseFileName IN ("sshd","httpd","nginx","openssl","python","python3")
+  )
+| eval suspicious_combo=if(
+    (FileName IN ("bash","sh") AND ParentBaseFileName IN ("python","python3","openssl")),
+    "HIGH_SUSPICION", "REVIEW"
+  )
+| stats
+    count AS exec_count,
+    values(CommandLine) AS command_lines,
+    values(FileName) AS child_processes,
+    earliest(_time) AS first_seen,
+    latest(_time) AS last_seen
+  by ComputerName, UserName, ParentBaseFileName, suspicious_combo
+| sort -exec_count
+
+> **Analyst note:** PAN-OS itself runs on a proprietary OS and may not surface directly in CrowdStrike EDR telemetry. This query targets adjacent Linux management hosts. Tune `ParentBaseFileName` to match your actual management-plane process inventory.
+
+---
+
+### Query 3 — High-Volume Outbound Traffic Bursts (Dataplane DoS Artefact — Host-Side Visibility)
+Looks for hosts generating or receiving unusually high connection rates, which may correlate with dataplane flooding behaviour described in the vulnerability [1][2].
+
+event_simpleName=NetworkConnect
+| bin _time span=1m
+| stats
+    count AS connections_per_minute,
+    dc(RemoteIP) AS unique_remote_ips,
+    values(RemotePort) AS ports,
+    values(Protocol) AS protocols
+  by _time, ComputerName, LocalIP
+| where connections_per_minute > 500 OR unique_remote_ips > 100
+| eval anomaly_reason=case(
+    connections_per_minute > 1000, "EXTREME_CONNECTION_RATE",
+    unique_remote_ips > 200,       "WIDE_FAN_OUT",
+    true(),                        "ELEVATED_RATE"
+  )
+| sort -connections_per_minute
+
+> **Analyst note:** Thresholds (500 cpm, 100 unique IPs) are indicative starting points. Baseline your environment's normal PAN-OS management traffic before applying. High rates may also reflect legitimate load balancer or scanner traffic.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — Traffic Directed at PAN-OS Dataplane Interface IPs on Known Service Ports
+Targets traffic matching the exploit's delivery mechanism — specially crafted packets to dataplane interfaces [1][2].
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'dst ip x.x.x.x and \
+      (proto tcp or proto udp) and \
+      (dst port 443 or dst port 80 or dst port 8443 or dst port 8080 or \
+       dst port 22 or dst port 3978)' \
+  -s record/bytes \
+  -n 50 \
+  -o "fmt:%ts %td %pr %sa:%sp -> %da:%dp %pkt %byt %fl"
+
+> **Analyst note:** Replace `x.x.x.x` with the actual IP addresses of your PAN-OS dataplane interfaces. Port list reflects common PAN-OS service ports; adjust to your deployment. The vulnerability targets dataplane interfaces specifically [2], so management-plane IPs warrant separate monitoring.
+
+---
+
+### Query 2 — Anomalous Traffic Volume or Packet Rate to PAN-OS Devices (DoS Pattern Detection)
+Identifies source IPs sending abnormally high packet or byte volumes, consistent with a Do
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0287
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0287
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0287
