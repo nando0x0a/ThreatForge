@@ -324,12 +324,14 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
     notifier.post_brief_report(enriched_cves)
 
     if produce:
+        router = OutputRouter(OUTPUT_DIR)
+
         if CLEAN_BEFORE_RUN:
             clean_outputs(OUTPUT_DIR)
+            router.clean_remote()
 
         selected = list(range(1, 7)) if produce == "0" else [int(x) for x in produce.replace(",", " ").split()]
         caller = AICaller()
-        router = OutputRouter(OUTPUT_DIR)
         produced = []
 
         for cve_data in enriched_cves:

@@ -16,18 +16,30 @@ class OutputRouter:
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
 
+    def clean_remote(self) -> int:
+        """Wipe every file under outputs/ in the GitHub repo (single commit) —
+        the remote-side counterpart to the local outputs/ folder wipe, so
+        GitHub never accumulates files across runs."""
+        return github_publisher.clean_outputs()
+
     def save(self, output_num: int, cve_data: dict, result: dict) -> Path:
         cve_id = cve_data.get("cve_id", "UNKNOWN").replace("-", "_")
         output_type = result.get("output_type", f"output_{output_num}")
         menu_entry = _OUTPUT_MENU.get(output_num, {})
         ext = menu_entry.get("extension", ".txt")
         subdir = menu_entry.get("output_dir", "misc")
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
         folder = self.base_dir / subdir
         folder.mkdir(parents=True, exist_ok=True)
 
-        filename = f"{cve_id}_{output_type}_{timestamp}{ext}"
+        # One canonical filename per CVE+output-type — no timestamp. Re-running
+        # against the same CVE overwrites this file (locally and, via SHA-based
+        # update in github_publisher, on GitHub too) instead of piling up a new
+        # timestamped file on every run. The generation time still lives in the
+        # header below. review_needed status also stays out of the filename —
+        # a REVIEW_NEEDED_ prefix would give the same CVE+type two possible
+        # paths, defeating the point of a single canonical file.
+        filename = f"{cve_id}_{output_type}{ext}"
         filepath = folder / filename
 
         header = self._build_header(cve_data, result, output_num)
@@ -36,8 +48,6 @@ class OutputRouter:
 
         if result.get("review_needed"):
             content += f"\n\n# REVIEW_NEEDED\n# Error: {result.get('error', 'unknown')}"
-            filename = "REVIEW_NEEDED_" + filename
-            filepath = folder / filename
 
         filepath.write_text(content)
         log.info(f"Saved: {filepath}")
