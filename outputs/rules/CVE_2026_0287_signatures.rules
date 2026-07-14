@@ -1,0 +1,28 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-0287
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# SEVERITY DISCREPANCY: NVD/vulnx says 7.5 (HIGH) — CVE.org (CNA, v4.0) says 6.6 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-0287
+# Generated: 2026-07-14T11:22:36.723577Z
+# Status:    OK
+# ---
+
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-0287 PAN-OS Dataplane DoS via Malformed Network Traffic";
+  flow:established,to_server; dsize:>1400;
+  threshold:type both, track by_src, count 10, seconds 5;
+  reference:cve,2026-0287;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:attempted-dos; sid:9000004; rev:1;
+  note:"ANALYST REVIEW REQUIRED -- Specific payload pattern for CVE-2026-0287 is not publicly documented; this rule uses high-rate large-packet heuristics targeting PAN-OS dataplane interfaces as a detection proxy. Tune $HOME_NET to dataplane interface addresses. SEVERITY DISCREPANCY: NVD scores this CVSS 7.5 HIGH [1]; CNA-published record on CVE.org scores this CVSS v4.0 6.6 MEDIUM [3]. Analyst should adjudicate before setting enforcement policy. Vendor advisory [2] rates urgency MODERATE with exploit maturity UNREPORTED."; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0287
+[2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0287
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0287
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0287
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0287
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0287
