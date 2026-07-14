@@ -1,0 +1,172 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2021-42013
+# Product:   apache httpd
+# Tags:      [KEV] [RCE-KEV] [CRIT] [EPSS] [T1] [WIDE]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T04:47:10.504222Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **⚠️ ANALYST REVIEW REQUIRED — This is a proposed draft for analyst review before deployment.**
+
+**CVE:** CVE-2021-42013
+**Affected Product:** Apache HTTP Server 2.4.49 and 2.4.50 (CVE-2021-42013 is the incomplete-fix successor to CVE-2021-41773; both versions are vulnerable to path traversal and remote code execution via mod_cgi)
+**Fixed Version:** Apache HTTP Server 2.4.51 or later
+**Urgency:** IMMEDIATE — Deploy within 24 hours. This vulnerability is actively exploited in the wild (CISA KEV), carries a CVSS score of 9.8 CRITICAL, and enables unauthenticated remote code execution. Priority Tier: CRITICAL — ACT NOW.
+**Rollback Risk:**
+- Downgrading Apache may restore the vulnerable version; do not roll back without mitigating controls (WAF block rules, network ACLs) in place.
+- Configuration directives valid in 2.4.51 are generally backward-compatible with 2.4.49/2.4.50, but regression-test virtual host configs and SSL/TLS settings before rolling back.
+- If CGI scripts are in use, verify mod_cgi behaviour after upgrade; the patch tightens path resolution which may affect CGI script paths that were previously resolved loosely.
+- Revert procedure: `apt-get install apache2=<previous_version>` using a pinned version string captured pre-upgrade (see audit log task).
+
+---
+
+## Ansible Remediation Playbook
+
+---
+# DRAFT FOR ANALYST REVIEW — CVE-2021-42013 Apache HTTP Server Remediation Playbook
+# Resolves path traversal / RCE via incomplete fix for CVE-2021-41773
+# Target fixed version: apache2 >= 2.4.51
+# Analyst: verify target_group and inventory before executing in production.
+
+- name: "Remediate CVE-2021-42013 — Apache HTTP Server Path Traversal/RCE on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  become: true
+  vars:
+    cve_id: "CVE-2021-42013"
+    affected_package: "apache2"
+    service_name: "apache2"
+    minimum_safe_version: "2.4.51"
+
+  pre_tasks:
+    - name: "Capture pre-patch Apache version for audit trail"
+      ansible.builtin.command:
+        cmd: apache2 -v
+      register: pre_patch_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Log pre-patch version"
+      ansible.builtin.debug:
+        msg: >
+          [{{ cve_id }}] Pre-patch Apache version on {{ inventory_hostname }}:
+          {{ pre_patch_version.stdout | default('apache2 not found or not responding') }}
+
+    - name: "Capture currently installed package version for rollback reference"
+      ansible.builtin.command:
+        cmd: dpkg-query -W -f='${Version}' apache2
+      register: pre_patch_pkg_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Log rollback version string"
+      ansible.builtin.debug:
+        msg: >
+          [{{ cve_id }}] Rollback version string (if needed):
+          apt-get install apache2={{ pre_patch_pkg_version.stdout | default('UNKNOWN') }}
+
+  tasks:
+    - name: "Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: "Upgrade Apache HTTP Server to resolve CVE-2021-42013"
+      ansible.builtin.apt:
+        name: "{{ affected_package }}"
+        state: latest
+      register: patch_result
+
+    - name: "Perform configuration syntax check before restarting service"
+      ansible.builtin.command:
+        cmd: apache2ctl configtest
+      register: config_test
+      changed_when: false
+      failed_when: "'Syntax OK' not in config_test.stderr and 'Syntax OK' not in config_test.stdout"
+
+    - name: "Abort if configuration test failed — service will NOT be restarted"
+      ansible.builtin.fail:
+        msg: >
+          [{{ cve_id }}] Apache configuration test failed on {{ inventory_hostname }}.
+          Output: {{ config_test.stderr | default(config_test.stdout) }}
+          Patch was applied but service was NOT restarted. Manual intervention required.
+      when:
+        - patch_result.changed
+        - "'Syntax OK' not in config_test.stderr and 'Syntax OK' not in config_test.stdout"
+
+    - name: "Restart Apache service if package was upgraded and config is valid"
+      ansible.builtin.service:
+        name: "{{ service_name }}"
+        state: restarted
+      when: patch_result.changed
+
+    - name: "Capture post-patch Apache version for validation"
+      ansible.builtin.command:
+        cmd: apache2 -v
+      register: post_patch_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Audit log — patch applied"
+      ansible.builtin.debug:
+        msg: >
+          [{{ cve_id }}] Patch result on {{ inventory_hostname }}
+          at {{ ansible_date_time.iso8601 }}:
+          package_changed={{ patch_result.changed }},
+          pre_version={{ pre_patch_pkg_version.stdout | default('UNKNOWN') }},
+          post_version={{ post_patch_version.stdout | default('UNKNOWN') }}.
+          ANALYST ACTION: Confirm post_version >= {{ minimum_safe_version }}.
+
+    - name: "Write audit record to local file on managed host"
+      ansible.builtin.lineinfile:
+        path: /var/log/cve_remediation.log
+        line: >-
+          {{ ansible_date_time.iso8601 }} | {{ cve_id }} | host={{ inventory_hostname }}
+          | pkg={{ affected_package }} | changed={{ patch_result.changed }}
+          | pre={{ pre_patch_pkg_version.stdout | default('UNKNOWN') }}
+          | post={{ post_patch_version.stdout | default('UNKNOWN') }}
+        create: true
+        mode: '0640'
+        owner: root
+        group: adm
+
+  post_tasks:
+    - name: "Verify Apache service is running after remediation"
+      ansible.builtin.service_facts:
+
+    - name: "Assert Apache service is in running state"
+      ansible.builtin.assert:
+        that:
+          - "'apache2.service' in ansible_facts.services"
+          - "ansible_facts.services['apache2.service'].state == 'running'"
+        fail_msg: >
+          [{{ cve_id }}] Apache service is NOT running on {{ inventory_hostname }}
+          after patch. Immediate investigation required.
+        success_msg: >
+          [{{ cve_id }}] Apache service confirmed running on {{ inventory_hostname }}.
+
+---
+
+## Validation Steps
+
+**1. Confirm installed package version meets minimum safe version:**
+apache2 -v
+# Expected output must show version 2.4.51 or later
+# Example: Server version: Apache/2.4.54 (Ubuntu)
+
+dpkg -l apache2 | grep apache2
+# Confirm installed version string is >= 2.4.51
+
+**2. Verify the service is running and accepting connections:**
+systemctl status apache2
+curl -I http://localhost/
+# Expect HTTP 200 or your configured default response — not a 500 or connection refused
+
+**3. Test that the path traversal vector is blocked (non-destructive probe):**
+# Send a traversal probe — a patched server must return 400 Bad Request or 403 Forbidden, NOT file content
+curl -v --path-as-is "http://<target>/cgi-bin/.%2e/.%2e/.%2e/.%2e/etc/passwd"
+curl -v --path-as-is "http://<target>/cgi-bin/%%32%65%%32%65/%%32%65%%32%65/etc/passwd"
+# ANALYST NOTE: confirm response is 400/403. A 200 with file content indicates
