@@ -1,0 +1,141 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-0280
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# SEVERITY DISCREPANCY: NVD/vulnx says 7.2 (HIGH) — CVE.org (CNA, v4.0) says 1.7 (LOW). See https://www.cve.org/CVERecord?id=CVE-2026-0280
+# Generated: 2026-07-14T20:32:41.979198Z
+# Status:    OK
+# ---
+
+> **DRAFT FOR ANALYST REVIEW — CVE-2026-0280**
+> All queries below are proposed drafts. Validate against your environment before operational use. No specific IoCs (malicious IPs/domains) have been confirmed for this CVE; placeholders are used where indicated. Analyst substitution of real indicators is required prior to deployment.
+
+---
+
+# Threat Hunting Queries — CVE-2026-0280
+## PAN-OS IPv6 Firewall Policy Bypass
+
+**CVE:** CVE-2026-0280
+**Priority Tier:** HIGH PRIORITY | **Tags:** [RCE] [HIGH] [T1]
+**CVSS:** 7.2 HIGH [1] *(see Severity Discrepancy note below)*
+**Age:** 4 days | **PoC:** No public proof-of-concept known [2]
+
+---
+
+### ⚠️ SEVERITY DISCREPANCY — ANALYST ACTION REQUIRED
+
+There is a material disagreement between sources on the severity of this CVE:
+
+- **[1] NVD scores this as CVSS 7.2 (HIGH)** — reflecting network-exploitable, no-auth, no-interaction characteristics (AV:N/PR:N/UI:N).
+- **[3] CVE.org (CNA-published record, CVSS v4.0) scores this as 1.7 (LOW)** — the vendor's own assessment using the newer scoring framework, noting MODERATE urgency and UNREPORTED exploit maturity [2].
+
+The discrepancy likely reflects methodological differences between CVSS v3.x (used by NVD [1]) and CVSS v4.0 (used by the CNA [3]), as well as the vendor's contextual judgement on exploit maturity and value density (DIFFUSE) [2]. **Analysts must adjudicate which score best reflects their environment's exposure before assigning response priority.** The firewall bypass nature and RCE classification warrant treating this conservatively until exploit maturity is better understood.
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Anomalous IPv6 Network Connections from/to PAN-OS-Adjacent Hosts
+
+This targets hosts that may sit behind or adjacent to a PAN-OS firewall and are receiving connections that should have been blocked by policy — indicative of a bypass having occurred.
+
+event_simpleName=NetworkConnect
+| eval IsIPv6=if(match(RemoteIP, "^[0-9a-fA-F:]+:[0-9a-fA-F:]+$"), "true", "false")
+| where IsIPv6="true"
+| where RemotePort IN (22, 23, 80, 443, 3389, 445, 8080, 8443)
+| stats count as ConnectionCount, values(RemotePort) as Ports,
+        earliest(timestamp) as FirstSeen, latest(timestamp) as LastSeen
+        by ComputerName, UserName, RemoteIP, LocalIP
+| where ConnectionCount < 5
+| eval Anomaly="Low-frequency IPv6 connection to sensitive port — possible policy bypass artefact"
+| sort -ConnectionCount
+
+> **Analyst note:** Low-count IPv6 connections to high-value ports from unexpected source addresses may indicate traffic that bypassed PAN-OS security policy via the CVE-2026-0280 dataplane vulnerability [2]. Tune `RemotePort` list to match your protected service inventory.
+
+---
+
+### Query 2 — Post-Exploitation Process Execution on Hosts Behind the Firewall
+
+Targets command execution patterns consistent with an attacker who has reached a protected service after bypassing the firewall. Focus on processes spawned from network-facing services.
+
+event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+| where ParentBaseFileName IN (
+    "nginx", "apache2", "httpd", "tomcat", "java",
+    "python", "python3", "ruby", "node", "perl"
+  )
+| where FileName IN (
+    "sh", "bash", "dash", "zsh", "cmd.exe", "powershell.exe",
+    "whoami", "id", "uname", "ifconfig", "ip", "netstat",
+    "curl", "wget", "nc", "ncat", "socat"
+  )
+| stats count as ExecCount,
+        values(CommandLine) as Commands,
+        earliest(timestamp) as FirstSeen,
+        latest(timestamp) as LastSeen
+        by ComputerName, UserName, ParentBaseFileName, FileName
+| where ExecCount < 10
+| eval EscalationFlag=if(ExecCount=1, "SINGLE_EXECUTION — HIGH SUSPICION", "REVIEW")
+| sort -EscalationFlag, -ExecCount
+
+> **Analyst note:** Shell or recon tool execution spawned from web-facing parent processes on hosts that should be protected by the PAN-OS policy boundary is a post-bypass exploitation indicator. Single-execution events (ExecCount=1) are highest priority. No confirmed post-exploitation TTPs are published for CVE-2026-0280 at this time — these patterns reflect general network-exploitation post-compromise behaviour.
+
+---
+
+### Query 3 — IPv6 Source Address Anomalies in DNS Resolution (Potential C2 Pivot)
+
+After bypassing the firewall to reach a host, an attacker may establish outbound connectivity. This query looks for DNS queries to non-internal resolvers over IPv6, which may indicate post-compromise C2 beaconing.
+
+event_simpleName=DnsRequest
+| eval IsIPv6Resolver=if(match(ContextBaseFileName, ".*") AND
+    match(DomainName, "^(?!.*\\.internal$)(?!.*\\.corp$)(?!.*\\.local$).*\\.[a-z]{2,}$"), "true", "false")
+| where IsIPv6Resolver="true"
+| where NOT DomainName IN (
+    "*.microsoft.com", "*.windowsupdate.com", "*.google.com",
+    "*.amazonaws.com", "*.cloudfront.net"
+  )
+| stats count as QueryCount,
+        values(DomainName) as QueriedDomains,
+        dc(DomainName) as UniqueDomains,
+        earliest(timestamp) as FirstSeen,
+        latest(timestamp) as LastSeen
+        by ComputerName, UserName
+| where QueryCount > 20 AND UniqueDomains < 3
+| eval BeaconingFlag="High-repetition low-diversity DNS — possible C2 beaconing pattern"
+| sort -QueryCount
+
+> **Analyst note:** High query volume to a small set of non-corporate domains is a beaconing heuristic. Substitute `*.internal`, `*.corp`, `*.local` with your organisation's actual internal domain suffixes. Exclude known-good CDNs and cloud providers relevant to your environment.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — IPv6 Traffic to Protected Services on Exploit-Relevant Ports
+
+Targets inbound IPv6 flows reaching hosts that should be blocked by PAN-OS policy. Presence of such flows may indicate the bypass is actively being used.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'inet6 and proto tcp \
+      and dst port in [22 23 80 443 445 3389 8080 8443] \
+      and src net not [fd00::/8] \
+      and src net not [fc00::/7]' \
+  -o "fmt:%ts %te %sa %da %sp %dp %pkt %byt %fl" \
+  -s record/packets \
+  -n 50 \
+  -O bytes
+
+> **Analyst note:** `fd00::/8` and `fc00::/7` exclude RFC 4193 ULA (private) IPv6 space. Adjust exclusions for your network's assigned IPv6 prefixes. Flows appearing on ports that your PAN-OS policy should block are the primary indicator of a bypass [2].
+
+---
+
+### Query 2 — Anomalous IPv6 Traffic Volume from a Single Source (Exploitation Reconnaissance)
+
+A crafted-packet exploit [2] may involve repeated attempts before success. This query surfaces IPv6 sources with unusually high packet or byte counts toward your protected network space.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0280
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0280
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0280
