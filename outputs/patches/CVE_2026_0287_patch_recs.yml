@@ -1,0 +1,177 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2026-0287
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# SEVERITY DISCREPANCY: NVD/vulnx says 7.5 (HIGH) — CVE.org (CNA, v4.0) says 6.6 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-0287
+# Generated: 2026-07-14T11:49:22.124891Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **DRAFT FOR ANALYST REVIEW** — Verify fixed versions against official vendor advisory before executing in production. Affected version ranges and fixed releases are not fully specified in the provided context and are noted accordingly below.
+
+---
+
+**CVE:** CVE-2026-0287
+
+**Affected Product:** Palo Alto Networks PAN-OS — specific affected version ranges are not detailed in the provided advisory context [2]; analyst must confirm affected branches (e.g., PAN-OS 10.x, 11.x) directly at the vendor advisory before proceeding.
+
+**Fixed Version:** Not specified in the provided context [2]. Analyst must retrieve the fixed version table from the Palo Alto Networks Security Advisory for CVE-2026-0287 [2] prior to initiating patching.
+
+**Urgency:** Within 7 days — Priority Tier is HIGH PRIORITY; however, the vendor advisory rates urgency as MODERATE with exploit maturity UNREPORTED [2], which supports a structured patch window rather than emergency out-of-band action. See severity discrepancy note below.
+
+> ⚠️ **SEVERITY DISCREPANCY — ANALYST ACTION REQUIRED:**
+> There is a scoring conflict between sources that affects urgency assessment:
+> - **NVD [1]** scores this vulnerability **CVSS 7.5 (HIGH)**
+> - **CVE.org CNA-published record [3]** scores this vulnerability **CVSS v4.0 6.6 (MEDIUM)**
+>
+> The CNA-published score [3] is typically the authoritative vendor-assigned score, while NVD [1] applies its own scoring analysis. The difference (HIGH vs. MEDIUM) may reflect different scoring methodology (CVSSv3.1 vs. CVSSv4.0) rather than a factual error, but the analyst must adjudicate which score governs organizational SLA and patch prioritization before scheduling deployment.
+
+**Rollback Risk:**
+- PAN-OS upgrades are not delivered via `apt`; they are image-based. Rolling back requires a prior saved configuration snapshot and a downgrade to the previous PAN-OS image via the device management interface or Panorama.
+- Risks include: configuration incompatibility on downgrade, session table loss, HA pair split-brain if only one unit is reverted, and potential impact to active IPsec/SSL-VPN tunnels during restart.
+- Pre-patch action: take a full device configuration export and snapshot the current running image name before upgrade.
+
+---
+
+## Ansible Remediation Playbook
+
+> ⚠️ **IMPORTANT — ANALYST REVIEW REQUIRED BEFORE EXECUTION:**
+> PAN-OS is a proprietary network operating system and is **not managed via `apt`**. PAN-OS devices are not Linux hosts in an Ansible apt-managed inventory. The standard remediation path for PAN-OS is via the **`paloaltonetworks.panos` Ansible collection** using the PAN-OS XML API, or via Panorama push. The `apt`-based template below is **not applicable** to PAN-OS and has been replaced with the appropriate collection-based approach. The fixed PAN-OS version (`panos_target_version`) **must be populated by the analyst** from the vendor advisory [2] before execution.
+
+---
+# DRAFT FOR ANALYST REVIEW
+# CVE-2026-0287 — PAN-OS DoS Vulnerabilities in Network Traffic Processing
+# Remediation Playbook (paloaltonetworks.panos collection)
+#
+# Prerequisites:
+#   ansible-galaxy collection install paloaltonetworks.panos
+#
+# !! ANALYST MUST SET panos_target_version FROM VENDOR ADVISORY BEFORE RUNNING !!
+# Source: https://security.paloaltonetworks.com/CVE-2026-0287
+
+- name: "Remediate CVE-2026-0287 on PAN-OS devices in {{ target_group }}"
+  hosts: "{{ target_group }}"
+  connection: local
+  gather_facts: false
+
+  vars:
+    cve_id: "CVE-2026-0287"
+    # REQUIRED: populate from vendor advisory [2] before execution
+    panos_target_version: "ANALYST_MUST_SET_THIS"
+    provider:
+      ip_address: "{{ ansible_host }}"
+      username: "{{ panos_username }}"
+      password: "{{ panos_password }}"
+      # api_key may be used in place of username/password
+
+  pre_tasks:
+    - name: "Abort if target version not set"
+      ansible.builtin.fail:
+        msg: >
+          panos_target_version must be set to the fixed PAN-OS version.
+          Retrieve it from https://security.paloaltonetworks.com/CVE-2026-0287
+          before running this playbook.
+      when: panos_target_version == "ANALYST_MUST_SET_THIS"
+
+    - name: "Export device configuration before upgrade (pre-patch snapshot)"
+      paloaltonetworks.panos.panos_op:
+        provider: "{{ provider }}"
+        cmd: "save config to CVE-2026-0287-pre-upgrade-{{ inventory_hostname }}.xml"
+      register: config_export_result
+
+    - name: "Log pre-patch config export"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} — Pre-upgrade config saved on {{ inventory_hostname }}
+          at {{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}.
+          Result: {{ config_export_result }}
+
+  tasks:
+    - name: "Check current PAN-OS version"
+      paloaltonetworks.panos.panos_op:
+        provider: "{{ provider }}"
+        cmd: "show system info"
+      register: system_info
+
+    - name: "Log current version"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} — Current system info for {{ inventory_hostname }}:
+          {{ system_info.stdout }}
+
+    - name: "Download target PAN-OS software version"
+      paloaltonetworks.panos.panos_software:
+        provider: "{{ provider }}"
+        version: "{{ panos_target_version }}"
+        download: true
+        install: false
+        restart: false
+      register: download_result
+
+    - name: "Install target PAN-OS software version"
+      paloaltonetworks.panos.panos_software:
+        provider: "{{ provider }}"
+        version: "{{ panos_target_version }}"
+        download: false
+        install: true
+        restart: false
+      register: install_result
+
+    - name: "Restart device to apply upgrade"
+      paloaltonetworks.panos.panos_software:
+        provider: "{{ provider }}"
+        version: "{{ panos_target_version }}"
+        download: false
+        install: false
+        restart: true
+      when: install_result.changed
+
+    - name: "Wait for device to come back online"
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 443
+        delay: 60
+        timeout: 600
+        state: started
+      when: install_result.changed
+
+    - name: "Verify upgraded PAN-OS version"
+      paloaltonetworks.panos.panos_op:
+        provider: "{{ provider }}"
+        cmd: "show system info"
+      register: post_upgrade_info
+
+    - name: "Audit log — post-patch"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} patched on {{ inventory_hostname }}
+          at {{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}.
+          Post-upgrade system info: {{ post_upgrade_info.stdout }}
+
+---
+
+## Validation Steps
+
+1. **Confirm running version post-upgrade:**
+   SSH to each PAN-OS device (or use Panorama) and run:
+   
+   show system info | match sw-version
+   
+   Confirm the reported `sw-version` matches the fixed version retrieved from the vendor advisory [2].
+
+2. **Verify dataplane interface health:**
+   
+   show interface all
+   show running resource-monitor
+   
+   Confirm all dataplane interfaces are operational and no abnormal resource consumption is present.
+
+3. **Check system logs for anomalies post-restart:**
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0287
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0287
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0287
