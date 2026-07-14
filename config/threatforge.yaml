@@ -11,6 +11,13 @@ pipeline:
   epss_threshold: 0.5      # EPSS probability above which the [EPSS] tag applies
   new_threshold_days: 3    # CVE age below which the [NEW] tag applies
 
+# Local outputs/ folder housekeeping. Outputs are drafts for analyst review
+# (see runs.jsonl for a permanent record of every generation, independent of
+# whether the file itself still exists) — there's no GitHub publishing, so
+# this is the only retention mechanism.
+output_management:
+  clean_before_run: true   # wipe outputs/{advisories,rules,iocs,hunting,patches} before producing new drafts each run
+
 # Which AI backend produces the 6 output drafts. Two provider modes:
 #
 #   provider: anthropic         — Claude API. api_key_env must point to a .env

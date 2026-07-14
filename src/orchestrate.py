@@ -35,7 +35,22 @@ CVSS_THRESHOLD = _cfg["pipeline"]["cvss_threshold"]
 TEST_DEFAULT_COUNT = _cfg["test_mode"]["default_count"]
 TEST_QUERY_LIMIT = _cfg["test_mode"]["query_limit"]
 TEST_GLOBAL_LIMIT = _cfg["test_mode"]["global_limit"]
+CLEAN_BEFORE_RUN = _cfg["output_management"]["clean_before_run"]
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/opt/threatforge/outputs"))
+
+
+def clean_outputs(output_dir: Path) -> None:
+    """Wipe previously generated drafts before writing new ones. Outputs are
+    ephemeral review artifacts, not a permanent record — runs.jsonl already
+    logs every generation regardless of whether the file itself survives."""
+    if not output_dir.exists():
+        return
+    removed = 0
+    for f in output_dir.rglob("*"):
+        if f.is_file():
+            f.unlink()
+            removed += 1
+    log.info(f"Cleaned outputs/: removed {removed} file(s)")
 
 
 def load_products() -> list[dict]:
@@ -245,6 +260,9 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
     notifier.post_brief_report(enriched_cves)
 
     if produce:
+        if CLEAN_BEFORE_RUN:
+            clean_outputs(OUTPUT_DIR)
+
         selected = list(range(1, 7)) if produce == "0" else [int(x) for x in produce.replace(",", " ").split()]
         caller = AICaller()
         router = OutputRouter(OUTPUT_DIR)
