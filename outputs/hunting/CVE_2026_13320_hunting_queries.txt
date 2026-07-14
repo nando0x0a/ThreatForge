@@ -1,0 +1,124 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-13320
+# Product:   gitlab
+# Tags:      [HIGH]
+# Score:     20
+# Tier:      MONITOR
+# Generated: 2026-07-14T21:15:29.947242Z
+# Status:    OK
+# ---
+
+# Threat Hunting Queries — CVE-2026-13320
+### GitLab CE/EE Stored XSS — Authenticated User Scope
+> **DRAFT FOR ANALYST REVIEW** — All queries below are proposed starting points. Validate thresholds, field names, and placeholder IoCs against your environment before operational use. No public proof-of-concept is available [1]; hunting logic is derived from the vulnerability class (stored XSS, authenticated, GitLab web surface) and general post-exploitation behaviour patterns.
+
+---
+
+> ⚠️ **Priority Tier: MONITOR** | CVSS 7.3 HIGH [1] | Age: 5 days | No public PoC known.
+>
+> **Affected versions:** GitLab CE/EE ≥ 15.7 < 18.11.7, 19.0 < 19.0.4, and 19.1 < 19.1.2 [4]. Fixed in 19.1.2 and 19.0.4 [2].
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Suspicious Outbound Connections from GitLab Service Processes (Data Exfiltration / C2 Beacon via XSS Payload)
+
+Stored XSS executing in a victim's browser may trigger outbound requests to attacker-controlled infrastructure. Look for unusual outbound connections originating from hosts where GitLab is accessed, particularly to non-GitLab destinations over HTTPS/HTTP.
+
+event_simpleName=NetworkConnect
+| search RemotePort IN ("80", "443", "8080", "8443")
+| search NOT RemoteIP IN ("your.gitlab.server.ip")
+| search UserName!=""
+| eval suspicion=if(match(RemoteIP, "^10\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[01]\.|^192\.168\."), "internal", "external")
+| where suspicion="external"
+| stats count, values(RemoteIP) as DestIPs, values(RemotePort) as Ports
+    by ComputerName, UserName, aid
+| where count < 5
+| sort -count
+> **Analyst note:** Low-count external connections from workstations that browse GitLab may indicate a one-shot XSS callback. Replace `your.gitlab.server.ip` with your GitLab instance IP(s)/CIDR. No confirmed malicious IPs are available — use `x.x.x.x` placeholder if adding specific IoCs.
+
+---
+
+### Query 2 — Browser Child Process Spawning Suspicious Executables (Post-XSS Exploitation Chain)
+
+If an XSS payload is chained with a browser vulnerability or drives a download-and-execute pattern, look for browser processes spawning unexpected children (e.g., PowerShell, cmd, curl, wget, certutil).
+
+event_simpleName=ProcessRollup2
+| search ParentBaseFileName IN ("chrome.exe", "firefox.exe", "msedge.exe", "brave.exe", "safari")
+| search FileName IN ("powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe",
+                      "certutil.exe", "curl.exe", "wget.exe", "mshta.exe",
+                      "rundll32.exe", "regsvr32.exe", "bitsadmin.exe")
+| stats count, values(CommandLine) as CommandLines, values(FileName) as SpawnedProcs
+    by ComputerName, UserName, ParentBaseFileName, aid
+| sort -count
+> **Analyst note:** This covers post-exploitation escalation beyond the browser sandbox. GitLab XSS alone (no chained vuln) would not spawn OS processes — treat any hits here as high-priority escalation candidates regardless of CVE-2026-13320 attribution.
+
+---
+
+### Query 3 — Credential/Token Harvesting File Artefacts on GitLab-Accessing Hosts
+
+XSS payloads may attempt to read and exfiltrate session tokens or cookies. Look for file writes in temp/profile directories that are unusual for browser processes, which may indicate payload staging or harvested credential dumps.
+
+event_simpleName=WriteProcessDumpRequest OR event_simpleName=SuspiciousCreateFile
+| search TargetFileName IN ("*.ps1", "*.bat", "*.vbs", "*.js", "*.tmp")
+| search FilePath matches ".*\\(Temp|AppData|Downloads|Desktop)\\.*"
+| search ParentBaseFileName IN ("chrome.exe", "firefox.exe", "msedge.exe", "brave.exe")
+| stats count, values(TargetFileName) as Files, values(FilePath) as Paths
+    by ComputerName, UserName, ParentBaseFileName, aid
+| sort -count
+> **Analyst note:** No file-system IoCs are confirmed for CVE-2026-13320 [1][4] — these artefacts would only appear if a multi-stage payload were used. Treat as speculative hunting logic pending PoC availability.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — Outbound Traffic to Placeholder Malicious IPs on Web Ports
+
+No confirmed attacker infrastructure is associated with CVE-2026-13320 at this time [1][4]. Replace `x.x.x.x` with any IoCs obtained from threat intel feeds.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and (dst port 80 or dst port 443 or dst port 8080 or dst port 8443) \
+      and dst ip x.x.x.x' \
+  -o "fmt:%ts %sa %da %sp %dp %byt %pkt %fl" \
+  -s record/bytes -n 50
+> **Analyst note:** Substitute `x.x.x.x` with attacker-controlled IPs if/when threat intel becomes available. Scope this query to the subnet(s) where GitLab users' workstations reside to reduce noise.
+
+---
+
+### Query 2 — Anomalous HTTP/S Outbound Volume from GitLab Server Host (XSS Payload Exfil Pattern)
+
+A stored XSS that fires across many sessions could produce a spike in outbound HTTP requests *from the GitLab server itself* if the payload causes server-side callbacks, or from client subnets if client-side callbacks are triggered.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src ip YOUR.GITLAB.SERVER.IP \
+      and (dst port 80 or dst port 443) \
+      and not dst net 10.0.0.0/8 \
+      and not dst net 172.16.0.0/12 \
+      and not dst net 192.168.0.0/16' \
+  -A srcip,dstip,dstport \
+  -s record/flows -n 30 \
+  -o "fmt:%ts %sa %da %dp %byt %pkt"
+> **Analyst note:** Replace `YOUR.GITLAB.SERVER.IP` with your GitLab instance address. Baseline outbound call volume for this host before treating deviations as suspicious. GitLab has legitimate outbound integrations (webhooks, CI runners, object storage) — cross-reference hits against your approved webhook list.
+
+---
+
+### Query 3 — Beaconing Pattern Detection from Client Subnet (Regular-Interval Outbound Flows)
+
+XSS-injected scripts may establish a persistent polling/beacon loop to an attacker host. Detect regular-interval small flows from client subnets to a single external destination.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src net YOUR.CLIENT.SUBNET/24 \
+      and (dst port 443 or dst port 80) \
+      and not dst net 10.0.0.0/8 \
+      and not dst net 172.16.0.0/12 \
+      and not dst net 192.168.0.0/16 \
+      and bytes < 5000' \
+  -A srcip,dstip,dstport \
+  -s record/flows -n 50 \
+  -o "fmt:%ts %sa %da %dp %byt %pkt
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-13320
+# [2] docs.gitlab.com — https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-1-2-released/
+# [3] gitlab.com — https://gitlab.com/gitlab-org/gitlab/-/work_items/604063
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-13320
