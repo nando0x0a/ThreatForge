@@ -1,0 +1,182 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2026-60002
+# Product:   openssh
+# Tags:      [RCE] [HIGH] [T1] [WIDE]
+# Score:     90
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T20:19:32.394932Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **DRAFT — For analyst review before operational use.**
+
+**CVE:** CVE-2026-60002
+**Affected Product:** OpenSSH versions prior to 10.4 / 10.4p1 (all platforms running affected openssh-server or openssh-client packages)
+**Fixed Version:** OpenSSH 10.4 / 10.4p1, released 2026-07-06 [2][3]
+**Urgency:** **Immediate (within 24 hours)** — Priority Tier: CRITICAL. This vulnerability is network-exploitable (AV:N/PR:N/UI:N) with confirmed RCE potential [1], rated CVSS 7.7 HIGH [1], and is only 6 days old with no public PoC currently known. The absence of a PoC does not reduce urgency given the RCE classification and wide exposure of SSH services.
+
+> ⚠️ **SEVERITY NOTE:** The provided CVSS score of 7.7 (HIGH) [1] should be reviewed by the analyst in the context of the AV:N/PR:N/UI:N vector string, which some scoring interpretations place at a higher effective risk than the base score alone reflects. Analysts should verify whether the CNA-published record [4] and NVD [1] are in agreement on the final score before finalising risk acceptance decisions.
+
+**Rollback Risk:**
+- Upgrading OpenSSH may restart the SSH daemon, potentially terminating active sessions. Ensure out-of-band console access (IPMI/iDRAC/KVM) or a secondary access method is available before patching.
+- Configuration file changes between versions (e.g., deprecated directives) may cause `sshd` to fail on restart if `/etc/ssh/sshd_config` contains options removed or renamed in 10.4p1 [2]. Run `sshd -t` to validate config before service restart.
+- To revert: pin the previous package version using `apt-mark hold openssh-server` prior to upgrade, or reinstall the prior version from a local mirror/snapshot. Document the pre-patch version with `dpkg -l | grep openssh` before proceeding.
+- On systems with SELinux/AppArmor profiles scoped to a specific OpenSSH binary hash, the profile may require updating after upgrade.
+
+---
+
+## Ansible Remediation Playbook
+
+> **DRAFT — For analyst review and testing in a non-production environment before deployment.**
+
+---
+- name: "Remediate CVE-2026-60002 on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  become: true
+  vars:
+    cve_id: "CVE-2026-60002"
+    affected_package:
+      - openssh-server
+      - openssh-client
+
+  pre_tasks:
+    - name: "Pre-patch: Record installed OpenSSH version"
+      ansible.builtin.command:
+        cmd: dpkg-query -W -f='${Package} ${Version}\n' openssh-server openssh-client
+      register: pre_patch_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Pre-patch: Log pre-patch version"
+      ansible.builtin.debug:
+        msg: "Pre-patch OpenSSH version on {{ inventory_hostname }}: {{ pre_patch_version.stdout }}"
+
+    - name: "Pre-patch: Validate sshd configuration before upgrade"
+      ansible.builtin.command:
+        cmd: sshd -t
+      register: sshd_config_check
+      changed_when: false
+      failed_when: sshd_config_check.rc != 0
+
+  tasks:
+    - name: "{{ cve_id }} — Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: "{{ cve_id }} — Upgrade openssh-server and openssh-client"
+      ansible.builtin.apt:
+        name: "{{ affected_package }}"
+        state: latest
+        only_upgrade: true
+      register: patch_result
+
+    - name: "{{ cve_id }} — Validate sshd configuration after upgrade"
+      ansible.builtin.command:
+        cmd: sshd -t
+      register: sshd_config_post_check
+      changed_when: false
+      failed_when: sshd_config_post_check.rc != 0
+      when: patch_result.changed
+
+    - name: "{{ cve_id }} — Restart sshd if package was upgraded and config is valid"
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+      when:
+        - patch_result.changed
+        - sshd_config_post_check.rc is defined
+        - sshd_config_post_check.rc == 0
+
+    - name: "Post-patch: Record installed OpenSSH version"
+      ansible.builtin.command:
+        cmd: dpkg-query -W -f='${Package} ${Version}\n' openssh-server openssh-client
+      register: post_patch_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Audit log — {{ cve_id }}"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} remediation run on {{ inventory_hostname }}
+          at {{ ansible_date_time.iso8601 }}.
+          Package changed: {{ patch_result.changed }}.
+          Pre-patch: {{ pre_patch_version.stdout | default('unknown') }}.
+          Post-patch: {{ post_patch_version.stdout | default('unknown') }}.
+
+    - name: "Audit log — Write to file"
+      ansible.builtin.lineinfile:
+        path: /var/log/cve_remediation.log
+        line: >-
+          {{ ansible_date_time.iso8601 }} | {{ cve_id }} |
+          {{ inventory_hostname }} | changed={{ patch_result.changed }} |
+          pre={{ pre_patch_version.stdout | default('unknown') | replace('\n',' ') }} |
+          post={{ post_patch_version.stdout | default('unknown') | replace('\n',' ') }}
+        create: true
+        mode: '0640'
+
+---
+
+## Validation Steps
+
+> **DRAFT — Analyst should adapt version string checks to match the fixed package version available in their distribution's repository.**
+
+1. **Confirm OpenSSH binary version** on the target host:
+   ```bash
+   ssh -V
+   # Expected output should reference OpenSSH_10.4p1 or later [2]
+   
+
+2. **Confirm package version via dpkg:**
+   ```bash
+   dpkg -l | grep -E 'openssh-server|openssh-client'
+   # Verify the installed version reflects a package containing OpenSSH 10.4p1 [2][3]
+   
+
+3. **Verify sshd is running and responsive:**
+   ```bash
+   systemctl status ssh
+   ss -tlnp | grep ':22'
+   
+
+4. **Validate sshd configuration is clean (no deprecated directives introduced by upgrade):**
+   ```bash
+   sshd -t && echo "Config OK"
+   
+
+5. **Test SSH connectivity** from a control node before closing out-of-band access:
+   ```bash
+   ssh -o ConnectTimeout=5 <target_host> echo "SSH OK"
+   
+
+6. **Review audit log** on each target:
+   ```bash
+   grep CVE-2026-60002 /var/log/cve_remediation.log
+   
+
+7. **Confirm no active sessions were unintentionally terminated** by reviewing `/var/log/auth.log` for unexpected disconnections around the time of the service restart.
+
+---
+
+## Dry Run Command
+
+ansible-playbook remediate_CVE-2026-60002.yml --check --diff -i inventory.ini
+
+> **Note:** The `--check` flag will not execute the `sshd -t` validation or service restart in dry-run mode. Analysts should run a full execution against a single non-production host first, using `--limit` to scope the run, before broad deployment:
+>
+> 
+> ansible-playbook remediate_CVE-2026-60002.yml -i inventory.ini --limit test_host_01
+> 
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-60002
+# [2] www.openssh.org — https://www.openssh.org/releasenotes.html#10.4p1
+# [3] www.openwall.com — https://www.openwall.com/lists/oss-security/2026/07/06/5
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-60002
