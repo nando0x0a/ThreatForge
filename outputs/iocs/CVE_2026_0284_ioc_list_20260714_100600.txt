@@ -1,0 +1,106 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-0284
+# Product:   pan-os
+# Tags:      [RCE] [CRIT]
+# Score:     70
+# Tier:      HIGH PRIORITY
+# SEVERITY DISCREPANCY: NVD/vulnx says 9.9 (CRITICAL) — CVE.org (CNA, v4.0) says 4.7 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-0284
+# Generated: 2026-07-14T10:06:00.728153Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-0284
+# Generated: 2025-07-14
+# Confidence: See per-indicator and Notes sections
+# ⚠️ DRAFT FOR ANALYST REVIEW — All indicators require validation before operationalisation
+
+---
+
+## ⚠️ SEVERITY DISCREPANCY — ANALYST ATTENTION REQUIRED
+
+A significant scoring disagreement exists between sources and must be adjudicated before prioritisation decisions are finalised:
+
+- **[1] NVD: CVSS 9.9 (CRITICAL)** — The score provided in the submission header and NVD record.
+- **[3] CVE.org (CNA-published, CVSS v4.0): 4.7 (MEDIUM)** — The vendor-assigned score using the newer CVSS v4.0 methodology.
+- **[2] Palo Alto Networks advisory** assigns an internal urgency of **MODERATE** with a severity of **4.7 MEDIUM**, consistent with [3], and notes exploit maturity as **UNREPORTED**.
+
+The NVD score [1] may reflect CVSS v3.x environmental assumptions (AV:N/PR:N/UI:N) that inflate base score. The CNA/vendor score [3] using CVSS v4.0 with contextual factors (Recovery: AUTOMATIC, Response Effort: MODERATE) produces a materially lower result. **Analysts should not rely solely on the 9.9 CRITICAL figure** without understanding this methodological divergence. The assigned priority tier of HIGH PRIORITY and [RCE] tag should also be validated against the vendor's own MODERATE urgency rating [2].
+
+---
+
+## Network Indicators
+
+# No specific attacker infrastructure IPs are available from the provided context.
+# See Observable Behaviour Patterns below.
+
+## Domain Indicators
+
+# No malicious domains associated with active exploitation identified from provided context.
+# Exploit maturity is listed as UNREPORTED [2]; no known campaigns at time of generation.
+
+## URL Indicators
+
+# No specific exploit URLs identified from provided context.
+
+## File Indicators
+
+# No payload hashes, dropper samples, or associated malware identified from provided context.
+# CVE is 3 days old [1] and exploit maturity is UNREPORTED [2].
+
+## User-Agent Indicators
+
+# No specific malicious User-Agent strings identified.
+# Generic XML injection probing may use standard HTTP clients (curl, Python-requests, etc.)
+# — insufficient specificity to assert as a reliable IoC without further OSINT.
+
+## URI Path Indicators
+
+# Confidence: LOW — Inferred from vulnerability class; NOT confirmed from advisory [2] or public PoC.
+
+URI: /ssl-vpn/         # LSVPN portal endpoint family — PAN-OS LSVPN commonly exposed here; verify against your deployment
+URI: /global-protect/  # Adjacent GP endpoint family — may share processing pipeline; analyst verification required
+URI: /api/             # PAN-OS XML API endpoint — XML injection class vulnerabilities frequently target this surface [2]
+
+*These URIs are inferred from general PAN-OS architecture knowledge and the LSVPN attack surface described in [2]. They are NOT confirmed exploit paths from the advisory or a public PoC. Label confidence: LOW. Do not treat as confirmed indicators.*
+
+---
+
+## Notes
+
+### Indicator Availability
+No specific, confirmed IoCs (IPs, domains, hashes, User-Agents, or exploit URIs) are derivable from the provided context. The vulnerability is **3 days old** [1], exploit maturity is **UNREPORTED** [2], and no CISA KEV entry is referenced. This is consistent with a pre-exploitation or zero-day window where attacker infrastructure has not yet been observed or attributed.
+
+### Observable Behaviour Patterns (for detection hypothesis generation)
+In the absence of confirmed IoCs, the following behavioural patterns are appropriate hunting hypotheses for blue teams, based on the XML injection vulnerability class in LSVPN [2]:
+
+1. **Malformed XML in LSVPN authentication or registration requests** — unexpected XML special characters (`<`, `>`, `&`, `"`, `'`, CDATA blocks) in fields not expected to contain markup, particularly in unauthenticated request paths.
+2. **Anomalous LSVPN satellite registration attempts** — unexpected source IPs attempting satellite registration against the GlobalProtect/LSVPN portal, particularly at high volume or from non-expected geographic regions.
+3. **Configuration or data state changes following unauthenticated requests** — data corruption impact [2] may manifest as unexpected modification to VPN peer configuration, routing tables, or certificate stores. Monitor for unauthorised config diffs.
+4. **Information disclosure patterns** — unexpected data in LSVPN responses (e.g., out-of-band XML entity responses, error messages containing internal path or configuration data).
+5. **Elevated XML parser errors in PAN-OS logs** — review `system` and `traffic` logs for XML parsing exceptions correlated with LSVPN daemon activity.
+
+### Confidence Assessment
+| Indicator Type | Confidence | Rationale |
+|---|---|---|
+| Network IPs | NONE | No observed attacker infrastructure [1][2][3] |
+| Domains | NONE | No campaign activity observed |
+| File Hashes | NONE | No samples; exploit maturity UNREPORTED [2] |
+| URI Paths | LOW | Inferred, not confirmed from advisory |
+| Behaviour Patterns | MEDIUM | Consistent with XML injection class on described attack surface [2] |
+
+### Recommended Analyst Actions
+- Monitor Palo Alto Networks security advisory [2] for updates to exploit maturity status.
+- Cross-reference with threat intel feeds for emerging PoC activity given the CRITICAL NVD score [1] attracting researcher attention.
+- Resolve the CVSS discrepancy between [1] and [3] before finalising risk acceptance posture.
+- Apply vendor mitigations per [2] regardless of current exploit maturity, given unauthenticated network attack vector.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0284
+[2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0284
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0284
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0284
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0284
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0284
