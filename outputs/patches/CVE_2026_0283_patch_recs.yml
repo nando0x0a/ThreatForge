@@ -1,0 +1,139 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2026-0283
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# SEVERITY DISCREPANCY: NVD/vulnx says 7.2 (HIGH) — CVE.org (CNA, v4.0) says 4.5 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-0283
+# Generated: 2026-07-14T20:29:49.538179Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **DRAFT — For analyst review before operationalisation.**
+
+**CVE:** CVE-2026-0283
+
+**Affected Product:** Palo Alto Networks PAN-OS — specific affected version ranges are not confirmed in the available source material. Analyst should consult the vendor advisory directly [2] to identify affected PAN-OS branches before proceeding.
+
+**Fixed Version:** Not explicitly stated in the provided advisory context [2]. The Palo Alto Networks security advisory at [2] should be consulted for the authoritative fixed-version list. Do not assume a fixed version without vendor confirmation.
+
+**Urgency:** Within 7 days (HIGH PRIORITY tier). Note: see severity discrepancy discussion below — urgency should be reassessed by the analyst after resolving the score conflict.
+
+**⚠️ SEVERITY DISCREPANCY — Analyst Action Required:**
+There is a meaningful disagreement between scoring sources that must be resolved before finalising patch urgency:
+- **NVD [1]** scores this CVE at **CVSS 7.2 (HIGH)**
+- **CVE.org CNA-published record [3]** scores this at **CVSS v4.0 4.5 (MEDIUM)**
+
+The CNA score (from the authoritative issuing party, likely Palo Alto Networks) rates it MEDIUM with exploit maturity listed as UNREPORTED [2] and response effort MODERATE [2]. The NVD HIGH score may reflect base vector scoring without exploitability refinement. Analysts should weigh the CNA's own assessment [3] alongside NVD [1] and determine the applicable urgency tier for their environment. The HIGH PRIORITY tier applied here is derived from the NVD score [1] combined with the RCE vector flag.
+
+**Rollback Risk:**
+- PAN-OS is a proprietary network operating system running on Palo Alto hardware and VM-series appliances. It is **not managed via `apt`** (see playbook caveat below).
+- Upgrading PAN-OS carries the following rollback considerations:
+  - Configuration compatibility: PAN-OS upgrades may introduce schema changes that prevent downgrade without a configuration restore.
+  - LSVPN tunnel disruption: Upgrading the GlobalProtect/LSVPN gateway will drop active site-to-site VPN sessions during the restart window.
+  - Revert path: PAN-OS supports image rollback via the web UI (Device > Software) or CLI (`request system software install version=<previous>`) if the prior image is retained on disk. Verify the previous image is present before upgrading.
+  - Maintenance window recommended; schedule during low-traffic period for LSVPN-dependent sites.
+
+---
+
+## Ansible Remediation Playbook
+
+> **⚠️ IMPORTANT CAVEAT — Analyst review required before use:**
+> PAN-OS is a **proprietary Palo Alto Networks operating system** and is **not a Linux `apt`-managed package**. The `apt` module in the template below is **not applicable** to PAN-OS remediation. PAN-OS patching is performed via the PAN-OS REST API, Panorama, or the device CLI/web UI. The playbook below has been adapted to use the `uri` module to trigger a software download and install via the PAN-OS XML API as a closer approximation. **This playbook is a draft scaffold only — it requires analyst validation, API key provisioning, and confirmation of the target version string before any use.**
+
+---
+# DRAFT — For analyst review before use.
+# CVE: CVE-2026-0283
+# PAN-OS Authentication Bypass in LSVPN
+# NVD CVSS: 7.2 HIGH [1] | CNA CVSS v4.0: 4.5 MEDIUM [3]
+# SEVERITY DISCREPANCY: Analyst must resolve before setting urgency. See [1] and [3].
+# PAN-OS is NOT an apt-managed system. This playbook uses the PAN-OS XML API.
+# Requires: API key with admin privileges, network access to device management interface.
+# Target PAN-OS fixed version must be confirmed from vendor advisory [2] before use.
+
+- name: "Remediate CVE-2026-0283 — PAN-OS LSVPN Auth Bypass on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  gather_facts: false
+
+  vars:
+    cve_id: "CVE-2026-0283"
+    affected_product: "Palo Alto Networks PAN-OS (LSVPN)"
+    # REQUIRED: Set target_version to the vendor-confirmed fixed version from [2]
+    # DO NOT populate this value without consulting the advisory at [2]
+    target_version: "UNSET — confirm from https://security.paloaltonetworks.com/CVE-2026-0283"
+    # REQUIRED: Provide API key via vault or extra-vars — never hardcode
+    panos_api_key: "{{ vault_panos_api_key }}"
+    panos_mgmt_host: "{{ inventory_hostname }}"
+    panos_api_base: "https://{{ panos_mgmt_host }}/api"
+    validate_certs: true   # Set to false only in lab environments — never in production
+
+  tasks:
+
+    - name: "Pre-flight — Abort if target_version is not set"
+      ansible.builtin.fail:
+        msg: >
+          target_version is not set. You must confirm the fixed PAN-OS version
+          from the vendor advisory at https://security.paloaltonetworks.com/CVE-2026-0283
+          before running this playbook. Aborting.
+      when: target_version | regex_search('^UNSET')
+
+    - name: "Pre-flight — Retrieve current PAN-OS version via XML API"
+      ansible.builtin.uri:
+        url: "{{ panos_api_base }}/?type=version&key={{ panos_api_key }}"
+        method: GET
+        validate_certs: "{{ validate_certs }}"
+        return_content: true
+      register: current_version_response
+      no_log: true   # Suppress API key from logs
+
+    - name: "Pre-flight — Display current version response (sanitised)"
+      ansible.builtin.debug:
+        msg: "Current version API response received. Analyst should verify version string manually before proceeding."
+
+    - name: "Initiate PAN-OS software download for fixed version"
+      ansible.builtin.uri:
+        url: "{{ panos_api_base }}/?type=op&cmd=<request><system><software><download><version>{{ target_version }}</version></download></software></system></request>&key={{ panos_api_key }}"
+        method: GET
+        validate_certs: "{{ validate_certs }}"
+        return_content: true
+        timeout: 60
+      register: download_result
+      no_log: true
+      # NOTE: Download is asynchronous on PAN-OS. A production-grade playbook should
+      # poll job status via the jobs API before proceeding to install.
+
+    - name: "Pause — Allow software download to complete (adjust delay as needed)"
+      ansible.builtin.pause:
+        minutes: 10
+        prompt: >
+          Waiting for PAN-OS software download to complete on {{ inventory_hostname }}.
+          Monitor download progress in the device UI (Device > Software) before continuing.
+          Press ENTER to proceed to install, or Ctrl+C to abort.
+
+    - name: "Initiate PAN-OS software install for fixed version"
+      ansible.builtin.uri:
+        url: "{{ panos_api_base }}/?type=op&cmd=<request><system><software><install><version>{{ target_version }}</version></install></software></system></request>&key={{ panos_api_key }}"
+        method: GET
+        validate_certs: "{{ validate_certs }}"
+        return_content: true
+        timeout: 60
+      register: install_result
+      no_log: true
+
+    - name: "Pause — Allow software install to complete before reboot"
+      ansible.builtin.pause:
+        minutes: 5
+        prompt: >
+          Waiting for PAN-OS software install to complete on {{ inventory_hostname }}.
+          Verify install status in device UI before continuing to reboot.
+          Press ENTER to proceed to reboot, or Ctrl+C to abort.
+
+    - name: "Reboot device to activate new PAN-OS version"
+      ansible.builtin.uri:
+        url: "{{
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0283
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0283
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0283
