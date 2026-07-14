@@ -1,0 +1,30 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-54765
+# Product:   kubernetes
+# Tags:      [HIGH] [WIDE]
+# Score:     30
+# Tier:      MONITOR
+# SEVERITY DISCREPANCY: NVD/vulnx says 8.5 (HIGH) — CVE.org (CNA, v4.0) says 6.3 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-54765
+# Generated: 2026-07-14T11:02:40.769780Z
+# Status:    OK
+# ---
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-54765 Traefik Kubernetes Gateway API HTTPRoute cross-namespace access control bypass attempt";
+  flow:established,to_server;
+  http.method; content:"POST";
+  http.uri; content:"/apis/gateway.networking.k8s.io/"; nocase;
+  http.uri; content:"httproutes"; nocase; distance:0;
+  http.request_body; content:"backendRefs"; nocase;
+  http.request_body; content:"namespace"; nocase; distance:0;
+  http.request_body; content:"filters"; nocase; distance:0;
+  pcre:"/\"namespace\"\s*:\s*\"[^\"]+\"/i";
+  threshold:type limit, track by_src, count 5, seconds 60;
+  reference:cve,2026-54765;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:attempted-admin; sid:9000100; rev:1; )
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-54765
+# [2] github.com — https://github.com/traefik/traefik/security/advisories/GHSA-6p8f-p8j2-rqmv
+# [3] github.com — https://github.com/traefik/traefik/commit/8aada7a7d52e4588a75386d8b86d270f6fe8d549
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-54765
