@@ -1,0 +1,103 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-10698
+# Product:   moveit
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# Generated: 2026-07-14T20:58:26.830530Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-10698
+# Generated: 2025-07-15
+# Confidence: See per-section notes
+# DRAFT — Proposed for analyst review. All indicators require validation before operational use.
+
+---
+
+## Network Indicators
+*No specific malicious IPs identified in available sources. No CISA KEV entry observed for this CVE at time of generation. No threat actor infrastructure has been attributed in current reporting.*
+
+---
+
+## Domain Indicators
+*No malicious domains identified in available sources.*
+
+---
+
+## URL Indicators
+*No specific exploit URLs identified. No public PoC is known at this time.*
+
+---
+
+## File Indicators
+*No malicious file hashes are available from current sources. No exploit payloads have been observed or published.*
+
+---
+
+## User-Agent Indicators
+*No attacker user-agent strings have been identified in current reporting.*
+
+---
+
+## URI Path Indicators
+
+**Confidence: MEDIUM** — Derived from vulnerability description; these are the logical attack surface endpoints, not confirmed observed exploitation paths.
+
+URI: /moveitisapi/moveitisapi.dll   # MOVEit Transfer primary API handler (historical attack surface)
+URI: /api/v1/reports/               # Custom Reports API module — described as the vulnerable component [1][2]
+URI: /api/v1/reports/custom         # Custom Reports query endpoint — SQL injection surface per advisory [2]
+URI: /human.aspx                    # MOVEit Transfer web UI endpoint (authentication boundary)
+URI: /guestaccess.aspx              # MOVEit Transfer guest access endpoint
+
+> **Analyst Note:** The advisory identifies the Custom Reports module as the locus of the SQL injection [2]. Exact endpoint paths for the Custom Reports module are not explicitly documented in available advisory text due to advisory page rendering issues in the provided context [2]. The URI patterns above represent the known MOVEit Transfer REST API structure; analyst should confirm exact paths against internal MOVEit Transfer API documentation or server logs.
+
+---
+
+## Notes
+
+### Vulnerability Context
+- **CVE:** CVE-2026-10698
+- **Affected Product:** Progress MOVEit Transfer versions 2025.0.0–2025.0.7, 2025.1.0–2025.1.3, 2026.0.0 [1][2][3]
+- **Vulnerability Class:** SQL injection via improper neutralization of special elements in Custom Reports module data query logic [1][3]
+- **CVSS Score:** 7.2 HIGH [1]
+- **PoC Status:** No public proof-of-concept known at time of generation. Exploitation complexity may be lower once PoC becomes available given the nature of SQL injection classes.
+- **KEV Status:** Not listed in CISA KEV at time of generation.
+- **Age:** 6 days old — early in disclosure lifecycle; IoC availability is expected to be limited.
+
+### Observable Behaviour Patterns (in absence of specific IoCs)
+
+Since no confirmed exploitation IoCs are available, analysts should monitor for the following behavioural patterns in MOVEit Transfer logs and network telemetry:
+
+1. **Anomalous SQL metacharacter sequences** in HTTP request parameters destined for Custom Reports endpoints — look for characters/sequences such as `'`, `--`, `;`, `UNION SELECT`, `OR 1=1`, `WAITFOR DELAY`, `SLEEP()`, `xp_cmdshell` in URL parameters or POST body data.
+
+2. **Unusual query response timing** from the MOVEit Transfer application server that may indicate time-based blind SQL injection attempts (e.g., repeated requests with abnormal latency spikes).
+
+3. **Elevated or unexpected database query volumes** originating from the Custom Reports module, visible in database audit logs.
+
+4. **Authentication anomalies:** CVSS 7.2 may imply authenticated access is required [1]; watch for credential stuffing, unusual account enumeration, or access from unexpected geolocations prior to Custom Reports access.
+
+5. **Bulk data exfiltration patterns:** SQL injection in a file transfer platform is high-risk for data theft — monitor for unusual data egress volumes from the MOVEit Transfer host.
+
+6. **Requests from scanning infrastructure** to Custom Reports endpoints, particularly from known vulnerability scanner ASNs, given the 6-day age of this disclosure.
+
+### Confidence Summary
+| Indicator Type | Confidence | Basis |
+|---|---|---|
+| Network / Domain / File / UA | NONE | No data in available sources |
+| URI Paths | MEDIUM | Inferred from vulnerability description and product knowledge |
+| Behavioural Patterns | MEDIUM | Standard SQL injection TTPs applied to described attack surface |
+
+### Priority Context
+This vulnerability is rated STANDARD priority (score: 40) with tags HIGH and T1 [priority metadata]. While the CVSS is 7.2 HIGH [1], absence of KEV listing and no known PoC at this time supports a monitored-but-not-emergency posture. Reassess if PoC becomes public or KEV listing occurs.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10698
+[2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10698
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10698
+# [2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10698
