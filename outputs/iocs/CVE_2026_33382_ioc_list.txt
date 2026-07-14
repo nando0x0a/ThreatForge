@@ -1,0 +1,105 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-33382
+# Product:   grafana
+# Tags:      [RCE] [HIGH]
+# Score:     60
+# Tier:      STANDARD
+# Generated: 2026-07-14T20:42:02.931228Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-33382
+# Generated: 2025-07-15
+# Confidence: See per-indicator ratings below
+
+> **ANALYST REVIEW REQUIRED — This is a proposed draft for analyst review.**
+> CVE-2026-33382 is 3 days old [1]. No public proof-of-concept is known at this time.
+> IoCs below are **inferred from vulnerability mechanics** described in the advisory [2], not observed from active exploitation campaigns. Confidence is accordingly LOW-to-MEDIUM until active exploitation is confirmed.
+
+---
+
+## Network Indicators
+# No specific attacker IPs available from provided context.
+# No CISA KEV entry referenced in provided context.
+
+---
+
+## Domain Indicators
+# No malicious domains identified from provided context.
+
+---
+
+## URL Indicators
+# Specific vulnerable API endpoint paths were not disclosed in the available advisory context [2].
+# The advisory references Grafana's web.Bind request body handling as the affected component [2].
+# The following are inferred candidate paths based on common Grafana API surface — LOW CONFIDENCE, analyst verification required:
+
+URL: /api/ds/query                   # Grafana data source query endpoint — commonly unauthenticated-accessible
+URL: /api/dashboards/import          # Dashboard import endpoint — accepts large JSON bodies
+URL: /api/snapshots                  # Snapshot creation endpoint — accepts arbitrary body content
+URL: /api/login                      # Authentication endpoint — unauthenticated, body-parsed via web.Bind [2]
+URL: /api/user/password/send-reset-email  # Unauthenticated body-consuming endpoint
+
+# ⚠️ ANALYST NOTE: These paths are INFERRED from Grafana's known API surface and the advisory's
+# reference to "several API endpoints" using web.Bind [2]. They are NOT confirmed vulnerable paths
+# from the advisory. Do not treat as authoritative without vendor confirmation.
+
+---
+
+## File Indicators
+# No malicious files, patches, or exploit artifacts identified from provided context.
+# No hashes available.
+
+---
+
+## User-Agent Indicators
+# No specific user-agent strings associated with exploitation identified.
+# Generic large-payload HTTP tooling (curl, Python requests, wrk, etc.) would produce no distinctive UA.
+
+UA: # NONE — exploitation requires only a large HTTP request body, no specialised tooling UA expected [2]
+
+---
+
+## URI Path Indicators
+URI: /api/ds/query                        # Inferred — unauthenticated data source query, body-parsed [2] — LOW CONFIDENCE
+URI: /api/dashboards/import               # Inferred — large JSON body accepted — LOW CONFIDENCE
+URI: /api/snapshots                       # Inferred — unauthenticated snapshot endpoint — LOW CONFIDENCE
+URI: /api/login                           # Inferred — unauthenticated login body parsing — LOW CONFIDENCE
+
+---
+
+## Observable Behaviour Patterns
+> Given the absence of confirmed IoCs, analysts should hunt for the following behavioural patterns:
+
+1. **Abnormally large HTTP POST/PUT request bodies** to Grafana API endpoints — requests significantly exceeding normal operational size (e.g., >10 MB, >50 MB) from a single source within a short window.
+
+2. **Unauthenticated requests to Grafana API paths** — exploitation requires no authentication [1][2]; look for API calls to `/api/*` paths with no valid session token or API key.
+
+3. **Grafana process memory exhaustion** — monitor `grafana-server` process RSS/VSZ growth correlated with inbound HTTP traffic spikes.
+
+4. **HTTP 500 / OOM-related errors in Grafana logs** — repeated server errors or process restarts following large inbound requests.
+
+5. **Single-source high-volume large-payload requests** — DoS via memory exhaustion typically manifests as a small number of source IPs sending very large bodies in rapid succession.
+
+6. **Absence of `Content-Length` limiting or chunked transfer encoding abuse** — check WAF/proxy logs for requests without a declared Content-Length or with abnormally large declared sizes.
+
+---
+
+## Notes
+
+- **Confidence Assessment:** ALL URI and URL indicators above are LOW CONFIDENCE — inferred from vulnerability mechanics, not confirmed by vendor advisory [2] or NVD [1]. The advisory context retrieved was incomplete (JavaScript rendering artefacts present in the advisory text [2]).
+- **No PoC available:** No public proof-of-concept is known, reducing likelihood of opportunistic mass exploitation at this time.
+- **CVSS 7.5 HIGH, AV:N/PR:N/UI:N** [1] — network-exploitable with no authentication or user interaction required makes this a credible risk for internet-exposed Grafana instances.
+- **RCE tag noted:** The priority metadata tags this [RCE]; however, the vulnerability description and CVSS vector describe a **Denial of Service** via memory exhaustion, not code execution. **Analyst should verify whether an RCE vector exists** — this may be a metadata tagging error or an undisclosed secondary impact.
+- This IoC list should be refreshed as threat intelligence matures and if the vendor publishes specific affected endpoint details [2].
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-33382
+[2] grafana.com — https://grafana.com/security/security-advisories/cve-2026-33382
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-33382
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-33382
+# [2] grafana.com — https://grafana.com/security/security-advisories/cve-2026-33382
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-33382
