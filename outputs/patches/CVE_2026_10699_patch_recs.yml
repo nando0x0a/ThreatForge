@@ -1,0 +1,171 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2026-10699
+# Product:   moveit
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# Generated: 2026-07-14T20:40:08.043653Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **⚠️ DRAFT — For analyst review before operational use.**
+
+**CVE:** CVE-2026-10699
+**Affected Product:** Progress MOVEit Transfer — versions 2025.0.0 before 2025.0.8, 2025.1.0 before 2025.1.4, and 2026.0.0 before 2026.0.1 [1][2]
+**Fixed Version:** 2025.0.8, 2025.1.4, or 2026.0.1 (apply the fixed release corresponding to your current branch) [2]
+**Urgency:** Within 24 hours — Priority Tier: HIGH PRIORITY [1]. This vulnerability is network-exploitable with no privileges required (AV:N/PR:N/UI:N) and is flagged RCE-capable at CVSS 7.5 HIGH [1]. Although no public PoC is currently known, the attack surface is broad and the vulnerability is only 6 days old.
+**Rollback Risk:**
+- MOVEit Transfer upgrades may alter database schema; consult Progress rollback documentation before applying [2].
+- Custom Reports module configurations may need re-validation post-upgrade.
+- Recommended: snapshot/backup the MOVEit Transfer host and database prior to patching.
+- Revert path: restore from pre-patch snapshot and contact Progress Support via the advisory portal [2].
+
+> **⚠️ IMPORTANT DEPLOYMENT NOTE:** Progress MOVEit Transfer is a Windows-based application distributed as a vendor installer (`.exe`/`.msi`), not a Linux apt package [2]. The Ansible playbook below uses the `win_package` module appropriate for Windows targets. **Do not use the `apt` module for this product.** The playbook below is a draft and must be reviewed and adapted by an analyst familiar with your MOVEit deployment topology before execution.
+
+---
+
+## Ansible Remediation Playbook
+
+---
+# DRAFT — Analyst review required before operational use.
+# CVE-2026-10699 — Progress MOVEit Transfer Memory Release Vulnerability
+# Target OS: Windows Server (MOVEit Transfer is a Windows application)
+# Adjust installer_path, installer_url, and service names to match your environment.
+
+- name: "Remediate CVE-2026-10699 on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  gather_facts: true
+
+  vars:
+    cve_id: "CVE-2026-10699"
+    affected_package: "MOVEit Transfer"
+    # ANALYST: Set the fixed version matching your branch (2025.0.8, 2025.1.4, or 2026.0.1)
+    fixed_version: "2026.0.1"
+    # ANALYST: Update installer_url to the authenticated Progress download URL for your branch
+    installer_url: "https://REPLACE_WITH_PROGRESS_DOWNLOAD_URL/MOVEitTransfer-{{ fixed_version }}.exe"
+    installer_dest: "C:\\Temp\\MOVEitTransfer-{{ fixed_version }}.exe"
+    # ANALYST: Verify service name(s) in your environment with: Get-Service | Where-Object {$_.DisplayName -like "*MOVEit*"}
+    moveit_services:
+      - "MOVEit DMZ"
+      - "MOVEit Transfer"
+
+  tasks:
+
+    - name: "Assert target OS is Windows"
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Windows"
+        fail_msg: >
+          CVE-2026-10699 remediation requires a Windows target.
+          This host reported os_family={{ ansible_os_family }}. Aborting.
+
+    - name: "Ensure staging directory exists"
+      ansible.windows.win_file:
+        path: "C:\\Temp"
+        state: directory
+
+    - name: "Download MOVEit Transfer {{ fixed_version }} installer"
+      ansible.windows.win_get_url:
+        url: "{{ installer_url }}"
+        dest: "{{ installer_dest }}"
+        # ANALYST: Add checksum once Progress publishes hash for fixed installer
+        # checksum: "sha256:REPLACE_WITH_SHA256"
+        # checksum_algorithm: sha256
+      register: download_result
+
+    - name: "Stop MOVEit Transfer services before upgrade"
+      ansible.windows.win_service:
+        name: "{{ item }}"
+        state: stopped
+        force_dependent_services: true
+      loop: "{{ moveit_services }}"
+      # ANALYST: Remove services from list that do not exist in your environment
+      ignore_errors: true
+      register: service_stop_result
+
+    - name: "Run MOVEit Transfer silent upgrade"
+      ansible.windows.win_package:
+        path: "{{ installer_dest }}"
+        # ANALYST: Verify silent install arguments with Progress documentation for your version
+        arguments: "/quiet /norestart"
+        state: present
+      register: patch_result
+
+    - name: "Start MOVEit Transfer services post-upgrade"
+      ansible.windows.win_service:
+        name: "{{ item }}"
+        state: started
+        start_mode: auto
+      loop: "{{ moveit_services }}"
+      when: patch_result.changed
+      ignore_errors: true
+
+    - name: "Audit log — patch applied"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} remediation attempted on {{ inventory_hostname }}
+          at {{ ansible_date_time.iso8601 }}.
+          Installer changed: {{ patch_result.changed }}.
+          Fixed version targeted: {{ fixed_version }}.
+
+    - name: "Write audit record to local log"
+      ansible.windows.win_lineinfile:
+        path: "C:\\Temp\\cve_patch_audit.log"
+        line: >
+          {{ ansible_date_time.iso8601 }} | {{ cve_id }} |
+          host={{ inventory_hostname }} | version={{ fixed_version }} |
+          changed={{ patch_result.changed }}
+        create: true
+
+---
+
+## Validation Steps
+
+> **DRAFT — Validate each step in a test environment before production use.**
+
+**1. Verify installed version (Windows Registry / About page):**
+# Run on patched host
+Get-ItemProperty -Path "HKLM:\SOFTWARE\Progress\MOVEit Transfer" |
+  Select-Object -Property DisplayVersion, InstallDate
+Confirm `DisplayVersion` reflects `2025.0.8`, `2025.1.4`, or `2026.0.1` depending on your branch [2].
+
+**2. Verify MOVEit Transfer services are running:**
+Get-Service | Where-Object { $_.DisplayName -like "*MOVEit*" } |
+  Select-Object Name, Status, StartType
+All listed services should show `Running`.
+
+**3. Functional smoke test:**
+- Log into the MOVEit Transfer web interface and confirm the application loads.
+- Navigate to **Custom Reports** module and confirm it is accessible without errors — this is the affected module per the vulnerability description [1][2].
+- Attempt a basic file transfer to confirm core functionality is intact.
+
+**4. Review application event logs for errors post-patch:**
+Get-WinEvent -LogName Application -MaxEvents 50 |
+  Where-Object { $_.ProviderName -like "*MOVEit*" } |
+  Select-Object TimeCreated, LevelDisplayName, Message
+
+**5. Confirm no memory-release errors in MOVEit logs:**
+- Check MOVEit Transfer application logs (typically `C:\MOVEitTransfer\Logs\`) for any CWE-401 (missing release of memory) related errors.
+
+**6. Cross-check with NVD and Progress advisory that the installed version is confirmed fixed [1][2].**
+
+---
+
+## Dry Run Command
+
+ansible-playbook remediate_CVE-2026-10699.yml --check --diff -i inventory.ini
+
+> **Note:** `--check` mode with `win_package` may not fully simulate installer behavior. Review Ansible Windows collection documentation for check-mode limitations before relying on dry-run output.
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10699
+[2] community.progress.com — https://community
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10699
+# [2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10699
