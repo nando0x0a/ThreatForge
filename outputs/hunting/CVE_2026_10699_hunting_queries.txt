@@ -1,0 +1,115 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-10699
+# Product:   moveit
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# Generated: 2026-07-14T20:39:30.525621Z
+# Status:    OK
+# ---
+
+> **⚠️ ANALYST REVIEW REQUIRED — DRAFT OUTPUT**
+> All queries below are proposed drafts based on available CVE metadata and advisory context. No specific threat-actor IoCs or confirmed attacker infrastructure have been observed for CVE-2026-10699 at time of writing. Placeholder values are used where specific IoCs are unavailable. Validate all queries against your environment before operational use.
+
+---
+
+# Threat Hunting Package — CVE-2026-10699
+**Progress MOVEit Transfer — Custom Reports Memory Release Vulnerability**
+**Priority Tier:** HIGH PRIORITY | **Tags:** [RCE] [HIGH] [T1]
+**CVE Age:** 6 days | **CVSS:** 7.5 HIGH [1] | **PoC:** None publicly known
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Inbound Network Connections to MOVEit Transfer Service Ports (Unauthenticated Context)
+Targets unauthenticated, network-originated connections (AV:N/PR:N/UI:N) [1] to MOVEit Transfer's default HTTP/HTTPS and SFTP ports. Flag high-frequency or novel-source connections to the Custom Reports endpoint path as a baseline anomaly.
+
+event_simpleName=NetworkConnectIP4
+| search LocalPort IN ("80", "443", "22", "990")
+| search ComputerName="*moveit*" OR aid IN (/* MOVEit host AIDs — populate from asset inventory */)
+| stats count, dc(RemoteIP) as unique_sources, values(RemoteIP) as source_ips by ComputerName, LocalPort, timestamp
+| where count > 50
+| sort -count
+> **Note:** No confirmed attacker IPs are available for this CVE [1][2]. Replace the ComputerName filter with your organisation's MOVEit hostnames or CrowdStrike AIDs. Threshold of 50 is a starting baseline — tune to your environment's normal traffic volume.
+
+---
+
+### Query 2 — Anomalous Child Process Spawning from MOVEit Transfer Service Process
+Targets post-exploitation process execution patterns. A successful memory-release/DoS exploit [1][2] or any chained RCE attempt may manifest as unexpected child processes spawned by the MOVEit service worker (typically running as `moveitsvc` or under IIS/w3wp.exe on Windows).
+
+event_simpleName=ProcessRollup2
+| search ParentBaseFileName IN ("w3wp.exe", "MOVEitDMZ.exe", "moveitsvc.exe")
+| search FileName NOT IN ("conhost.exe", "WerFault.exe", "MOVEitDMZ.exe", "sihost.exe")
+| stats count, values(CommandLine) as cmd_lines, values(UserName) as users by ComputerName, ParentBaseFileName, FileName, SHA256HashData
+| where count < 5
+| sort +count
+> **Note:** Low-count filter (`count < 5`) surfaces rare/novel child processes consistent with first-stage post-exploitation. Review `cmd_lines` for encoded commands, LOLBin usage (certutil, powershell, cmd /c), or network utility invocations. SHA256HashData should be submitted for reputation lookup.
+
+---
+
+### Query 3 — File System Artefact — Suspicious Writes to MOVEit Working or Web Directories
+Targets web shell drops or staging file writes to MOVEit's web root or temp directories following exploitation of the Custom Reports module [2].
+
+event_simpleName=AsepValueSet OR event_simpleName=NewExecutableWritten OR event_simpleName=PeFileWritten
+| search TargetFileName MATCHES ".*MOVEitDMZ.*|.*moveit.*|.*inetpub.*wwwroot.*"
+| search TargetFileName MATCHES ".*\.(aspx|asp|ashx|php|jsp|config|ps1|bat|cmd|exe|dll)$"
+| stats count, values(TargetFileName) as written_files, values(UserName) as writing_users by ComputerName, ImageFileName, SHA256HashData
+| sort -count
+> **Note:** MOVEit Transfer is typically Windows/IIS-hosted [2]. Adjust path patterns for your deployment's install directory. Any `.aspx` or `.ashx` write by a service account or web worker process warrants immediate escalation regardless of count.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — High-Volume Inbound Traffic to MOVEit Transfer HTTPS Port (Potential DoS / Exploit Flood)
+The vulnerability is network-exploitable with no privileges required [1]. A DoS attempt may appear as a flood of connections to port 443 (or 80) targeting the MOVEit host.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port 443 and dst ip x.x.x.x' \
+  -A srcip,dstip,dstport \
+  -s record/flows -n 50 \
+  -o 'fmt:%ts %te %sa %da %dp %pkt %byt %fl'
+> **Note:** Replace `x.x.x.x` with your MOVEit Transfer server's IP. Also run against port 80 and SFTP port 22/990 as appropriate for your deployment. Flag any single source IP generating >500 flows/minute.
+
+---
+
+### Query 2 — Traffic Volume Anomaly — Bytes-per-Flow Spike Indicating Memory Exhaustion Probe
+A memory release exploit [1] may involve sending large or malformed requests to the Custom Reports module. Look for sessions with atypically large byte counts from non-baseline sources.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port 443 and dst ip x.x.x.x and bytes > 5000000' \
+  -A srcip,dstip \
+  -s record/bytes -n 30 \
+  -o 'fmt:%ts %te %sa %da %dp %byt %pkt %fl %bpp'
+> **Note:** The `bytes > 5000000` threshold (5 MB per flow record) is a starting heuristic for large-payload probing. Tune based on your baseline MOVEit report export sizes. High bytes-per-packet (`%bpp`) values may indicate single large requests rather than bulk transfer, which is more anomalous for an API endpoint.
+
+---
+
+### Query 3 — Source IP Diversity — Scanning or Distributed Exploitation Attempt
+No PoC is publicly available [see metadata], but given the 6-day age of this CVE [1] and HIGH priority, scanner activity is plausible. Detect multiple source IPs hitting the MOVEit server in a short window.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port in [443,80,22,990] and dst ip x.x.x.x and flags S' \
+  -A srcip \
+  -s record/flows -n 100 \
+  -o 'fmt:%sa %pkt %fl %byt' \
+| awk 'NR>1 && $2 > 10 {print $0}'
+> **Note:** Filtering on TCP SYN flag (`flags S`) isolates connection initiation events. The `awk` post-filter surfaces sources making >10 flow attempts. This is particularly useful for detecting distributed scanner probes across the affected version range (2025.0.0–2025.0.7, 2025.1.0–2025.1.3, 2026.0.0) [2][3].
+
+---
+
+## Hunting Notes
+
+### What to Look For
+
+| Signal | Relevance |
+|---|---|
+| Unauthenticated connections to MOVEit on 443/80 from novel external IPs | AV:N/PR:N/UI:N exploit vector [1] means no authentication pre-requisite |
+| Repeated requests to `/moveitisapi/moveitisapi.dll` or Custom Reports API endpoints | Vulnerability resides in Custom Reports module [2] |
+| MOVEit service process memory growth / crash events (Windows Event 1000/1001) | Direct evidence of memory release exploitation [1][2] |
+| Child processes from `w3wp.exe
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10699
+# [2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10699
