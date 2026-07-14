@@ -31,7 +31,8 @@ class OutputRouter:
         filepath = folder / filename
 
         header = self._build_header(cve_data, result, output_num)
-        content = header + "\n\n" + result.get("content", "")
+        footer = self._build_sources_footer(cve_data)
+        content = header + "\n\n" + result.get("content", "") + footer
 
         if result.get("review_needed"):
             content += f"\n\n# REVIEW_NEEDED\n# Error: {result.get('error', 'unknown')}"
@@ -73,6 +74,19 @@ class OutputRouter:
             "# ---",
         ]
         return "\n".join(lines)
+
+    def _build_sources_footer(self, cve_data: dict) -> str:
+        """Deterministic source list, guaranteed present regardless of whether
+        the model's own citations (if any) match or are complete. Uses '#'
+        comment lines throughout — safe as a trailing block in .md/.txt, and
+        harmless (ignored) if appended to a .rules or .yml file."""
+        sources = cve_data.get("context", {}).get("sources") or []
+        if not sources:
+            return ""
+        lines = ["", "# --- Sources (ThreatForge-verified) ---"]
+        for i, src in enumerate(sources, 1):
+            lines.append(f"# [{i}] {src['label']} — {src['url']}")
+        return "\n".join(lines) + "\n"
 
     def _log_run(self, cve_data: dict, output_num: int, result: dict, filepath: Path) -> None:
         log_entry = {

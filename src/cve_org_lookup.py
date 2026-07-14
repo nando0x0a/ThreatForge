@@ -49,25 +49,25 @@ def fetch_cna_metrics(cve_id: str) -> dict:
     return {}
 
 
-def check_discrepancy(nvd_score: float, cve_id: str) -> dict:
-    """Compare vulnx/NVD's CVSS score against cve.org's CNA-published score.
-    Returns {} if cve.org has no data for this CVE, or if the two sources
-    agree on severity band. Otherwise returns a note with both sources
-    attributed, for surfacing in prompts, output headers, and Discord."""
-    cna = fetch_cna_metrics(cve_id)
-    if not cna:
+def check_discrepancy(nvd_score: float, cna_metrics: dict) -> dict:
+    """Compare vulnx/NVD's CVSS score against an already-fetched cve.org CNA
+    result (see fetch_cna_metrics). Returns {} if there's no CNA data, or if
+    the two sources agree on severity band. Otherwise returns a note with
+    both sources attributed, for surfacing in prompts, output headers, and
+    Discord."""
+    if not cna_metrics:
         return {}
 
     nvd_band = severity_band(nvd_score)
-    if nvd_band == cna["severity"]:
+    if nvd_band == cna_metrics["severity"]:
         return {}
 
     return {
         "has_discrepancy": True,
         "nvd_score": nvd_score,
         "nvd_severity": nvd_band,
-        "cna_score": cna["cvss_score"],
-        "cna_severity": cna["severity"],
-        "cna_version": cna["cvss_version"],
-        "cna_source_url": cna["source_url"],
+        "cna_score": cna_metrics["cvss_score"],
+        "cna_severity": cna_metrics["severity"],
+        "cna_version": cna_metrics["cvss_version"],
+        "cna_source_url": cna_metrics["source_url"],
     }

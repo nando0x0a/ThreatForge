@@ -4,12 +4,15 @@ import re
 import logging
 import requests
 from typing import Optional
+from urllib.parse import urlparse
 
 import cve_org_lookup
 
 log = logging.getLogger("context_assembler")
 
 CISA_KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+CISA_KEV_CATALOG_URL = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+NVD_URL = "https://nvd.nist.gov/vuln/detail/{cve_id}"
 RCE_KEYWORDS = [
     "remote code execution", "execute arbitrary code",
     "arbitrary command", "code injection", "command injection",
@@ -85,6 +88,7 @@ class ContextAssembler:
             "allows_rce": False,
             "rce_vector": "unknown",
             "severity_discrepancy": {},
+            "sources": [],
         }
 
         if context["is_kev"] and cve_id in self.kev:
@@ -109,16 +113,28 @@ class ContextAssembler:
     def enrich_advisory(self, context: dict, cve_data: dict) -> dict:
         """Fetch advisory reference summaries and cross-check severity against
         cve.org (network I/O). Call only for the final, already-trimmed CVE
-        set — not every scoring candidate."""
+        set — not every scoring candidate. Builds the numbered source list
+        every produced output cites from, in the order sources are added."""
+        cve_id = context["cve_id"]
+        sources = [{"label": "NVD", "url": NVD_URL.format(cve_id=cve_id)}]
+
+        if context["is_kev"]:
+            sources.append({"label": "CISA Known Exploited Vulnerabilities Catalog", "url": CISA_KEV_CATALOG_URL})
+
         references = [c.get("url") for c in cve_data.get("citations", []) if c.get("url")]
         for ref in references[:2]:
             summary = fetch_advisory_summary(ref)
             if summary:
                 context["advisory_summary"] += summary[:500] + " "
+                domain = urlparse(ref).netloc or ref
+                sources.append({"label": domain, "url": ref})
 
-        context["severity_discrepancy"] = cve_org_lookup.check_discrepancy(
-            context["cvss_score"], context["cve_id"]
-        )
+        cna_metrics = cve_org_lookup.fetch_cna_metrics(cve_id)
+        context["severity_discrepancy"] = cve_org_lookup.check_discrepancy(context["cvss_score"], cna_metrics)
+        if cna_metrics:
+            sources.append({"label": "CVE.org (CNA-published record)", "url": cna_metrics["source_url"]})
+
+        context["sources"] = sources
         return context
 
     def format_for_prompt(self, context: dict) -> str:
@@ -138,12 +154,26 @@ class ContextAssembler:
             lines.append("RCE: YES — network-exploitable (AV:N/PR:N/UI:N)")
         if context["advisory_summary"]:
             lines.append(f"Advisory Context: {context['advisory_summary'][:800]}")
+
+        sources = context.get("sources") or []
+        if sources:
+            lines.append("")
+            lines.append(
+                "SOURCES — cite specific factual claims inline using [N] matching the "
+                "numbers below, and end the output with a \"## Sources\" section listing "
+                "them exactly as shown:"
+            )
+            for i, src in enumerate(sources, 1):
+                lines.append(f"[{i}] {src['label']} — {src['url']}")
+
         disc = context.get("severity_discrepancy")
         if disc and disc.get("has_discrepancy"):
+            nvd_idx = next((i for i, s in enumerate(sources, 1) if s["label"] == "NVD"), 1)
+            cna_idx = next((i for i, s in enumerate(sources, 1) if "CVE.org" in s["label"]), len(sources))
             lines.append(
-                "SEVERITY DISCREPANCY BETWEEN SOURCES — cite both explicitly in the output:\n"
-                f"  Source A — NVD (via vulnx): CVSS {disc['nvd_score']} ({disc['nvd_severity']})\n"
-                f"  Source B — CVE.org (CNA-published, CVSS v{disc['cna_version']}): "
-                f"{disc['cna_score']} ({disc['cna_severity']}) — {disc['cna_source_url']}"
+                f"\nSEVERITY DISCREPANCY BETWEEN SOURCES [{nvd_idx}] and [{cna_idx}] — cite both explicitly:\n"
+                f"  [{nvd_idx}] NVD: CVSS {disc['nvd_score']} ({disc['nvd_severity']})\n"
+                f"  [{cna_idx}] CVE.org (CNA-published, CVSS v{disc['cna_version']}): "
+                f"{disc['cna_score']} ({disc['cna_severity']})"
             )
         return "\n".join(lines)

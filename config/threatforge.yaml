@@ -179,11 +179,16 @@ prompts:
     - If specific technical detail is unavailable, note that clearly rather than
       fabricating indicators or patterns.
     - Tag all rule metadata and output headers with the CVE ID for traceability.
+    - The context includes a numbered SOURCES list. When you state a specific
+      fact drawn from one of them (a CVSS score, a KEV status, a technical
+      detail from a vendor advisory), cite it inline with [N] matching that
+      source's number. End the output with a "## Sources" section listing
+      every source exactly as given — do not renumber or omit any of them,
+      even ones you didn't end up citing inline.
     - If the context includes a SEVERITY DISCREPANCY BETWEEN SOURCES block, you
-      MUST surface it explicitly in the output — name both sources (NVD/vulnx
-      and CVE.org) and both scores/severities. Never silently pick one score
-      and omit the other; the analyst needs to see the disagreement to judge
-      it themselves.
+      MUST surface it explicitly in the output, citing both sources by their
+      [N] numbers. Never silently pick one score and omit the other — the
+      analyst needs to see the disagreement to judge it themselves.
 
   few_shot_rules: |
     # Example Suricata rules for few-shot context (signatures module only)
