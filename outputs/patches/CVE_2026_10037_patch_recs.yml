@@ -1,0 +1,149 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2026-10037
+# Product:   ubuntu
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-14T20:46:27.602256Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **DRAFT FOR ANALYST REVIEW** — All details below should be verified against official Ubuntu Security Notices (USN) before deployment. Fixed version information was not available in the provided sources at time of generation; see note below.
+
+**CVE:** CVE-2026-10037
+
+**Affected Product:** OpenJDK packages in Ubuntu (specifically `openjdk-25` and potentially other OpenJDK variants) where `mailcap` is installed and `xdg-desktop-portal-gtk` is accessible [2]. The vulnerability arises from `.jar` MIME handler configuration allowing `.jar` files marked as executable to be invoked outside the application sandbox [2].
+
+**Fixed Version:** ⚠️ A specific fixed package version was **not available** in the provided sources [1][2][3]. Analysts must confirm the patched version by checking:
+- `ubuntu-security-notices` (https://ubuntu.com/security/notices)
+- `apt-cache policy openjdk-25` after `apt-get update` on an affected host
+- The Launchpad bug tracker [2] for patch landed/fix released status
+
+**Urgency:** Within 7 days (STANDARD priority tier, Priority Score: 50). The CVSS score is 8.8 HIGH [1], but exploit requires a non-trivial precondition chain: the attacker must have access to a sandboxed application, `mailcap` must be installed, and the OpenURI portal must be reachable via `xdg-desktop-portal-gtk` [2]. No public proof-of-concept is known. Escalate to within 24h if your environment uses Firefox Snap with Java content handling enabled.
+
+**Rollback Risk:**
+- Upgrading OpenJDK may break applications pinned to a specific JDK minor version or ABI-sensitive JNI native libraries.
+- Java-based services (e.g., Tomcat, Elasticsearch, Jenkins) will require restart and should be validated post-upgrade.
+- To revert: `apt-get install openjdk-25-jdk=<previous_version>` using the version recorded in the audit log, or restore from a pre-patch snapshot if running on a VM.
+- **Mitigating action (if patching is delayed):** Remove or restrict the `mailcap` package (`apt-get remove mailcap`) or restrict access to `xdg-desktop-portal-gtk` to reduce attack surface [2].
+
+---
+
+## Ansible Remediation Playbook
+
+> **DRAFT FOR ANALYST REVIEW** — Validate `affected_package`, `fixed_version`, and service name against your environment before execution. No fixed version could be confirmed from available sources; the playbook upgrades to the latest available patched version via APT.
+
+---
+- name: "Remediate CVE-2026-10037 on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  become: true
+  vars:
+    cve_id: "CVE-2026-10037"
+    affected_package: "openjdk-25-jdk"
+    # NOTE: If a pinned fixed version is confirmed via Ubuntu Security Notice,
+    # replace 'state: latest' below with 'name: "{{ affected_package }}={{ fixed_version }}"'
+    # and define fixed_version here, e.g.: fixed_version: "25~xx+xx-0ubuntu1"
+    mitigation_package: "mailcap"
+
+  tasks:
+    - name: "{{ cve_id }} | Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: "{{ cve_id }} | Record pre-patch package version for rollback audit"
+      ansible.builtin.command:
+        cmd: "dpkg-query -W -f='${Version}' {{ affected_package }}"
+      register: pre_patch_version
+      changed_when: false
+      failed_when: pre_patch_version.rc not in [0, 1]
+
+    - name: "{{ cve_id }} | Log pre-patch version"
+      ansible.builtin.debug:
+        msg: >
+          Host: {{ inventory_hostname }} |
+          Pre-patch version of {{ affected_package }}: {{ pre_patch_version.stdout | default('not installed') }}
+
+    - name: "{{ cve_id }} | Upgrade affected OpenJDK package"
+      ansible.builtin.apt:
+        name: "{{ affected_package }}"
+        state: latest
+      register: patch_result
+
+    - name: "{{ cve_id }} | Check if mailcap is installed (attack surface reduction)"
+      ansible.builtin.command:
+        cmd: "dpkg-query -W -f='${Status}' mailcap"
+      register: mailcap_status
+      changed_when: false
+      failed_when: false
+
+    - name: "{{ cve_id }} | Warn if mailcap is present (increases exploit surface)"
+      ansible.builtin.debug:
+        msg: >
+          WARNING: 'mailcap' is installed on {{ inventory_hostname }}.
+          Per CVE-2026-10037 advisory, this package is required for exploitation [2].
+          Consider removing it if not operationally required: 'apt-get remove mailcap'.
+      when: "'install ok installed' in mailcap_status.stdout"
+
+    - name: "{{ cve_id }} | Check if xdg-desktop-portal-gtk is installed (attack surface)"
+      ansible.builtin.command:
+        cmd: "dpkg-query -W -f='${Status}' xdg-desktop-portal-gtk"
+      register: xdg_portal_status
+      changed_when: false
+      failed_when: false
+
+    - name: "{{ cve_id }} | Warn if xdg-desktop-portal-gtk is present"
+      ansible.builtin.debug:
+        msg: >
+          WARNING: 'xdg-desktop-portal-gtk' is installed on {{ inventory_hostname }}.
+          Per CVE-2026-10037 advisory, OpenURI portal access via this package is
+          required for exploitation [2]. Verify this is operationally necessary.
+      when: "'install ok installed' in xdg_portal_status.stdout"
+
+    - name: "{{ cve_id }} | Restart Java-dependent service if package was upgraded"
+      ansible.builtin.service:
+        # ANALYST ACTION REQUIRED: Replace 'YOUR_JAVA_SERVICE_NAME' with the
+        # actual service name in your environment (e.g., tomcat9, jenkins, elasticsearch).
+        # If no persistent Java service is running, this task can be disabled.
+        name: "YOUR_JAVA_SERVICE_NAME"
+        state: restarted
+      when:
+        - patch_result.changed
+        - false  # REMOVE THIS LINE after confirming correct service name above
+
+    - name: "{{ cve_id }} | Record post-patch package version"
+      ansible.builtin.command:
+        cmd: "dpkg-query -W -f='${Version}' {{ affected_package }}"
+      register: post_patch_version
+      changed_when: false
+      failed_when: post_patch_version.rc not in [0, 1]
+
+    - name: "{{ cve_id }} | Audit log"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} remediation on {{ inventory_hostname }} at {{ ansible_date_time.iso8601 }} |
+          Package: {{ affected_package }} |
+          Pre-patch: {{ pre_patch_version.stdout | default('not installed') }} |
+          Post-patch: {{ post_patch_version.stdout | default('unknown') }} |
+          Changed: {{ patch_result.changed }}
+
+---
+
+## Validation Steps
+
+1. **Confirm package version was updated:**
+   ```bash
+   dpkg-query -W -f='${Package}\t${Version}\n' openjdk-25-jdk openjdk-25-jre
+   
+   Cross-reference the output version against the Ubuntu Security Notice for CVE-2026-10037 once published.
+
+2. **Verify no `.jar` MIME handler executes outside sandbox:**
+   Analysts should confirm (without executing malicious content) that the MIME handler configuration in `/etc/mailcap` or `~/.mailcap` no longer invokes `.jar` files as executables. Review with:
+   ```bash
+   grep -i '\.jar' /etc/mailcap /usr/share/mime/packages/*.xml 2>/dev/null
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10037
+# [2] bugs.launchpad.net — https://bugs.launchpad.net/ubuntu/+source/openjdk-25/+bug/2153100
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10037
