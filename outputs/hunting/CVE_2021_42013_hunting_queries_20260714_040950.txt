@@ -1,0 +1,142 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2021-42013
+# Product:   apache httpd
+# Tags:      [KEV] [RCE-KEV] [CRIT] [EPSS] [T1] [WIDE]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T04:09:50.064477Z
+# Status:    OK
+# ---
+
+# Threat Hunting Queries — CVE-2021-42013
+**Apache HTTP Server Path Traversal / RCE**
+*DRAFT — Proposed queries for analyst review and validation before deployment*
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Suspicious Child Process Spawned by Apache (`httpd`)
+Targets post-exploitation RCE via CGI execution path traversal. CVE-2021-42013 enables shell command execution through crafted URI paths (e.g., `/cgi-bin/.%2e/.%2e/bin/sh`).
+
+event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+| search ParentBaseFileName IN ("httpd", "apache2", "httpd.worker")
+| search FileName IN ("sh", "bash", "dash", "python", "python3", "perl",
+                      "wget", "curl", "nc", "ncat", "netcat", "id", "whoami",
+                      "uname", "chmod", "base64")
+| eval CommandLineLower=lower(CommandLine)
+| where match(CommandLineLower, "(wget|curl|/dev/tcp|bash -i|nc -e|python -c|perl -e|base64)")
+| stats count, values(CommandLine) AS CommandLines,
+        values(FileName) AS ChildProcesses,
+        dc(FileName) AS UniqueChildren
+    by ComputerName, ParentBaseFileName, UserName, aid
+| where count > 0
+| sort -count
+
+---
+
+### Query 2 — Apache Accessing Files Outside Web Root (File System Artefacts)
+Detects file reads or writes in sensitive directories following path traversal exploitation on the host.
+
+event_simpleName IN ("PeFileWritten", "ScriptFileWritten", "NewExecutableWritten",
+                     "EngineFileWritten")
+| search FileName="*.sh" OR FileName="*.py" OR FileName="*.pl"
+    OR FilePath IN ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/etc/cron*",
+                    "/usr/local/apache*", "/var/www/*")
+| join aid
+    [search event_simpleName IN ("ProcessRollup2")
+     ParentBaseFileName IN ("httpd", "apache2")
+     | rename aid AS aid]
+| stats count, values(FilePath) AS Paths, values(FileName) AS Files
+    by ComputerName, UserName, aid
+| where count > 0
+| sort -count
+
+---
+
+### Query 3 — Outbound Network Connections from Apache Process
+Detects reverse shell or C2 beacon initiated by the Apache worker process following RCE exploitation.
+
+event_simpleName="NetworkConnect"
+| search LocalAddressIP4=*
+| join aid
+    [search event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+     FileName IN ("httpd", "apache2", "sh", "bash", "wget", "curl")
+     | rename aid AS aid]
+| where RemotePort IN ("4444", "1337", "9001", "9999", "8888", "443", "80", "53")
+    OR RemoteIP IN ("x.x.x.x")
+| stats count, values(RemoteIP) AS DestinationIPs,
+        values(RemotePort) AS DestinationPorts,
+        values(FileName) AS InitiatingProcesses
+    by ComputerName, UserName, aid
+| where count > 0
+| sort -count
+
+> **Analyst note:** Replace `"x.x.x.x"` with threat-intel-confirmed C2 IPs associated with CVE-2021-42013 campaigns (e.g., from CISA advisories, internal TIP feeds). Common actor infrastructure should be sourced from current CTI before execution.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — Traffic to Known Malicious IPs on Apache-Relevant Ports
+Targets inbound exploit attempts and outbound C2 over common ports leveraged post-exploitation.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port in [80,443,8080,8443] and \
+      (dst ip x.x.x.x or src ip x.x.x.x)' \
+  -s record/bytes \
+  -o "fmt:%ts,%sa,%da,%sp,%dp,%byt,%pkt,%fl" \
+  -n 50
+
+> Replace `x.x.x.x` with known malicious IPs from your TIP. Analyst should query both `src ip` and `dst ip` to capture both inbound exploitation and outbound reverse shell/C2.
+
+---
+
+### Query 2 — Anomalous Outbound Connections FROM Web Servers on Non-Standard Ports
+Detects reverse shell or data exfiltration initiated from your Apache server estate. Scope the `src ip` to your Apache server subnet or host list.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src ip in [10.0.0.0/8,172.16.0.0/12,192.168.0.0/16] and \
+      not dst port in [80,443,25,53,123,8080,8443] and \
+      src port > 1024 and flags S' \
+  -s dstip/flows \
+  -o "fmt:%ts,%sa,%da,%sp,%dp,%byt,%pkt,%fl" \
+  -n 100
+
+> **Analyst note:** Tune the source subnet filter to match your specific Apache server management CIDR. Outbound connections from web servers on non-standard ports (especially ephemeral/uncommon ports) after inbound HTTP(S) traffic bursts are a strong escalation signal.
+
+---
+
+### Query 3 — High Request Volume / Brute-Force Traversal Pattern Against Apache
+CVE-2021-42013 exploitation often involves iterative double-encoded path attempts. Look for high flow counts from single source IPs to Apache servers on port 80/443.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port in [80,443,8080] and \
+      dst ip in [<YOUR_APACHE_SERVER_IP>]' \
+  -s srcip/flows \
+  -o "fmt:%sa,%da,%dp,%fl,%byt,%pkt" \
+  -n 50 | awk -F',' '$5 > 100 {print $0}'
+
+> Replace `<YOUR_APACHE_SERVER_IP>` with your Apache server IP(s) or CIDR. A single source generating >100 flows in the collection window against port 80/443 on a known web server warrants investigation, particularly if byte counts per flow are small (typical of automated scanner or exploit attempts).
+
+---
+
+## Hunting Notes
+
+### What to Look For
+
+| Signal | Significance |
+|--------|-------------|
+| `httpd`/`apache2` spawning `sh`, `bash`, `curl`, `wget` | Direct RCE via CGI path traversal — **high fidelity** |
+| URL-encoded double-dot sequences (`%2e%2e`, `%%32%65`) in HTTP logs | Exploit attempt pattern for CVE-2021-42013 / CVE-2021-41773 |
+| Files written to `/tmp`, `/dev/shm`, `/var/tmp` by Apache UID | Dropper/webshell staging post-exploitation |
+| Outbound TCP from Apache UID to uncommon ports | Reverse shell or C2 beacon |
+| Burst of small-byte flows to port 80/443 from single source | Automated exploitation/scanning |
+| `mod_cgi` or `mod_cgid` loaded with `Alias`-like directives | Vulnerable configuration context |
+
+---
+
+### False Positive Considerations
+
+- **Query 1 (Process):** Legitimate automation, update scripts, or monitoring agents may spawn `curl`/`wget` from web server processes. Validate against approved change windows and known monitoring platforms. Baseline `ParentBaseFileName=httpd` child process activity before alerting.
+- **Query 2 (File writes):** Deployment pipelines and configuration management tools (Ansible, Chef, Puppet) may write
