@@ -1,0 +1,126 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-0280
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# SEVERITY DISCREPANCY: NVD/vulnx says 7.2 (HIGH) — CVE.org (CNA, v4.0) says 1.7 (LOW). See https://www.cve.org/CVERecord?id=CVE-2026-0280
+# Generated: 2026-07-14T20:32:01.125001Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-0280
+# Generated: 2025-07-14
+# Confidence: See per-indicator ratings below
+# ⚠️ DRAFT FOR ANALYST REVIEW — Not validated; requires verification before operational use.
+
+---
+
+## ⚠️ Severity Discrepancy Notice
+
+A significant scoring disagreement exists between sources and MUST be reviewed by the analyst before prioritising response actions:
+
+- **[1] NVD: CVSS 7.2 (HIGH)** — reflects network-exploitable, no-auth, no-interaction attack vector
+- **[3] CVE.org (CNA-published, CVSS v4.0): 1.7 (LOW)** — vendor-assessed severity using CVSS v4.0 metrics, noting "UNREPORTED" exploit maturity and "DIFFUSE" value density [2][3]
+
+The NVD and CNA scores reflect materially different severity judgements. The analyst should weigh the vendor's CVSS v4.0 assessment alongside the NVD HIGH rating when determining response priority. The RCE-capable attack vector (AV:N/PR:N/UI:N) [1] argues for treating this conservatively until further information is available.
+
+---
+
+## Network Indicators
+
+# No confirmed malicious IPs are available from the provided context.
+# No CISA KEV entry is present for this CVE at time of generation.
+# No active exploitation infrastructure has been identified.
+
+**Observable behaviour pattern (Confidence: MEDIUM — derived from vulnerability mechanics [1][2]):**
+PATTERN: Inbound IPv6 packets that do not match expected security policy rules
+         yet reach protected/internal services behind a PAN-OS firewall.
+PATTERN: IPv6 traffic traversing PAN-OS dataplane where equivalent IPv4 traffic
+         would be denied by policy — potential asymmetric allow/deny behaviour.
+PATTERN: Unexpected sessions established from external IPv6 sources to services
+         that should be unreachable per configured firewall policy.
+
+---
+
+## Domain Indicators
+
+# NONE — No malicious domains identified in provided context.
+# No C2 infrastructure, payload delivery domains, or exploit staging domains
+# have been reported at this time. No public PoC exists [2].
+
+---
+
+## URL Indicators
+
+# NONE — No exploit URLs, payload URLs, or staging URLs identified.
+# PoC availability is reported as absent [2].
+
+---
+
+## File Indicators
+
+# NONE — No malware samples, exploit binaries, or associated file hashes
+# have been reported in connection with CVE-2026-0280.
+# CVE is 4 days old [1]; no samples are expected at this stage absent
+# confirmed exploitation.
+
+---
+
+## User-Agent Indicators
+
+# NONE — Exploitation of this vulnerability operates at the IPv6 packet/
+# network layer [1][2]. User-Agent strings are not a relevant indicator
+# for this attack class. Exploitation does not require HTTP-layer interaction.
+
+---
+
+## URI Path Indicators
+
+# NONE — This is a firewall policy bypass vulnerability affecting PAN-OS
+# dataplane IPv6 packet processing [2], not a web application or API
+# endpoint vulnerability. URI-based indicators are not applicable.
+
+---
+
+## Observable Behaviour Patterns
+
+*Derived from vulnerability description and advisory metadata [1][2]. Confidence: MEDIUM.*
+
+| # | Pattern | Detection Surface | Confidence |
+|---|---------|------------------|------------|
+| 1 | IPv6 sessions established to hosts/ports that should be blocked by PAN-OS security policy | PAN-OS traffic logs; session table | MEDIUM |
+| 2 | IPv6 packets with crafted headers (e.g., unusual extension headers, fragmentation, or encapsulation) arriving on external interfaces | PAN-OS packet captures; dataplane logs | MEDIUM |
+| 3 | Unexpected services responding to IPv6-sourced connections that are not exposed in IPv4 policy | Endpoint/server connection logs | MEDIUM |
+| 4 | Asymmetry between denied IPv4 flows and permitted IPv6 flows for equivalent source/destination pairs | Firewall policy audit; log correlation | MEDIUM |
+| 5 | Reconnaissance traffic (port scans, service probing) sourced from IPv6 addresses against otherwise-protected resources | IDS/IPS alerts; NetFlow/IPFIX | LOW |
+
+---
+
+## Notes
+
+1. **No confirmed IoCs exist** for CVE-2026-0280 at this time. The vulnerability is 4 days old [1], has no public PoC [2], and no exploitation activity has been reported.
+
+2. **Attack class context**: This is a network-layer bypass [1][2]. Indicators will manifest as anomalous IPv6 traffic and unexpected session establishment — not as file-based or HTTP-layer artefacts. Detection focus should be on network telemetry and PAN-OS log analysis.
+
+3. **Severity discrepancy impact on IoC confidence**: The gap between NVD CVSS 7.2 HIGH [1] and CNA CVSS v4.0 1.7 LOW [3] creates uncertainty about real-world exploitability. IoC patterns above are provided at MEDIUM confidence and should be reviewed if active exploitation is later confirmed.
+
+4. **Recommended analyst actions**:
+   - Monitor Palo Alto Networks advisory [2] for updated exploitation status
+   - Enable PAN-OS IPv6 traffic logging on perimeter devices for baselining
+   - Watch for threat feeds referencing CVE-2026-0280 indicators as community analysis matures
+   - Do not treat absence of IoCs as absence of risk given the RCE-capable attack vector
+
+5. This IoC list is a **proposed draft for analyst review** and must not be deployed to blocking infrastructure without validation.
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0280
+[2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0280
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0280
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0280
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0280
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0280
