@@ -4,6 +4,8 @@ import logging
 import requests
 from datetime import datetime
 
+from config_loader import load_config
+
 log = logging.getLogger("notifier")
 
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
@@ -11,23 +13,9 @@ DISCORD_USERNAME = "ThreatForge"
 # Discord hard limit is 2000 chars; stay under with buffer
 _CHUNK = 1900
 
-OUTPUT_LABELS = {
-    1: "Security advisory (management)",
-    2: "Technical findings (SOC analyst)",
-    3: "Suricata signature drafts",
-    4: "IoC list",
-    5: "Threat hunting queries (CrowdStrike + Netflow)",
-    6: "Patch recommendations",
-}
-
-OUTPUT_DESCRIPTIONS = {
-    1: "Non-technical risk summary for CISO/management. Covers business impact, affected systems, and recommended action with a time-bound remediation timeline.",
-    2: "Deep-dive for SOC analysts. Attack vector breakdown, CVSS analysis, observable behaviour on the wire, detection coverage gaps, and immediate response steps.",
-    3: "Draft Suricata IDS/IPS rule targeting network-observable behaviour. Includes MITRE ATT&CK tag, KEV status, classtype, and sid. Marked experimental — review before deploying.",
-    4: "Structured list of IPs, domains, URLs, file hashes, user-agents, and URI paths extracted from KEV entry, vendor advisory, and OSINT. Confidence-rated per indicator.",
-    5: "Ready-to-run CrowdStrike Event Search queries and nfdump Netflow queries. Targets C2 connections, post-exploitation process chains, and protocol anomalies.",
-    6: "Upgrade path, rollback risk assessment, and an Ansible playbook (apt module) to patch the affected package across your inventory. Includes dry-run command.",
-}
+_OUTPUT_MENU = {int(k): v for k, v in load_config()["output_menu"].items()}
+OUTPUT_LABELS = {num: entry["label"] for num, entry in _OUTPUT_MENU.items()}
+OUTPUT_DESCRIPTIONS = {num: entry["description"] for num, entry in _OUTPUT_MENU.items()}
 
 
 def _post(message: str) -> bool:

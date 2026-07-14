@@ -1,0 +1,416 @@
+# ThreatForge — single source of truth for pipeline filters, scoring, the
+# Discord output menu text, and every Claude prompt.
+#
+# Secrets (API keys, webhook URLs) stay in config/.env — never put them here.
+# This file is bind-mounted read-only into the container, so edits here take
+# effect on the next run without rebuilding the image.
+
+pipeline:
+  cve_age_days: 7          # only consider CVEs newer than this many days
+  cvss_threshold: 7.0      # minimum CVSS score to be actionable (unless KEV-listed); also the [HIGH] tag boundary
+  epss_threshold: 0.5      # EPSS probability above which the [EPSS] tag applies
+  new_threshold_days: 3    # CVE age below which the [NEW] tag applies
+
+# Which AI backend produces the 6 output drafts. Two provider modes:
+#
+#   provider: anthropic         — Claude API. api_key_env must point to a .env
+#                                  var holding a real Anthropic key.
+#   provider: openai_compatible — anything speaking the OpenAI chat-completions
+#                                  API: OpenAI itself, Ollama, LM Studio,
+#                                  OpenRouter, Groq, Together, etc. Set base_url
+#                                  to the provider's endpoint. For a fully local
+#                                  setup with no API key needed (Ollama, LM
+#                                  Studio), leave api_key_env pointing at an
+#                                  empty/unset .env var — a placeholder is used.
+#
+# Examples:
+#   Anthropic (default):
+#     provider: anthropic
+#     model: claude-sonnet-4-6
+#     base_url: null
+#     api_key_env: ANTHROPIC_API_KEY
+#
+#   Local Ollama on this host (same Docker network, no API key required):
+#     provider: openai_compatible
+#     model: llama3.2:latest
+#     base_url: http://ollama:11434/v1
+#     api_key_env: OLLAMA_API_KEY   # fine if unset/empty — no key needed
+#
+#   OpenAI cloud:
+#     provider: openai_compatible
+#     model: gpt-4.1
+#     base_url: https://api.openai.com/v1
+#     api_key_env: OPENAI_API_KEY
+ai_provider:
+  provider: anthropic
+  model: claude-sonnet-4-6
+  base_url: null
+  api_key_env: ANTHROPIC_API_KEY
+  max_tokens: 2048
+
+# Settings for `--test` and `--recent` (orchestrate.py) — both ignore
+# cve_age_days and search broadly (KEV or CVSS >= pipeline.cvss_threshold,
+# any age) across products.txt PLUS an unscoped global sweep. `--test` ranks
+# the results by composite score; `--recent` ranks by age (newest first),
+# regardless of score, for spotting brand-new critical/KEV activity that
+# hasn't accumulated EPSS/WIDE signal yet.
+test_mode:
+  default_count: 5    # default N for `--test [N]` / `--recent [N]` when no count is given
+  query_limit: 15      # candidates to pull per product per query (KEV, and CVSS-sorted), before scoring
+  global_limit: 30     # candidates to pull from the unscoped global sweep (any product, not just products.txt)
+
+scoring:
+  weights:
+    KEV: 50
+    RCE: 40
+    RCE-KEV: 25
+    CRIT: 30
+    HIGH: 20
+    EPSS: 15
+    T1: 20
+    WIDE: 10
+    POC: 10
+    NEW: 10
+
+  cvss_crit_threshold: 9.0 # CVSS score at/above which [CRIT] applies instead of [HIGH]
+
+  tier_thresholds:
+    tier_0: 90
+    tier_1: 70
+    tier_2: 40
+
+  tier_labels:
+    0: "CRITICAL — ACT NOW"
+    1: "HIGH PRIORITY"
+    2: "STANDARD"
+    3: "MONITOR"
+
+  widely_used:
+    - nginx
+    - apache
+    - apache httpd
+    - openssl
+    - openssh
+    - ubuntu
+    - debian
+    - windows
+    - linux kernel
+    - log4j
+    - spring framework
+    - jenkins
+    - docker
+    - kubernetes
+    - php
+    - python
+    - nodejs
+    - mysql
+    - postgresql
+
+  poc_domains:
+    - github.com
+    - exploit-db.com
+    - packetstormsecurity.com
+
+output_menu:
+  1:
+    key: advisory
+    label: "Security advisory (management)"
+    description: "Non-technical risk summary for CISO/management. Covers business impact, affected systems, and recommended action with a time-bound remediation timeline."
+    output_dir: advisories
+    extension: ".md"
+  2:
+    key: technical_findings
+    label: "Technical findings (SOC analyst)"
+    description: "Deep-dive for SOC analysts. Attack vector breakdown, CVSS analysis, observable behaviour on the wire, detection coverage gaps, and immediate response steps."
+    output_dir: advisories
+    extension: ".md"
+  3:
+    key: signatures
+    label: "Suricata signature drafts"
+    description: "Draft Suricata IDS/IPS rule targeting network-observable behaviour. Includes MITRE ATT&CK tag, KEV status, classtype, and sid. Marked experimental — review before deploying."
+    output_dir: rules
+    extension: ".rules"
+  4:
+    key: ioc_list
+    label: "IoC list"
+    description: "Structured list of IPs, domains, URLs, file hashes, user-agents, and URI paths extracted from KEV entry, vendor advisory, and OSINT. Confidence-rated per indicator."
+    output_dir: iocs
+    extension: ".txt"
+  5:
+    key: hunting_queries
+    label: "Threat hunting queries (CrowdStrike + Netflow)"
+    description: "Ready-to-run CrowdStrike Event Search queries and nfdump Netflow queries. Targets C2 connections, post-exploitation process chains, and protocol anomalies."
+    output_dir: hunting
+    extension: ".txt"
+  6:
+    key: patch_recs
+    label: "Patch recommendations"
+    description: "Upgrade path, rollback risk assessment, and an Ansible playbook (apt module) to patch the affected package across your inventory. Includes dry-run command."
+    output_dir: patches
+    extension: ".yml"
+
+prompts:
+  system_prompt: |
+    You are ThreatForge, a cybersecurity automation assistant.
+    Your role is to produce structured security outputs for analyst review.
+
+    Rules:
+    - Produce ONLY the requested output type. No preamble, no explanation outside
+      the requested format.
+    - Never produce exploit code, attack tools, or instructions for offensive use.
+    - Every output is a proposed draft for analyst review. State this where
+      appropriate within the output.
+    - Use the assembled CVE context, CISA KEV detail, and advisory information
+      provided to produce accurate, specific outputs rather than generic ones.
+    - If specific technical detail is unavailable, note that clearly rather than
+      fabricating indicators or patterns.
+    - Tag all rule metadata and output headers with the CVE ID for traceability.
+
+  few_shot_rules: |
+    # Example Suricata rules for few-shot context (signatures module only)
+    # These are structural examples — do not copy match logic verbatim
+
+    alert http $EXTERNAL_NET any -> $HOME_NET any (
+      msg:"THREATFORGE CVE-2021-44228 Log4j JNDI injection attempt";
+      flow:established,to_server; http.header; content:"${jndi:";
+      nocase; reference:cve,2021-44228;
+      metadata:mitre_technique_id T1190, is_kev true, status experimental;
+      classtype:attempted-admin; sid:9000001; rev:1; )
+
+    alert tcp $EXTERNAL_NET any -> $HOME_NET 22 (
+      msg:"THREATFORGE CVE-2024-6387 OpenSSH regreSSHion exploit attempt";
+      flow:established,to_server; dsize:>1400;
+      threshold:type both, track by_src, count 5, seconds 10;
+      reference:cve,2024-6387;
+      metadata:mitre_technique_id T1190, is_kev true, status experimental;
+      classtype:attempted-admin; sid:9000002; rev:1; )
+
+    alert dns $HOME_NET any -> any 53 (
+      msg:"THREATFORGE CVE-2020-1350 SIGRed DNS exploit attempt";
+      flow:established; dns.query; content:"|00 ff|"; offset:2;
+      reference:cve,2020-1350;
+      metadata:mitre_technique_id T1190, is_kev true, status experimental;
+      classtype:attempted-admin; sid:9000003; rev:1; )
+
+  output_templates:
+    advisory: |
+      You are a cybersecurity communications specialist writing a security advisory
+      for a non-technical management audience.
+
+      Write a security advisory in Markdown format with the following sections:
+
+      ## Executive Summary
+      One paragraph. What is affected, how severe, and what action is required.
+      No technical jargon.
+
+      ## Business Impact
+      What could happen if this is not addressed. Focus on business risk:
+      data breach, service disruption, regulatory exposure.
+
+      ## Affected Systems
+      List the affected products and versions in plain language.
+
+      ## Recommended Action
+      What management needs to approve or communicate. Specific, time-bound.
+
+      ## Timeline
+      Recommended remediation timeline based on priority tier.
+
+      Write for a CISO or VP-level audience. Avoid CVE numbers in the summary.
+      Use the priority tier to set the urgency tone.
+
+    technical_findings: |
+      You are a senior security analyst writing a technical findings report
+      for a SOC analyst audience.
+
+      Write a technical findings report in Markdown format:
+
+      ## CVE Summary
+      CVE ID, affected product, CVSS score, KEV status, age.
+
+      ## Attack Vector
+      How the vulnerability is exploited. Network path, required conditions,
+      authentication requirements. Reference the CVSS vector components.
+
+      ## Observable Behaviour
+      What this attack looks like on the wire or in endpoint telemetry.
+      Specific indicators: HTTP paths, payload patterns, process chains,
+      network connections.
+
+      ## Detection Coverage
+      What signatures or queries would catch this. Reference the Suricata
+      rule or hunting query if produced.
+
+      ## Affected Assets
+      Which assets in the inventory are affected based on the product list.
+
+      ## Recommended Response
+      Immediate containment actions, investigation steps, escalation criteria.
+
+      Write with technical precision. Include specific field values, protocol
+      details, and command examples where relevant.
+
+    signatures: |
+      You are a detection engineer writing a Suricata IDS/IPS rule.
+
+      Using the CVE metadata, CISA KEV context, and advisory detail provided,
+      draft one Suricata rule targeting the network-observable behaviour of
+      this vulnerability.
+
+      Requirements:
+      - Action: alert
+      - Include msg with CVE ID and product name
+      - Use appropriate flow keywords
+      - Include content and/or pcre match targeting the observable behaviour
+      - Include reference:cve tag
+      - Include metadata with mitre_technique_id, is_kev status, status experimental
+      - Include appropriate classtype
+      - Assign a unique sid in the range 9000000-9999999
+      - Set rev:1
+
+      Return ONLY the rule text. No explanation, no markdown fencing.
+
+      Example format:
+      alert http $EXTERNAL_NET any -> $HOME_NET any (
+        msg:"THREATFORGE CVE-XXXX-XXXX product exploit attempt";
+        flow:established,to_server; http.uri; content:"/exploit/path";
+        pcre:"/exploit_pattern/i";
+        reference:cve,XXXX-XXXX;
+        metadata:mitre_technique_id T1190, is_kev true, status experimental;
+        classtype:attempted-admin; sid:9000001; rev:1; )
+
+    ioc_list: |
+      You are a threat intelligence analyst extracting indicators of compromise.
+
+      Based on the CVE metadata, CISA KEV entry, advisory context, and OSINT
+      provided, produce a structured IoC list in the following format:
+
+      # IoC List — CVE-XXXX-XXXX
+      # Generated: [date]
+      # Confidence: HIGH / MEDIUM / LOW per indicator
+
+      ## Network Indicators
+      IP: x.x.x.x  # source / description
+
+      ## Domain Indicators
+      DOMAIN: malicious.example.com  # description
+
+      ## URL Indicators
+      URL: http://example.com/exploit/path  # description
+
+      ## File Indicators
+      HASH_SHA256: abc123...  # filename / description
+      HASH_MD5: abc123...     # filename / description
+
+      ## User-Agent Indicators
+      UA: ExploitScanner/1.0
+
+      ## URI Path Indicators
+      URI: /vulnerable/endpoint
+
+      ## Notes
+      Any caveats, confidence levels, or context about these indicators.
+
+      If no specific IoCs are available from the provided context, state that
+      clearly and list the observable behaviour patterns instead.
+      Only include indicators with reasonable confidence from the provided context.
+
+    hunting_queries: |
+      You are a threat hunter writing detection queries for two platforms.
+
+      Based on the CVE metadata, observable behaviour, and IoC context provided,
+      write threat hunting queries for:
+
+      ## CrowdStrike Event Search
+
+      Write 2-3 CrowdStrike Event Search queries targeting:
+      1. Network connections to known malicious IPs/domains
+      2. Process execution patterns associated with post-exploitation
+      3. File system artefacts if applicable
+
+      Format:
+      ```
+      event_simpleName=NetworkConnect RemotePort=443 RemoteIP IN ("x.x.x.x")
+      | stats count by ComputerName, UserName, RemoteIP, RemotePort
+      | sort -count
+      ```
+
+      ## nfdump Netflow Queries
+
+      Write 2-3 nfdump queries targeting:
+      1. Traffic to known malicious IPs on exploit-relevant ports
+      2. Anomalous traffic volumes or patterns
+      3. Protocol anomalies associated with the exploit
+
+      Format:
+      ```
+      nfdump -r /var/log/netflow/nfcapd.current \
+        -f 'proto tcp and dst port 8080 and dst ip x.x.x.x' \
+        -s record/bytes -n 20
+      ```
+
+      ## Hunting Notes
+      What to look for, false positive considerations, and escalation criteria.
+
+      Write queries that are ready to run. Use placeholder values
+      (x.x.x.x, malicious.example.com) where specific IoCs are not available.
+
+    patch_recs: |
+      You are a systems engineer writing a patch recommendation and remediation playbook.
+
+      Based on the CVE metadata and advisory context provided, produce:
+
+      ## Patch Recommendation
+
+      **CVE:** [CVE ID]
+      **Affected Product:** [product and affected versions]
+      **Fixed Version:** [version that resolves the CVE]
+      **Urgency:** [based on priority tier — immediate / within 24h / within 7 days]
+      **Rollback Risk:** [what could break, how to revert]
+
+      ## Ansible Remediation Playbook
+
+      Write an Ansible playbook using the apt module to upgrade the affected package:
+
+      ```yaml
+      ---
+      - name: "Remediate [CVE ID] on {{ target_group }}"
+        hosts: "{{ target_group }}"
+        become: true
+        vars:
+          cve_id: "[CVE ID]"
+          affected_package: "[package name]"
+
+        tasks:
+          - name: Update apt cache
+            ansible.builtin.apt:
+              update_cache: true
+              cache_valid_time: 3600
+
+          - name: Upgrade affected package
+            ansible.builtin.apt:
+              name: "{{ affected_package }}"
+              state: latest
+            register: patch_result
+
+          - name: Restart service if package was upgraded
+            ansible.builtin.service:
+              name: "[service name]"
+              state: restarted
+            when: patch_result.changed
+
+          - name: Audit log
+            ansible.builtin.debug:
+              msg: "{{ cve_id }} patched on {{ inventory_hostname }} at {{ ansible_date_time.iso8601 }}"
+      ```
+
+      ## Validation Steps
+      How to confirm the patch was applied successfully.
+
+      ## Dry Run Command
+      ```
+      ansible-playbook remediate_[cve_id].yml --check --diff -i inventory.ini
+      ```
+
+      Return the playbook as valid YAML. No markdown explanation outside the
+      designated sections.

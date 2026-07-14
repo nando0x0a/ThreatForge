@@ -1,9 +1,49 @@
 # ThreatForge product inventory
 # One product per line. Format: product_name,tier
 # tier: 1 = internet-facing/auth/production, 2 = internal, 3 = dev/test
+
+# Original baseline
 apache httpd,1
 nginx,1
 openssh,1
 jenkins,2
 ubuntu,1
 windows,1
+
+# aiserver homelab stack (confirmed running via `docker ps`, 2026-07-14)
+grafana,2
+prometheus,2
+portainer,2
+netdata,2
+jupyterlab,2
+open webui,2
+ollama,2
+comfyui,2
+docker engine,2
+nvidia driver,2
+
+# Enterprise-grade vendors — common high-value targets
+cisco ios,1
+vmware esxi,1
+vmware vcenter,2
+citrix netscaler,1
+fortios,1
+palo alto pan-os,1
+f5 big-ip,1
+oracle weblogic,1
+sap netweaver,2
+atlassian confluence,1
+gitlab,2
+ivanti connect secure,1
+moveit,1
+apache struts,1
+apache tomcat,1
+log4j,1
+splunk,2
+kubernetes,2
+microsoft exchange,1
+microsoft sharepoint,1
+microsoft active directory,1
+mysql server,2
+postgresql server,2
+mongodb server,2

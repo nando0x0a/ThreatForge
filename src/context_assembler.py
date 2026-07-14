@@ -101,12 +101,16 @@ class ContextAssembler:
                 context["rce_vector"] = "network"
                 log.debug(f"{cve_id}: Network RCE detected via CVSS vector")
 
+        return context
+
+    def enrich_advisory(self, context: dict, cve_data: dict) -> dict:
+        """Fetch advisory reference summaries (network I/O). Call only for the
+        final, already-trimmed CVE set — not every scoring candidate."""
         references = cve_data.get("references", [])
         for ref in references[:2]:
             summary = fetch_advisory_summary(ref)
             if summary:
                 context["advisory_summary"] += summary[:500] + " "
-
         return context
 
     def format_for_prompt(self, context: dict) -> str:

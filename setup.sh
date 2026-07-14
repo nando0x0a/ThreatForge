@@ -30,6 +30,7 @@ echo "[3/6] Copying config templates..."
 cp --update=none "$SCRIPT_DIR/config/.env.example" "$INSTALL_DIR/config/.env.example" 2>/dev/null || \
   cp -n           "$SCRIPT_DIR/config/.env.example" "$INSTALL_DIR/config/.env.example"
 cp "$SCRIPT_DIR/config/products.txt" "$INSTALL_DIR/config/products.txt"
+cp "$SCRIPT_DIR/config/threatforge.yaml" "$INSTALL_DIR/config/threatforge.yaml"
 
 [ ! -f "$INSTALL_DIR/config/.env" ] && \
   cp "$INSTALL_DIR/config/.env.example" "$INSTALL_DIR/config/.env"

@@ -35,8 +35,8 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
-COPY prompts/ ./prompts/
 COPY config/products.txt ./config/products.txt
+COPY config/threatforge.yaml ./config/threatforge.yaml
 
 RUN echo "30 1 * * * python3 /opt/threatforge/src/orchestrate.py --scheduled" \
     > /etc/threatforge.cron
@@ -44,6 +44,6 @@ RUN echo "30 1 * * * python3 /opt/threatforge/src/orchestrate.py --scheduled" \
 RUN mkdir -p outputs/{rules,advisories,iocs,hunting,patches} logs
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD python3 -c "import anthropic; print('ok')" || exit 1
+    CMD python3 -c "import anthropic, openai; print('ok')" || exit 1
 
 CMD ["/usr/local/bin/supercronic", "/etc/threatforge.cron"]

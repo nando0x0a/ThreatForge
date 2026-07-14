@@ -1,3 +1,0 @@
-Extract IoCs from the provided context as described in the system prompt.
-Only include indicators you can support from the provided context.
-State confidence levels clearly.

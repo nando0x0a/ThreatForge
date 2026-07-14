@@ -10,7 +10,11 @@ services:
     volumes:
       - /opt/docker/threatforge/outputs:/opt/threatforge/outputs
       - /opt/docker/threatforge/logs:/opt/threatforge/logs
-      - /opt/docker/threatforge/config/products.txt:/opt/threatforge/config/products.txt:ro
+      # Directory-level mount, not per-file — a per-file bind mount pins to
+      # the inode at container-creation time, so editors/scripts that replace
+      # rather than truncate-in-place (sed -i, cp of a new file, etc.) silently
+      # orphan it. Mounting the directory resolves by path on every access.
+      - /opt/docker/threatforge/config:/opt/threatforge/config:ro
 
     environment:
       - PYTHONUNBUFFERED=1
@@ -24,7 +28,7 @@ services:
       - infra
 
     healthcheck:
-      test: ["CMD", "python3", "-c", "import anthropic; print('ok')"]
+      test: ["CMD", "python3", "-c", "import anthropic, openai; print('ok')"]
       interval: 30s
       timeout: 10s
       retries: 3

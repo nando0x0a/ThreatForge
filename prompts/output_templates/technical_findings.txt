@@ -1,3 +1,0 @@
-Write a technical findings report as described in the system prompt.
-Include specific observable behaviour, CVSS vector analysis, and
-recommended SOC response actions.

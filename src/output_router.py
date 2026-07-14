@@ -5,26 +5,11 @@ from pathlib import Path
 from datetime import datetime
 
 import github_publisher
+from config_loader import load_config
 
 log = logging.getLogger("output_router")
 
-OUTPUT_DIRS = {
-    1: "advisories",
-    2: "advisories",
-    3: "rules",
-    4: "iocs",
-    5: "hunting",
-    6: "patches",
-}
-
-OUTPUT_EXTENSIONS = {
-    1: ".md",
-    2: ".md",
-    3: ".rules",
-    4: ".txt",
-    5: ".txt",
-    6: ".yml",
-}
+_OUTPUT_MENU = {int(k): v for k, v in load_config()["output_menu"].items()}
 
 
 class OutputRouter:
@@ -34,8 +19,9 @@ class OutputRouter:
     def save(self, output_num: int, cve_data: dict, result: dict) -> Path:
         cve_id = cve_data.get("cve_id", "UNKNOWN").replace("-", "_")
         output_type = result.get("output_type", f"output_{output_num}")
-        ext = OUTPUT_EXTENSIONS.get(output_num, ".txt")
-        subdir = OUTPUT_DIRS.get(output_num, "misc")
+        menu_entry = _OUTPUT_MENU.get(output_num, {})
+        ext = menu_entry.get("extension", ".txt")
+        subdir = menu_entry.get("output_dir", "misc")
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
         folder = self.base_dir / subdir
