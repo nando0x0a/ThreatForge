@@ -1,0 +1,117 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-0284
+# Product:   palo alto pan-os
+# Tags:      [RCE] [CRIT] [T1]
+# Score:     90
+# Tier:      CRITICAL — ACT NOW
+# SEVERITY DISCREPANCY: NVD/vulnx says 9.9 (CRITICAL) — CVE.org (CNA, v4.0) says 4.7 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-0284
+# Generated: 2026-07-14T11:42:17.308715Z
+# Status:    OK
+# ---
+
+> ⚠️ **ANALYST REVIEW REQUIRED** — All queries below are proposed drafts. Validate against your environment before production deployment. No confirmed IoCs are available for CVE-2026-0284 at time of writing; placeholder values are used where specific indicators are absent.
+
+---
+
+# Threat Hunting Queries — CVE-2026-0284
+**PAN-OS XML Injection in LSVPN | Priority Tier: CRITICAL — ACT NOW**
+
+---
+
+## ⚠️ Severity Discrepancy — Analyst Attention Required
+
+Two sources disagree significantly on severity and must be reconciled before prioritisation decisions are finalised:
+
+- **[1] NVD scores this CVSS 9.9 (CRITICAL)** — consistent with the network-exploitable, no-auth, no-interaction vector (AV:N/AC:L/PR:N/UI:N) described in the CVE metadata.
+- **[3] CVE.org (CNA-published, CVSS v4.0) scores this 4.7 (MEDIUM)** — the vendor's own assessment using the newer scoring methodology, with an Urgency rating of MODERATE and Exploit Maturity of UNREPORTED [2].
+
+The discrepancy likely reflects methodological differences between CVSS v3.x (NVD [1]) and CVSS v4.0 (CNA [3]), as well as the vendor's [2] assessment of real-world exploitability at time of publication. **Analysts should weigh both scores and review vendor urgency guidance [2] before escalation decisions.** The queries below are written for the higher-risk posture (CVSS 9.9 [1]) pending analyst adjudication.
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Inbound Network Connections to PAN-OS LSVPN Listener Ports
+Targets unexpected external hosts communicating with systems on ports associated with LSVPN satellite/gateway communication (typically TCP 4501 / UDP 4500 for IPsec, and TCP 443 for portal/gateway). Adjust `LocalPort` values to match your LSVPN deployment configuration.
+
+(event_simpleName=NetworkReceiveAccept OR event_simpleName=NetworkConnect)
+  LocalPort IN (443, 4501, 8080)
+| eval direction=if(isnotnull(LocalPort),"inbound","outbound")
+| stats count, dc(RemoteIP) as unique_sources, values(RemoteIP) as remote_ips
+    by ComputerName, LocalPort, direction
+| where unique_sources > 10
+| sort -unique_sources
+> **Rationale:** CVE-2026-0284 requires network access to the LSVPN interface [1][2]. A spike in unique source IPs against the LSVPN listener port may indicate scanning or exploitation attempts. Tune `LocalPort` to your actual LSVPN gateway port.
+
+---
+
+### Query 2 — Suspicious Child Process Spawning from PAN-OS Management or VPN Processes
+Post-exploitation following XML injection may result in unexpected process creation. This query looks for unusual child processes under PAN-OS-related parent processes. Adjust `ParentBaseFileName` values to match confirmed PAN-OS process names in your deployment.
+
+event_simpleName=ProcessRollup2
+  ParentBaseFileName IN ("pan_comm", "pan_cfg", "openssl", "python", "python3", "sslvpnd")
+  FileName NOT IN ("pan_comm", "pan_cfg", "python", "python3", "openssl", "curl", "grep", "awk")
+| stats count, values(CommandLine) as commands, values(FileName) as child_procs
+    by ComputerName, UserName, ParentBaseFileName, ParentProcessId
+| where count < 5
+| sort -count
+> **Rationale:** XML injection exploits [1][2] may achieve code execution through parser abuse, producing unexpected child processes under VPN daemon parents. Low-count results (rare executions) are higher-priority signals. **Note:** PAN-OS process names should be validated against your specific PAN-OS version — fabricated names are not used here, but confirm accuracy before deployment.
+
+---
+
+### Query 3 — File Write Events in PAN-OS Configuration or Temporary Directories
+Data corruption impact described in CVE-2026-0284 [1][2][3] may manifest as unexpected file writes in configuration paths. This targets file creation/modification events in paths consistent with PAN-OS configuration storage.
+
+event_simpleName IN (FileWritten, FileCreated)
+  FilePath IN ("/opt/pancfg/*", "/var/log/pan/*", "/tmp/*", "/dev/shm/*")
+  (UserName!="root" OR FileName LIKE "*.xml" OR FileName LIKE "*.cfg")
+| stats count, values(FileName) as files_written, values(FilePath) as paths
+    by ComputerName, UserName, SHA256HashData
+| sort -count
+> **Rationale:** The vulnerability enables information disclosure and data corruption [1][2]. Unexpected XML or configuration file writes, particularly from non-root users or in temp paths, warrant immediate review. Adjust paths to match your PAN-OS installation layout.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — Traffic Volume Spike to LSVPN Gateway Port from External Sources
+Detects high-frequency connections to the LSVPN portal port (TCP 443) that may indicate exploitation attempts or reconnaissance.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port 443 and (dst net 10.0.0.0/8 or dst net 172.16.0.0/12 or dst net 192.168.0.0/16)' \
+  -A srcip,dstip,dstport \
+  -s record/flows \
+  -n 50 \
+  -o "fmt:%ts %sa %da %dp %fl %byt %pkt"
+> **Rationale:** Replace the destination net filter with your PAN-OS LSVPN gateway IP range. High flows-per-source-IP against the gateway port from diverse external sources may indicate active exploitation scanning. Adjust `dst port` to match your actual LSVPN listener (e.g., 4501 for satellite communication).
+
+---
+
+### Query 2 — Anomalous Small-Packet Bursts Consistent with XML Injection Probing
+XML injection probes often involve many small, malformed requests. This query surfaces flows with high packet counts but low byte counts — a signature of many small payloads.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port 443 and dst ip x.x.x.x' \
+  -A srcip \
+  -s record/packets \
+  -n 30 \
+  -o "fmt:%ts %sa %da %dp %pkt %byt %fl" \
+  | awk '$6/$5 < 200 && $5 > 100 {print}'
+> **Substitute `x.x.x.x`** with your PAN-OS LSVPN gateway IP(s). The `awk` filter isolates flows where bytes-per-packet < 200 with > 100 packets — consistent with repeated small XML probe payloads [1][2].
+
+---
+
+### Query 3 — Unexpected Outbound Connections from PAN-OS Gateway Host (Post-Exploitation Beaconing)
+If exploitation leads to code execution, the gateway may initiate outbound C2 connections. This detects atypical outbound flows from the gateway IP.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src ip x.x.x.x and not (dst net 10.0.0.0/8 or dst net 172.16.0.0/12 or dst net 192.168.0.0/16) and dst port in 80 443 4444 8080 8443' \
+  -A dstip,dstport \
+  -s record/flows \
+  -n 25 \
+  -o "fmt:%ts %sa %da %dp %fl %byt"
+> **Substitute `x.x.x.x`** with your PAN-OS gateway source IP. Outbound
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0284
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0284
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0284
