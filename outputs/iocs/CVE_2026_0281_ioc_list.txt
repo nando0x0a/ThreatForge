@@ -1,0 +1,99 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-0281
+# Product:   palo alto pan-os
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# SEVERITY DISCREPANCY: NVD/vulnx says 7.1 (HIGH) — CVE.org (CNA, v4.0) says 2.1 (LOW). See https://www.cve.org/CVERecord?id=CVE-2026-0281
+# Generated: 2026-07-14T20:51:55.127008Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-0281
+# Generated: 2025-07-14
+# Confidence: See per-indicator notes below
+# ⚠️ DRAFT FOR ANALYST REVIEW — All entries require validation before operational use.
+
+---
+
+## ⚠️ SEVERITY DISCREPANCY — ANALYST ACTION REQUIRED
+
+There is a material scoring disagreement between sources that must be evaluated before prioritisation decisions are made:
+
+- **[1] NVD: CVSS 3.x = 7.1 (HIGH)**
+- **[3] CVE.org (CNA-published, CVSS v4.0): 2.1 (LOW)**
+
+Additionally, the Palo Alto Networks vendor advisory [2] rates urgency as **MODERATE** with a severity of **2.1 LOW**, aligning with the CNA record [3] rather than NVD [1]. The discrepancy likely reflects differences between CVSS v3.x (NVD) and CVSS v4.0 (CNA) scoring methodologies, as well as the vendor's assessment of real-world exploitability (exploit maturity: UNREPORTED [2]). Analysts should note that the vendor's own assessment is LOW and that no public PoC is known. The assigned Priority Score of 40 / Tier STANDARD reflects this context.
+
+---
+
+## Network Indicators
+
+*No specific attacker-controlled IPs are available from the provided sources. No CISA KEV entry exists for this CVE.*
+
+## Domain Indicators
+
+*No specific malicious domains have been identified in the provided context. No public PoC or active exploitation campaigns are known [2].*
+
+## URL Indicators
+
+*No specific exploit URLs are available. The vulnerability involves a user clicking a malicious link that facilitates session token disclosure via the PAN-OS management web interface [1][3]; however, no concrete exploit URLs have been observed or published.*
+
+## File Indicators
+
+*No file-based indicators (hashes, payloads) are available. No PoC tooling or malware samples associated with CVE-2026-0281 have been reported [2].*
+
+## User-Agent Indicators
+
+*No anomalous user-agent strings have been associated with exploitation of this vulnerability in the available context.*
+
+---
+
+## URI Path Indicators
+
+> **Confidence: LOW** — Derived from vulnerability class (management web interface session token exposure [1][2]), not from observed exploitation. Treat as behavioural hypothesis pending analyst validation.
+
+URI: /php/login.php          # PAN-OS management interface login endpoint (generic)
+URI: /php/utils/checkUser.py # PAN-OS session-handling paths (generic, version-dependent)
+URI: /api/                   # PAN-OS XML API endpoint, may be adjacent attack surface
+
+*These are representative management interface paths for PAN-OS and are NOT confirmed exploit paths for CVE-2026-0281. Specific vulnerable endpoints are not disclosed in the available advisory [2].*
+
+---
+
+## Observable Behaviour Patterns
+
+*In the absence of confirmed IoCs, the following behavioural patterns are relevant for detection hypothesis development:*
+
+1. **Session Token Reuse from Unexpected Sources** — Legitimate PAN-OS management sessions suddenly originating from IPs inconsistent with the authenticated user's expected location or ASN, potentially indicating a stolen token being replayed [1][2].
+
+2. **User-Initiated Outbound Requests to External Domains** — If a legitimate admin user clicks a malicious link, HTTP referrer logs or proxy logs may show a management-plane-originating request to an external/unexpected domain immediately prior to anomalous session activity [1].
+
+3. **Concurrent or Near-Simultaneous Sessions** — The same session token appearing in requests from two distinct source IPs within a short time window — one legitimate, one anomalous.
+
+4. **Anomalous Management Interface Access Timing** — Authenticated management interface activity at unusual hours, particularly if preceded by no direct login event from the same session source IP.
+
+5. **HTTP Referrer Anomalies** — Requests to the PAN-OS management interface with `Referer` headers pointing to external or unexpected domains, which may indicate a clickjacking or redirect-based token capture attempt consistent with the vulnerability description [1][3].
+
+---
+
+## Notes
+
+- **No CISA KEV entry exists** for CVE-2026-0281. The vulnerability is 4 days old with no reported active exploitation [2].
+- **No public PoC** is available at time of generation.
+- **Exploit requires user interaction**: a legitimate administrator must click a malicious link [1][3]. This significantly limits opportunistic exploitation and supports the vendor's LOW/MODERATE urgency rating [2].
+- **Confidence for all indicators above is LOW** — derived from vulnerability class and advisory description only. No empirical IoCs from threat feeds, OSINT, or incident reports are available.
+- Analysts should monitor Palo Alto Networks security advisories [2] and threat intelligence feeds for emerging PoC or exploitation reports before escalating priority.
+- Immediate focus should be on **patch application and restricting management interface exposure** rather than IoC-based detection at this stage.
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0281
+[2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0281
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0281
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0281
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0281
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0281
