@@ -1,0 +1,84 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-11903
+# Product:   moveit
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# Generated: 2026-07-14T20:55:09.895462Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-11903
+# Generated: 2025-07-15
+# Confidence: See per-section notes
+# ⚠️ DRAFT FOR ANALYST REVIEW — All indicators require validation before operational use.
+
+---
+
+## Network Indicators
+*No specific malicious IPs identified in available context. No CISA KEV entry or OSINT threat actor infrastructure available at this time.*
+
+## Domain Indicators
+*No malicious domains attributed to exploitation of CVE-2026-11903 in available context.*
+
+## URL Indicators
+*No specific exploitation URLs confirmed. See URI Path Indicators below for observable attack surface.*
+
+## File Indicators
+*No malware samples, payloads, or file hashes associated with CVE-2026-11903 exploitation are available in the provided context. No public PoC has been identified.*
+
+## User-Agent Indicators
+*No attacker user-agent strings have been observed or attributed to exploitation of this vulnerability. Stored XSS attacks typically originate from authenticated or semi-authenticated sessions and may not present anomalous user-agents during the injection phase.*
+
+---
+
+## URI Path Indicators
+# Confidence: MEDIUM — Derived from vulnerability description and product knowledge; not confirmed from active exploitation reports.
+
+URI: /moveitisapi/moveitisapi.dll
+# MOVEit Transfer Ad Hoc module endpoint; the stored XSS vulnerability [1][2] resides within the Ad Hoc Transfer module. Requests posting unsanitised input to Ad Hoc-related endpoints are of interest.
+
+URI: /adhoc/
+# Ad Hoc module web path (typical MOVEit Transfer deployment structure); the improper neutralisation of input occurs during web page generation in this module [1][3]. Analyst should confirm exact URI path against their deployment configuration.
+
+URI: /human.aspx
+# MOVEit Transfer authenticated web interface entrypoint; payloads stored via Ad Hoc module may be rendered here upon victim user interaction [2].
+
+---
+
+## Observable Behaviour Patterns
+*Given no public PoC [contextual metadata] and no confirmed active exploitation, the following behavioural patterns represent the most actionable detection focus:*
+
+1. **Stored XSS Injection Phase**
+   - POST requests to MOVEit Transfer Ad Hoc module endpoints [1][2] containing HTML/script injection payloads (e.g., `<script>`, `<img onerror=`, `javascript:`, SVG-based vectors) in user-controllable fields (message body, subject, filename metadata, recipient fields).
+   - Affected versions: 2026.0.0 before 2026.0.1, 2025.1.0 before 2025.1.4, 2025.0.0 before 2025.0.8 [1][2].
+
+2. **Payload Execution Phase (requires victim interaction)**
+   - Authenticated user loads an Ad Hoc Transfer page containing stored malicious content.
+   - Browser-side script execution: outbound requests from end-user browsers to unexpected external domains (callback/exfiltration), unexpected cookie or credential capture behaviour.
+   - Session token theft indicators: re-use of session tokens from anomalous source IPs following Ad Hoc module access.
+
+3. **Post-Exploitation Patterns**
+   - Unusual authenticated API activity following Ad Hoc module access (file downloads, user enumeration, permission changes) — consistent with session hijacking via XSS.
+   - New administrative accounts or modified permissions following Ad Hoc module interactions.
+
+---
+
+## Notes
+
+- **Confidence: LOW** for all specific IoCs — no confirmed exploitation, no public PoC [advisory metadata], no CISA KEV listing, and no OSINT threat actor attribution is available as of the date of this report.
+- **Confidence: MEDIUM** for URI path indicators — derived from vendor advisory context [2] and CVE description [1][3]; analyst should validate paths against their specific MOVEit Transfer deployment and version.
+- The Advisory Context retrieved from [2] (Progress Customer Community) did not yield parseable technical detail beyond what is captured in the CVE description [1][3], likely due to authentication-gating of the community portal content. Analyst should log in to the Progress Customer Community directly to retrieve any additional IOC or workaround detail.
+- This vulnerability is **6 days old** with **Priority Tier: STANDARD** and **no known public PoC**. Patching to 2026.0.1, 2025.1.4, or 2025.0.8 (as applicable) [1][2] should be the primary remediation action.
+- Given MOVEit Transfer's history as a high-value target (prior critical exploitation by threat actors in 2023), analyst should monitor threat intelligence feeds for emerging PoC or exploitation reports and be prepared to escalate priority accordingly.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-11903
+[2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-11903
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-11903
+# [2] community.progress.com — https://community.progress.com/s/article/MOVEit-Transfer-Critical-Security-Bulletin-June-2026
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-11903
