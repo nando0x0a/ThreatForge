@@ -1,0 +1,59 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-47830
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-14T03:37:28.141268Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-47830
+# Generated: 2025-07-15
+# Confidence: LOW (see Notes)
+
+---
+
+## Network Indicators
+*No specific IP addresses identified from available context.*
+
+## Domain Indicators
+*No specific domains identified from available context.*
+
+## URL Indicators
+*No specific URLs identified from available context.*
+
+## File Indicators
+*No specific file hashes identified from available context.*
+
+## User-Agent Indicators
+*No specific user-agent strings identified from available context.*
+
+## URI Path Indicators
+*No specific URI paths identified from available context — endpoint details require confirmed advisory or vendor disclosure.*
+
+---
+
+## Observable Behaviour Patterns
+*In the absence of confirmed IoCs, the following behavioural patterns are noted based on CVE metadata alone and should be treated as hypothesis-level hunting leads only:*
+
+- **Exploitation attempts consistent with HIGH (8.8) CVSS scoring** may indicate authenticated or network-adjacent attack vectors; analyst should review affected product documentation once available to determine likely targeted endpoints or services.
+- **Rapid weaponisation risk**: Vulnerability is 4 days old with HIGH severity and WIDE priority tag, suggesting active scanning or proof-of-concept activity may emerge or already be underway. Monitor threat intelligence feeds for associated activity clusters.
+- **T1 tagging** suggests this may affect a tier-1 critical asset class; correlate against asset inventory to identify exposure before IoCs are confirmed.
+
+---
+
+## Notes
+
+> ⚠️ **DRAFT — For Analyst Review Only**
+
+1. **CVE-2026-47830 does not appear in current public databases** (NVD, MITRE, CISA KEV) as of the generation date. The CVE identifier follows a 2026 numbering scheme which is ahead of the current year, and no advisory, vendor bulletin, or OSINT context was provided beyond the metadata fields.
+
+2. **All IoC fields are empty due to absence of source data.** No indicators have been fabricated or inferred. Populating this list requires one or more of the following: vendor security advisory, CISA KEV entry, threat intelligence report, honeypot telemetry, or sandbox detonation artefacts.
+
+3. **Recommended analyst actions:**
+   - Verify CVE ID accuracy and resubmit with advisory or OSINT context.
+   - Monitor NVD, vendor advisories, and threat intel feeds (e.g., Shadowserver, GreyNoise, AlienVault OTX) for emerging IoCs tied to this CVE.
+   - Given WIDE + HIGH + T1 tagging, consider proactive hunting using behavioural detections on affected product surfaces once the affected component is confirmed.
+
+4. **Confidence rating: LOW** — metadata-only input; no technical artefacts available for indicator extraction.
