@@ -1,0 +1,142 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2026-0288
+# Product:   palo alto pan-os
+# Tags:      [RCE] [HIGH] [T1]
+# Score:     80
+# Tier:      HIGH PRIORITY
+# Generated: 2026-07-14T20:36:43.825128Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **DRAFT FOR ANALYST REVIEW** — Specific fixed versions and affected version ranges are not fully detailed in the available advisory context [2]. Analysts must confirm exact affected/fixed versions directly from the Palo Alto Networks Security Advisory before proceeding.
+
+**CVE:** CVE-2026-0288
+
+**Affected Product:** Palo Alto Networks PAN-OS — User-ID Terminal Server Agent component [2]. Specific affected PAN-OS version ranges are not fully enumerated in the provided advisory context [2]. Verify the complete affected version matrix at the vendor advisory [2] before deploying remediation.
+
+**Fixed Version:** Not explicitly stated in the provided advisory context [2]. Consult the Palo Alto Networks Security Advisory directly [2] to obtain the specific fixed PAN-OS version(s) prior to patching.
+
+**Urgency:** **Immediate (within 24 hours).** This vulnerability is rated HIGH severity (CVSS 7.2 per the vendor advisory [2]; see severity note below), is 5 days old, permits unauthenticated remote code execution over the network (AV:N/PR:N/UI:N) [1], and carries a Priority Tier of HIGH PRIORITY with an RCE tag. No public PoC is currently known, but the network-exploitable RCE attack vector warrants treating this as urgent.
+
+> ⚠️ **SEVERITY DISCREPANCY BETWEEN SOURCES:** The NVD record [1] reports a CVSS score of **7.5 (HIGH)**, while the Palo Alto Networks vendor advisory [2] reports a CVSS score of **7.2 (HIGH)**. Both fall within the HIGH band, but analysts should review both records [1][2] to determine which score applies to their environment and scoring methodology before communicating risk posture.
+
+**Rollback Risk:**
+- PAN-OS upgrades on Palo Alto Networks firewalls and appliances carry moderate rollback complexity. Downgrading PAN-OS may require restoring a saved configuration snapshot and can involve service disruption.
+- The User-ID Terminal Server Agent is a Windows-based component deployed on domain controllers or terminal servers [2]. Upgrading or rolling back the agent may briefly interrupt user-to-IP mapping, affecting identity-based policy enforcement.
+- **Mitigation if patching is delayed:** Consider restricting network access to the User-ID Terminal Server Agent port at the perimeter or host firewall as a temporary compensating control until the patch is applied. Consult vendor advisory [2] for any officially documented workarounds.
+- Ensure a full configuration backup and a PAN-OS snapshot are taken and validated before initiating any upgrade.
+
+---
+
+> ⚠️ **IMPORTANT PLAYBOOK NOTICE FOR ANALYST REVIEW:**
+> PAN-OS and the Palo Alto Networks User-ID Terminal Server Agent are **not managed via `apt`**. PAN-OS runs on Palo Alto Networks proprietary hardware/VM appliances and is upgraded through the PAN-OS upgrade mechanism (CLI, Panorama, or the web UI). The User-ID Terminal Server Agent is a Windows MSI-based installer.
+>
+> The `apt`-based Ansible playbook template below is provided as a **structural scaffold only** and **cannot be used as-is** to remediate CVE-2026-0288. An analyst or engineer must replace the package management module with the appropriate Palo Alto Networks automation method (e.g., PAN-OS XML API, `panos_software` Ansible module from the PAN-OS Ansible collection, or a Windows MSI upgrade task for the Terminal Server Agent).
+>
+> The playbook is marked with `# REQUIRES ANALYST ADAPTATION` comments at every point requiring change.
+
+## Ansible Remediation Playbook
+
+---
+# ============================================================
+# DRAFT FOR ANALYST REVIEW
+# CVE: CVE-2026-0288
+# Affected Component: PAN-OS User-ID Terminal Server Agent
+#
+# WARNING: PAN-OS and the User-ID Terminal Server Agent are NOT
+# managed via apt. This playbook uses the apt module as a
+# structural scaffold only, per the output template requirement.
+#
+# REQUIRED ANALYST ACTIONS BEFORE USE:
+#   1. Replace the apt tasks with the appropriate PAN-OS upgrade
+#      method (panos_software Ansible module, XML API call, or
+#      Windows MSI task for the Terminal Server Agent).
+#   2. Populate fixed_version with the vendor-confirmed fixed
+#      version from https://security.paloaltonetworks.com/CVE-2026-0288
+#   3. Validate target_group matches your inventory grouping for
+#      affected PAN-OS devices or Terminal Server Agent hosts.
+#   4. Review rollback and snapshot steps for your environment.
+# ============================================================
+
+- name: "Remediate CVE-2026-0288 on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  become: true
+  vars:
+    cve_id: "CVE-2026-0288"
+    affected_package: "panos-user-id-agent"  # REQUIRES ANALYST ADAPTATION
+    # Replace with vendor-confirmed fixed version from [2]:
+    # https://security.paloaltonetworks.com/CVE-2026-0288
+    fixed_version: "CONFIRM-WITH-VENDOR-ADVISORY"  # REQUIRES ANALYST ADAPTATION
+
+  tasks:
+
+    - name: "Pre-check | Assert fixed_version has been set by analyst"
+      ansible.builtin.assert:
+        that:
+          - fixed_version != "CONFIRM-WITH-VENDOR-ADVISORY"
+        fail_msg: >
+          STOP: fixed_version has not been set. Consult the Palo Alto Networks
+          Security Advisory for CVE-2026-0288 at
+          https://security.paloaltonetworks.com/CVE-2026-0288 and set the
+          fixed_version variable before running this playbook.
+        success_msg: "fixed_version is set to {{ fixed_version }}. Proceeding."
+
+    - name: "Pre-remediation | Take configuration snapshot or backup"
+      # REQUIRES ANALYST ADAPTATION:
+      # For PAN-OS appliances, trigger a config export via XML API or
+      # Panorama before proceeding. Example placeholder below.
+      ansible.builtin.debug:
+        msg: >
+          ANALYST ACTION REQUIRED: Ensure a configuration backup and
+          PAN-OS snapshot have been taken for {{ inventory_hostname }}
+          before applying the patch for {{ cve_id }}.
+
+    - name: "Update apt cache (scaffold only — adapt for PAN-OS)"
+      # REQUIRES ANALYST ADAPTATION: Replace with PAN-OS upgrade mechanism.
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      # Remove or replace this task for PAN-OS targets.
+
+    - name: "Upgrade affected package (scaffold only — adapt for PAN-OS)"
+      # REQUIRES ANALYST ADAPTATION:
+      # For PAN-OS: use the paloaltonetworks.panos.panos_software module,
+      # or issue an XML API software upgrade call.
+      # For Windows Terminal Server Agent: use ansible.windows.win_package
+      # or ansible.windows.win_shell to invoke the MSI installer.
+      ansible.builtin.apt:
+        name: "{{ affected_package }}"
+        state: latest
+      register: patch_result
+      # Remove or replace this task for PAN-OS targets.
+
+    - name: "Restart User-ID service if package was upgraded"
+      # REQUIRES ANALYST ADAPTATION:
+      # Service name on Windows Terminal Server Agent hosts may differ.
+      # On PAN-OS appliances, a system restart or commit may be required.
+      ansible.builtin.service:
+        name: "PanGpHip"  # REQUIRES ANALYST ADAPTATION — confirm service name
+        state: restarted
+      when: patch_result.changed
+
+    - name: "Post-patch | Verify installed version"
+      # REQUIRES ANALYST ADAPTATION:
+      # Query the installed PAN-OS or agent version and assert it matches
+      # the fixed_version variable.
+      ansible.builtin.debug:
+        msg: >
+          ANALYST ACTION REQUIRED: Verify that {{ inventory_hostname }}
+          is now running the fixed version ({{ fixed_version }}) for {{ cve_id }}.
+
+    - name: "Audit log"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} patch attempt completed on {{ inventory_hostname }}
+          at {{ ansible_date_time.
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0288
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0288
+# [3] security.paloaltonetworks.com — https://security.paloaltonetworks.com/
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0288
