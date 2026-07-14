@@ -1,0 +1,107 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-61459
+# Product:   kubernetes
+# Tags:      [RCE] [CRIT] [WIDE] [NEW]
+# Score:     90
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T11:38:11.972210Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-61459
+# Generated: 2025-07-25
+# Confidence: Per indicator below
+# DRAFT — For analyst review. All indicators require validation before operational use.
+
+---
+
+## Network Indicators
+
+*No specific attacker-controlled IP addresses are available from the provided context [1][2][3][4]. If exploitation is observed in the wild, network indicators should be sourced from incident response telemetry or threat feeds referencing this CVE.*
+
+---
+
+## Domain Indicators
+
+*No specific malicious domains are confirmed in the available context. The vulnerability mechanism allows an attacker to inject a `--server` flag redirecting `kubectl` to an attacker-controlled API server [1][2]; any domain used would be attacker-infrastructure-specific and not generically predictable.*
+
+---
+
+## URL Indicators
+
+*No specific exploit-delivery URLs are available from the provided context.*
+
+---
+
+## File Indicators
+
+*No malware samples, payload hashes, or malicious file artifacts have been identified in the available context [1][2][3][4]. The vulnerability is exploited through parameter injection rather than file delivery.*
+
+---
+
+## User-Agent Indicators
+
+*No specific user-agent strings associated with exploitation are available. The attack operates at the MCP tool-call layer rather than via HTTP user-agent-identifiable scanning traffic.*
+
+---
+
+## URI Path Indicators
+
+*No specific URI paths are confirmed. The vulnerability is exercised through the MCP structured tool interface rather than a traditional HTTP endpoint. Observable API server interactions are described below under Observable Behaviour Patterns.*
+
+---
+
+## Observable Behaviour Patterns
+
+Given the absence of specific IoCs in the provided context [1][2][3][4], the following **observable behaviour patterns** should be used as detection anchors:
+
+### Pattern 1 — Argument Injection via resourceType / name Parameters
+**Confidence: HIGH**
+Exploitation requires an attacker to supply `resourceType` or `name` parameters beginning with leading dashes (e.g., `--server=https://attacker.example.com`) to bypass the `assertNoDangerousFlags` check [1][2][3].
+
+- **Observe:** MCP tool call payloads where `resourceType` or `name` field values begin with `-` or `--`
+- **Observe:** Any value containing `--server=`, `--kubeconfig=`, `--certificate-authority=`, `--insecure-skip-tls-verify` injected via these fields
+
+### Pattern 2 — Unexpected kubectl `--server` Flag Invocation
+**Confidence: HIGH**
+Successful exploitation redirects kubectl commands to an attacker-controlled API server [1][2].
+
+- **Observe:** Process execution logs showing `kubectl` invoked with a `--server` argument pointing to an IP or domain not matching your legitimate cluster endpoint
+- **Observe:** kubectl process trees spawned by the MCP server process with unfamiliar `--server` values
+
+### Pattern 3 — Bearer Token Exfiltration via Outbound TLS
+**Confidence: HIGH**
+The vulnerability allows bearer token leakage through the redirected kubectl connection [1][3].
+
+- **Observe:** Outbound TLS connections from the host running `mcp-server-kubernetes` (or its container) to unexpected external IP:6443 or IP:443 targets
+- **Observe:** Kubernetes service account token files accessed immediately prior to anomalous outbound connections
+
+### Pattern 4 — Vulnerable Version in Use
+**Confidence: HIGH**
+Any deployment of `mcp-server-kubernetes` **< 3.9.0** is potentially vulnerable [1][2].
+
+- **Observe:** Package manifests, container images, or node_modules containing `mcp-server-kubernetes` at versions below `3.9.0`
+- **Artifact type:** `package.json` dependency entries, container image labels, npm lock files
+
+---
+
+## Notes
+
+1. **CVE age:** This vulnerability is 2 days old [1]. No public proof-of-concept exploit code or associated IoC feeds have been indexed at the time of generation. This list should be revisited as threat intelligence matures.
+2. **No CISA KEV entry** was present in the provided context. KEV status should be re-checked against https://www.cisa.gov/known-exploited-vulnerabilities-catalog as this CVE ages.
+3. **CVSS 9.8 CRITICAL** (AV:N/PR:N/UI:N) [1] — network-exploitable with no privileges and no user interaction required. Even without confirmed in-the-wild IoCs, detection of the observable patterns above should be treated as high-severity.
+4. **Advisory context was incomplete** — the GitHub advisory/commit context [2] rendered partially. Analysts should review https://github.com/Flux159/mcp-server-kubernetes/commit/d7890f50a4567bf5d9842541ba6f41e180227f9a directly for patch diff details and any embedded IoC-relevant technical specifics.
+5. All indicators in this document are **proposed drafts** and must be reviewed and validated by an analyst before ingestion into detection or blocking systems.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-61459
+[2] github.com — https://github.com/Flux159/mcp-server-kubernetes/commit/d7890f50a4567bf5d9842541ba6f41e180227f9a
+[3] github.com — https://github.com/Flux159/mcp-server-kubernetes/issues/328
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-61459
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-61459
+# [2] github.com — https://github.com/Flux159/mcp-server-kubernetes/commit/d7890f50a4567bf5d9842541ba6f41e180227f9a
+# [3] github.com — https://github.com/Flux159/mcp-server-kubernetes/issues/328
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-61459
