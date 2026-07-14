@@ -1,0 +1,143 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-59224
+# Product:   open webui
+# Tags:      [HIGH]
+# Score:     20
+# Tier:      MONITOR
+# Generated: 2026-07-14T21:05:41.952412Z
+# Status:    OK
+# ---
+
+> **DRAFT FOR ANALYST REVIEW** — CVE-2026-59224 | Open WebUI Broken Access Control
+> Priority Tier: MONITOR | CVSS 8.0 (HIGH) [1] | Age: 4 days | No public PoC known
+> All queries use placeholder IoCs where specific indicators are unavailable. Validate and tune before production deployment.
+
+---
+
+## CVE-2026-59224 — Threat Hunting Queries
+
+### Vulnerability Summary
+
+Open WebUI versions prior to 0.10.0 contain a broken access control vulnerability in the terminal backend [2]. The root cause is an unencoded `session_id` combined with a forwarded `X-User-Id` HTTP header that the backend trusts without adequate validation, allowing an authenticated attacker to craft requests that impersonate other users [4]. Exploitation requires the ability to send crafted HTTP requests to the Open WebUI terminal endpoint.
+
+> **Note on IoCs:** No public PoC is available and no specific malicious IPs, domains, or file hashes are associated with this CVE at this time. All network-based queries below use placeholder values. Queries are oriented toward **behavioural detection** of exploitation patterns rather than indicator matching.
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Suspicious HTTP Requests with Anomalous User-Identity Headers to Open WebUI Ports
+
+Targets processes making or receiving connections on common Open WebUI ports (default: 8080/8443/3000) where a child process is spawned from the web server context — consistent with terminal backend abuse leading to post-exploitation execution.
+
+event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+| search ParentBaseFileName IN ("python3", "python", "uvicorn", "gunicorn", "node")
+    AND FileName NOT IN ("python3", "python", "uvicorn", "gunicorn", "pip", "pip3")
+| eval suspicion=if(
+    match(CommandLine, "(?i)(bash|sh|cmd|powershell|nc|ncat|curl|wget|id|whoami)"),
+    "HIGH",
+    "MEDIUM"
+  )
+| stats count, values(CommandLine) AS CommandLines, values(FileName) AS Children
+    by ComputerName, UserName, ParentBaseFileName, suspicion
+| where count > 0
+| sort -count
+
+> **Rationale:** Exploitation of the terminal backend could allow an attacker to execute commands in the context of another user's session. This detects unexpected child process spawning from typical Python/Node web server parents.
+
+---
+
+### Query 2 — Network Connections Associated with Open WebUI Terminal Endpoint Access
+
+Targets outbound or lateral connections from hosts running Open WebUI, particularly those initiating unexpected external connections following inbound traffic on web ports — consistent with post-exploitation C2 beaconing.
+
+event_simpleName=NetworkConnect
+| search RemotePort IN ("8080", "8443", "3000", "443", "80")
+    OR LocalPort IN ("8080", "8443", "3000")
+| eval direction=if(isnotnull(RemoteIP), "outbound", "inbound")
+| lookup dnslookup ClientIP AS RemoteIP OUTPUT ClientHost AS ResolvedHost
+| stats count, dc(RemoteIP) AS UniqueRemoteIPs, values(RemoteIP) AS RemoteIPs,
+    values(ResolvedHost) AS ResolvedHosts
+    by ComputerName, UserName, LocalPort, direction
+| where UniqueRemoteIPs > 5 OR (direction="outbound" AND LocalPort IN ("8080","8443","3000"))
+| sort -count
+
+> **Rationale:** A compromised Open WebUI terminal session may be used to initiate outbound connections. Hosts that normally serve Open WebUI (inbound on 8080/3000) initiating unexpected outbound connections warrant investigation. Replace placeholder IP `x.x.x.x` if specific IoCs become available [1].
+
+---
+
+### Query 3 — X-User-Id / Session Header Manipulation Pattern (Web Access Log Correlation)
+
+Targets web request logs ingested into CrowdStrike (via LogScale/Falcon LFO pipeline) for requests to `/terminal` or similar endpoints where the `X-User-Id` header is present and differs from the authenticated session owner — the core exploitation mechanic [2][4].
+
+event_simpleName="ManagedAssets" OR source="/var/log/open-webui/access.log"
+| rex field=_raw "(?i)x-user-id:\s*(?P<xuid>[^\s\r\n]+)"
+| rex field=_raw "(?i)session[_-]id[=:\s]+(?P<sid>[^\s&\r\n\"]+)"
+| rex field=_raw "\"(?:GET|POST|PUT|DELETE)\s+(?P<uri>/[^\s\"]+)"
+| search uri IN ("/terminal", "/api/terminal", "/ws/terminal")
+| stats count, values(xuid) AS UserIdHeaders, dc(xuid) AS UniqueUserIds,
+    values(src_ip) AS SourceIPs
+    by ComputerName, sid
+| where UniqueUserIds > 1
+| eval alert="POTENTIAL_IMPERSONATION - single session presenting multiple X-User-Id values"
+| sort -count
+
+> **Rationale:** A single `session_id` presenting multiple distinct `X-User-Id` header values is a strong signal of the exploitation pattern described in CVE-2026-59224 [2][4]. Requires web access log ingestion into the CrowdStrike platform.
+
+---
+
+## nfdump Netflow Queries
+
+### Query 1 — Inbound Traffic Volume to Open WebUI Default Ports
+
+Detects hosts receiving anomalous inbound connection volumes on typical Open WebUI ports, which may indicate scanning or automated exploitation attempts.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port in [3000,8080,8443] and flags S' \
+  -s dstip/flows -n 30 \
+  -o "fmt:%ts %td %sa %da %sp %dp %pkt %byt %fl"
+
+> **Rationale:** Elevated SYN counts to Open WebUI ports may indicate reconnaissance or exploitation attempts. Review destination IPs against your Open WebUI asset inventory.
+
+---
+
+### Query 2 — Lateral Movement / Unexpected Outbound from Open WebUI Hosts
+
+After gaining access via session impersonation, an attacker may pivot internally. This query flags outbound flows from known Open WebUI server IPs to unexpected internal or external destinations.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src ip x.x.x.x and not dst port in [80,443,3000,8080,8443,53,123]' \
+  -s dstport/flows -n 20 \
+  -o "fmt:%ts %td %sa %da %sp %dp %pkt %byt %fl"
+
+> **Substitute `x.x.x.x`** with your Open WebUI server IP(s). Flag any destination ports outside the expected service profile.
+
+---
+
+### Query 3 — Long-Duration / Persistent Sessions to Terminal Endpoint
+
+WebSocket or persistent HTTP connections to the terminal backend that run unusually long may indicate an attacker maintaining an interactive session under an impersonated identity [2].
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and dst port in [3000,8080,8443] and duration > 300' \
+  -s record/duration -n 25 \
+  -o "fmt:%ts %td %sa %da %sp %dp %pkt %byt %fl %dur"
+
+> **Rationale:** Legitimate Open WebUI API calls are typically short-lived. Connections with duration > 300 seconds to the terminal backend may represent an active interactive terminal session — the primary post-exploitation surface of this vulnerability [4].
+
+---
+
+## Hunting Notes
+
+### What to Look For
+
+| Signal | Significance |
+|---|---|
+| Single `session_id` paired with multiple `X-User-Id` values | Direct match to exploitation mechanic [2][4] |
+| Unexpected child processes from `uvicorn`/`gunicorn`/`python` parents | Terminal backend command execution |
+| Outbound connections from Open WebUI hosts
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-59224
+# [2] github.com — https://github.com/open-webui/open-webui/security/advisories/GHSA-j657-m4c4-24jq
+# [3] github.com — https://github.com/open-webui/open-webui/commit/5f3a628a8d291bb5d33e1a0b0c89fb62a2927934
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-59224
