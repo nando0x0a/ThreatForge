@@ -9,6 +9,8 @@ import click
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.table import Table
 
 from context_assembler import ContextAssembler
 from scorer import Scorer
@@ -37,6 +39,32 @@ TEST_QUERY_LIMIT = _cfg["test_mode"]["query_limit"]
 TEST_GLOBAL_LIMIT = _cfg["test_mode"]["global_limit"]
 CLEAN_BEFORE_RUN = _cfg["output_management"]["clean_before_run"]
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/opt/threatforge/outputs"))
+
+
+def print_summary_table(produced: list[dict]) -> None:
+    """One row per produced item — CVE, output type, product, tier, score,
+    status, and where it was saved. Shown at the end of any --produce run.
+    Width is forced (not auto-detected) since this often runs without a real
+    TTY (docker exec -i / cli.py), where Rich would otherwise default to 80
+    columns and wrap every row across multiple lines."""
+    if not produced:
+        return
+    table = Table(title="ThreatForge — Outputs Produced")
+    table.add_column("CVE", style="cyan", no_wrap=True)
+    table.add_column("Output Type", no_wrap=True)
+    table.add_column("Product", no_wrap=True)
+    table.add_column("Tier", no_wrap=True)
+    table.add_column("Score", justify="right", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
+    table.add_column("File", no_wrap=True)
+    for item in produced:
+        status = item["status"]
+        status_markup = f"[green]{status}[/green]" if status == "OK" else f"[red]{status}[/red]"
+        table.add_row(
+            item["cve_id"], item["output_type"], item["product"], item["tier"],
+            str(item["score"]), status_markup, item["file"],
+        )
+    Console(width=200).print(table)
 
 
 def clean_outputs(output_dir: Path) -> None:
@@ -302,15 +330,27 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
         selected = list(range(1, 7)) if produce == "0" else [int(x) for x in produce.replace(",", " ").split()]
         caller = AICaller()
         router = OutputRouter(OUTPUT_DIR)
+        produced = []
 
         for cve_data in enriched_cves:
             for output_num in selected:
                 log.info(f"Producing output {output_num} for {cve_data['cve_id']}")
                 result = caller.produce(output_num, cve_data)
-                router.save(output_num, cve_data, result)
+                filepath = router.save(output_num, cve_data, result)
                 notifier.post_output(output_num, cve_data, result)
+                produced.append({
+                    "cve_id": cve_data.get("cve_id", ""),
+                    "output_type": result.get("output_type", f"output_{output_num}"),
+                    "product": cve_data.get("product", ""),
+                    "tier": cve_data.get("tier_label", ""),
+                    "score": cve_data.get("composite_score", 0),
+                    "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
+                    # filename only — Output Type column already implies the subdirectory
+                    "file": filepath.name,
+                })
 
         notifier.post_outputs_complete(enriched_cves, selected)
+        print_summary_table(produced)
 
     log.info("ThreatForge run complete.")
 
