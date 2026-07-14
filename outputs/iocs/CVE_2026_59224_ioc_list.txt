@@ -1,0 +1,100 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-59224
+# Product:   open webui
+# Tags:      [HIGH]
+# Score:     20
+# Tier:      MONITOR
+# Generated: 2026-07-14T21:04:57.186217Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-59224
+# Generated: 2025-07-15
+# Confidence: See per-indicator notes below
+# STATUS: PROPOSED DRAFT — For analyst review and validation before operational use.
+
+---
+
+## Network Indicators
+*No specific malicious IPs or infrastructure identified from available context.*
+*No public PoC or active exploitation campaign attributed at this time.*
+
+---
+
+## Domain Indicators
+*No malicious domains identified from available context.*
+
+---
+
+## URL Indicators
+*No specific exploit URLs identified from available context.*
+
+---
+
+## File Indicators
+*No malicious file hashes identified from available context. No public PoC is known [1][4].*
+
+---
+
+## User-Agent Indicators
+*No attacker-specific user-agents identified from available context.*
+*Exploitation relies on crafted HTTP request headers rather than a distinctive user-agent [2].*
+
+---
+
+## URI Path Indicators
+
+**Confidence: MEDIUM** — Inferred from vulnerability description; specific endpoint path not confirmed in available advisory context [2][3]. Analyst should validate against Open WebUI source and commit diff [3].
+
+URI: /api/terminal  # Open WebUI terminal backend — endpoint implicated in broken access control [2]
+*Note: The exact API route(s) for the terminal backend could not be confirmed from the provided advisory context. The above is a representative inference. Analysts should review the patch commit [3] to identify the precise affected routes before operationalising.*
+
+---
+
+## HTTP Header Indicators
+
+**Confidence: HIGH** — Directly described in the vulnerability mechanism [2][4].
+
+The following request headers are the core exploitation mechanism. Requests that set these headers unexpectedly, or where `X-User-Id` does not match the authenticated session, warrant investigation:
+
+HEADER: X-User-Id          # Attacker-supplied header used to impersonate another user [2]
+HEADER: X-Session-Id       # Unencoded/plaintext session_id forwarded to terminal backend [2]
+
+---
+
+## Observable Behaviour Patterns
+*(In lieu of concrete IoCs, the following behavioural patterns should be used for detection and triage.)*
+
+1. **Header Manipulation**: HTTP requests to the Open WebUI terminal backend containing a `X-User-Id` header value that does not correspond to the authenticated user's session [2][4].
+
+2. **Session ID Exposure**: Presence of unencoded `session_id` values in request headers or logs forwarded to the terminal backend component [2].
+
+3. **Cross-User Terminal Access**: A single source IP or session accessing terminal functionality associated with multiple distinct user IDs in a short timeframe.
+
+4. **Unexpected Terminal API Calls**: Requests to the terminal backend originating from accounts or IPs with no prior terminal activity, particularly where `X-User-Id` is explicitly set in the request.
+
+5. **Crafted Request Pattern**: Requests that explicitly set both `X-User-Id` and `X-Session-Id` (or `session_id`) headers simultaneously — normal browser-originated traffic is unlikely to manually set both [2].
+
+---
+
+## Notes
+
+- **CVE Age**: This CVE is 4 days old [1]. The threat landscape is early-stage; no public PoC is known at this time [1][4]. IoC availability is expected to be limited.
+- **No CISA KEV Entry**: This CVE is not currently listed in CISA's Known Exploited Vulnerabilities catalogue. Priority tier is MONITOR [assigned priority score: 20].
+- **Advisory Context Quality**: The advisory context provided was partially malformed (appeared to contain GitHub UI feature-flag JSON rather than full security advisory prose). Specific technical detail — including exact vulnerable endpoint paths, request examples, and affected component names — could not be fully confirmed. Analysts **must** review the upstream advisory [2] and patch commit [3] directly before operationalising any indicators.
+- **Affected Versions**: Open WebUI versions prior to 0.10.0 [2][4]. Confirm your deployment version before triaging.
+- **CVSS Score**: 8.0 HIGH [1]. Exploitation requires crafted requests but does not appear to require prior authentication based on the access control bypass nature of the vulnerability [2].
+- **Confidence Summary**: All indicators in this list are MEDIUM or lower confidence due to the absence of a public PoC, active exploitation reports, and the incomplete advisory context. Treat as detection hypotheses pending analyst validation.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-59224
+[2] github.com — https://github.com/open-webui/open-webui/security/advisories/GHSA-j657-m4c4-24jq
+[3] github.com — https://github.com/open-webui/open-webui/commit/5f3a628a8d291bb5d33e1a0b0c89fb62a2927934
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-59224
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-59224
+# [2] github.com — https://github.com/open-webui/open-webui/security/advisories/GHSA-j657-m4c4-24jq
+# [3] github.com — https://github.com/open-webui/open-webui/commit/5f3a628a8d291bb5d33e1a0b0c89fb62a2927934
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-59224
