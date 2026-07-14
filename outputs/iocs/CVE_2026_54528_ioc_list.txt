@@ -1,0 +1,84 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-54528
+# Product:   jupyterlab
+# Tags:      [HIGH]
+# Score:     20
+# Tier:      MONITOR
+# Generated: 2026-07-14T21:08:09.201077Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-54528
+# Generated: 2025-07-14
+# Confidence: varies per indicator (see notes)
+# ⚠️ DRAFT — Proposed for analyst review. All indicators require validation before operational use.
+
+---
+
+## Network Indicators
+*No specific IP addresses or network infrastructure associated with active exploitation have been identified from the provided context. No public PoC or threat actor campaigns are currently known.*
+
+---
+
+## Domain Indicators
+*No malicious domains identified from the provided context.*
+
+---
+
+## URL Indicators
+*No exploit-delivery URLs identified from the provided context.*
+
+---
+
+## File Indicators
+*No malicious file hashes identified from the provided context. No public PoC exists at time of writing.*
+
+---
+
+## User-Agent Indicators
+*No specific user-agent strings associated with exploitation identified from the provided context.*
+
+---
+
+## URI Path Indicators
+*Confidence: MEDIUM — derived from vulnerability mechanics, not confirmed exploitation traffic.*
+
+URI: /api/git/*/content  # Potential path for reading excluded directory contents via case-insensitive bypass
+URI: /api/git/*/show     # Git file content retrieval endpoint — may be abused to read excluded paths
+URI: /api/git/*/diff     # Diff endpoints may expose excluded file content via case variation in path arguments
+
+> **Note:** The vulnerability resides in `GitHandler.prepare()` in JupyterLab Git < 0.54.0 [3], where `excluded_paths` enforcement uses `fnmatch.fnmatchcase()` [1][4]. On case-insensitive filesystems (e.g., macOS, Windows NTFS), an authenticated user can bypass path exclusions by requesting excluded directories with altered casing (e.g., `.ENV` instead of `.env`, `SECRETS` instead of `secrets`). URI paths above represent plausible access vectors but have **not** been confirmed from exploitation telemetry.
+
+---
+
+## Observable Behaviour Patterns
+*In the absence of confirmed IoCs, the following behavioural patterns should be monitored:*
+
+1. **Authenticated requests to Git API endpoints referencing paths that match known excluded directories using case variations** — e.g., accessing `.ENV`, `.Env`, `Config`, `CREDENTIALS` where lowercase equivalents are in `excluded_paths`.
+2. **Repeated or scripted enumeration of Git-related API endpoints** from a single authenticated session, particularly targeting non-standard path casings.
+3. **Access to sensitive file types** (`.env`, `secrets/`, `credentials/`, `config/`) via JupyterLab Git API endpoints on servers running on case-insensitive filesystems (macOS, Windows).
+4. **Upgrade absence:** Instances still running jupyterlab-git < 0.54.0 [3] after patch availability should be flagged as exposure risk.
+
+---
+
+## Notes
+
+- **No public PoC is known** as of the date of this report; exploitation would require an authenticated attacker with access to the JupyterLab instance.
+- **CVSS 7.1 (HIGH)** [1] reflects meaningful risk due to potential exposure of secrets or configuration files, though authentication requirement limits the attack surface.
+- **Confidence on URI patterns is MEDIUM** — derived from vulnerability description and affected component logic [1][4], not from observed attack traffic.
+- **Filesystem dependency is critical:** Exploitation is only possible on case-insensitive filesystems [1]. Linux deployments (case-sensitive ext4 etc.) are not vulnerable to this specific bypass.
+- **Patch reference:** Fix is present in commit `460035275b5963dc96e364e60ba6a73717fbd033` [2] and release v0.54.0 [3]. Recommend upgrading immediately.
+- **Priority Tier: MONITOR** — given no active exploitation evidence, focus should be on patching and log review rather than active threat hunting.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-54528
+[2] github.com — https://github.com/jupyterlab/jupyterlab-git/commit/460035275b5963dc96e364e60ba6a73717fbd033
+[3] github.com — https://github.com/jupyterlab/jupyterlab-git/releases/tag/v0.54.0
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-54528
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-54528
+# [2] github.com — https://github.com/jupyterlab/jupyterlab-git/commit/460035275b5963dc96e364e60ba6a73717fbd033
+# [3] github.com — https://github.com/jupyterlab/jupyterlab-git/releases/tag/v0.54.0
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-54528
