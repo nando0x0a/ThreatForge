@@ -1,0 +1,146 @@
+# ThreatForge Output — HUNTING_QUERIES
+# CVE:       CVE-2026-10037
+# Product:   ubuntu
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-14T20:45:51.446587Z
+# Status:    OK
+# ---
+
+> **DRAFT FOR ANALYST REVIEW** — CVE-2026-10037 | Priority Tier: STANDARD | Age: 5 days
+> This document is a proposed hunting pack. All queries, placeholders, and logic must be validated by a qualified analyst before deployment in production environments.
+
+---
+
+# Threat Hunting Pack — CVE-2026-10037
+**OpenJDK .jar MIME Handler Sandbox Escape (Ubuntu / xdg-desktop-portal-gtk)**
+CVSS: 8.8 HIGH [1] | No public PoC known | Tags: [HIGH] [T1] [WIDE]
+
+---
+
+## Vulnerability Context
+
+This vulnerability affects OpenJDK packages on Ubuntu where mailcap is installed [2]. The `.jar` MIME handler executes files marked as executable, allowing a sandboxed application (e.g., Firefox running in a Snap sandbox) to escape confinement by leveraging the OpenURI portal via `xdg-desktop-portal-gtk` [2]. The exploit chain involves:
+
+1. A sandboxed process invoking `xdg-open` or a URI handler for a `.jar` file
+2. `xdg-desktop-portal-gtk` relaying the open request to the host mailcap handler
+3. The mailcap `.jar` handler invoking the JVM outside the sandbox with attacker-controlled content
+4. Arbitrary code execution in the host context
+
+⚠️ **No specific malicious IPs, domains, or file hashes are publicly associated with exploitation of this CVE at time of writing.** Placeholder IoCs are used where applicable. Network-based indicators are not the primary detection surface for this vulnerability — process and filesystem hunting are higher yield.
+
+---
+
+## CrowdStrike Event Search
+
+### Query 1 — Suspicious `xdg-open` / Portal Invocation from Sandboxed Process
+
+Targets the core escape mechanism: a snap-confined process spawning `xdg-open` or `xdg-desktop-portal` interactions that result in JVM execution.
+
+event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+| search ParentBaseFileName IN ("xdg-open", "xdg-desktop-portal-gtk", "xdg-desktop-portal")
+    AND FileName IN ("java", "java17", "java21", "java25", "java-*")
+| eval snap_confined=if(match(ParentImageFileName, "snap"), "YES", "NO")
+| stats count by ComputerName, UserName, ParentBaseFileName, FileName,
+         CommandLine, snap_confined
+| where snap_confined="YES"
+| sort -count
+
+**Analyst note:** `java` child processes spawned by portal/xdg components on Ubuntu hosts are high-fidelity for this CVE. Validate `snap_confined` logic against your sensor field naming.
+
+---
+
+### Query 2 — JAR File Execution via mailcap Handler Outside Expected Paths
+
+Targets execution of `.jar` files from user-writable or temporary locations, consistent with a delivered payload being opened through the MIME handler.
+
+event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+| search FileName IN ("java", "java17", "java21", "java25")
+    AND (
+        match(CommandLine, "-jar\\s+/tmp/")
+        OR match(CommandLine, "-jar\\s+/home/")
+        OR match(CommandLine, "-jar\\s+/run/user/")
+        OR match(CommandLine, "-jar\\s+/var/tmp/")
+    )
+| eval suspicious_jar_path=if(
+    match(CommandLine, "-jar\\s+(/tmp/|/home/|/run/user/|/var/tmp/)"),
+    "YES", "NO"
+  )
+| stats count by ComputerName, UserName, CommandLine, SHA256HashData,
+         suspicious_jar_path
+| where suspicious_jar_path="YES"
+| sort -count
+
+**Analyst note:** Legitimate Java apps may also launch with `-jar` from home directories. Cross-reference with `ParentBaseFileName` to prioritise portal-spawned instances. Collect `SHA256HashData` for the invoked `.jar` and submit for threat intel review.
+
+---
+
+### Query 3 — Post-Escape Network Beaconing from JVM Process
+
+Targets outbound connections initiated by `java` processes to non-standard or anomalous destinations, consistent with C2 activity post-sandbox escape. Uses placeholder IoCs — substitute real indicators when available.
+
+event_simpleName=NetworkConnectIP4
+| search LocalAddressIP4!=NULL
+    AND (
+        RemoteAddressIP4 IN ("x.x.x.x", "y.y.y.y")
+        OR RemotePort IN (4444, 1337, 8443, 9001)
+    )
+| join aid [
+    search event_simpleName IN ("ProcessRollup2", "SyntheticProcessRollup2")
+          FileName IN ("java", "java17", "java21", "java25")
+    | table aid, FileName, CommandLine, UserName
+  ]
+| stats count by ComputerName, UserName, FileName, CommandLine,
+         RemoteAddressIP4, RemotePort
+| sort -count
+
+**Analyst note:** Replace `x.x.x.x`, `y.y.y.y`, and port list with confirmed IoCs if threat intel becomes available. Meterpreter default (4444) and common Java RAT ports included as baseline.
+
+---
+
+## nfdump Netflow Queries
+
+> ⚠️ No confirmed malicious infrastructure IPs are associated with CVE-2026-10037 exploitation at this time [1][3]. Queries below use placeholders and behavioural patterns. Substitute real IoCs as intelligence develops.
+
+### Query 1 — Outbound Traffic to Placeholder Malicious IP on Exploit-Relevant Ports
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and (dst ip x.x.x.x or dst ip y.y.y.y) and \
+      (dst port 4444 or dst port 8443 or dst port 1337 or dst port 9001)' \
+  -o 'fmt:%ts %sa:%sp -> %da:%dp %byt %pkt %fl' \
+  -s record/bytes -n 50
+
+**Analyst note:** Populate dst IPs from threat intel feeds if C2 infrastructure is identified. The port list reflects common post-exploitation tool defaults (Meterpreter, Java RAT frameworks) — not confirmed for this CVE.
+
+---
+
+### Query 2 — Anomalous Outbound Volume from Ubuntu Workstation Subnets Post-Exploitation Window
+
+Targets unusual data egress volumes from workstation subnets in the 5-day window since vulnerability disclosure, consistent with post-escape data staging.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src net 10.0.0.0/8 and \
+      dst port > 1024 and not dst net 10.0.0.0/8 and \
+      not dst net 172.16.0.0/12 and not dst net 192.168.0.0/16' \
+  -A srcip,dstip,dstport \
+  -s record/bytes -n 30 \
+  -o long
+
+**Analyst note:** Adjust `src net` to match your Ubuntu workstation CIDR. Baseline normal egress for your environment before treating high byte counts as malicious. Hosts with recent OpenJDK + mailcap + xdg-desktop-portal-gtk installed should be prioritised.
+
+---
+
+### Query 3 — Short-Duration High-Frequency Connections (Beaconing Pattern)
+
+Targets periodic low-volume beaconing behaviour from JVM host processes to external IPs, a common post-exploit C2 pattern.
+
+nfdump -r /var/log/netflow/nfcapd.current \
+  -f 'proto tcp and src net 10.0.0.0/8 and \
+      not dst net 10.0.0.0/8 and not dst net 172.16.0.0/12 and \
+      not dst net 192.168.0.0/16 and duration < 2' \
+  -A srcip,dstip
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-10037
+# [2] bugs.launchpad.net — https://bugs.launchpad.net/ubuntu/+source/openjdk-25/+bug/2153100
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-10037
