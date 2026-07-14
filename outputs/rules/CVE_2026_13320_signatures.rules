@@ -1,0 +1,43 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-13320
+# Product:   gitlab
+# Tags:      [HIGH]
+# Score:     20
+# Tier:      MONITOR
+# Generated: 2026-07-14T21:14:24.499108Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only. The vulnerability is a stored XSS in GitLab CE/EE affecting
+# versions >= 15.7 < 18.11.7, 19.0 < 19.0.4, and 19.1 < 19.1.2, caused by
+# improper sanitization of user-supplied input submitted via HTTP POST to GitLab
+# endpoints. The content matches target common XSS payload patterns in HTTP
+# request bodies directed at GitLab paths. Because XSS payloads are highly
+# variable and no PCAP or PoC is available, this rule will produce false positives
+# and may miss novel payload variants. Analyst tuning is strongly recommended
+# before any deployment.
+# No packet-capture (PCAP) data source is available to this pipeline — this
+# pattern is NOT verified against captured exploit traffic.
+# DRAFT — FOR ANALYST REVIEW ONLY. CVE-2026-13320.
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-13320 GitLab CE/EE Stored XSS via Unsanitized User Input";
+  flow:established,to_server;
+  http.method; content:"POST";
+  http.uri; content:"/gitlab"; nocase; isdataat:1,relative;
+  http.request_body;
+  pcre:"/<\s*script[\s>][^>]*>|javascript\s*:/i";
+  reference:cve,2026-13320;
+  metadata:mitre_technique_id T1059.007, is_kev false, status experimental;
+  classtype:web-application-attack; sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-13320
+[2] docs.gitlab.com — https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-1-2-released/
+[3] gitlab.com — https://gitlab.com/gitlab-org/gitlab/-/work_items/604063
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-13320
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-13320
+# [2] docs.gitlab.com — https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-1-2-released/
+# [3] gitlab.com — https://gitlab.com/gitlab-org/gitlab/-/work_items/604063
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-13320
