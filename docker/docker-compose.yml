@@ -20,6 +20,9 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/opt/threatforge/src
       - PDCP_API_KEY=${PDTM_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - GITHUB_BRANCH=${GITHUB_BRANCH:-main}
 
     networks:
       - infra

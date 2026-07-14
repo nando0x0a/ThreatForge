@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 
+import github_publisher
 from config_loader import load_config
 
 log = logging.getLogger("output_router")
@@ -40,6 +41,10 @@ class OutputRouter:
         filepath.write_text(content)
         log.info(f"Saved: {filepath}")
         self._log_run(cve_data, output_num, result, filepath)
+
+        repo_path = f"outputs/{subdir}/{filename}"
+        commit_msg = f"ThreatForge: {output_type} for {cve_data.get('cve_id', 'UNKNOWN')}"
+        github_publisher.publish(str(filepath), repo_path, commit_msg)
 
         return filepath
 
