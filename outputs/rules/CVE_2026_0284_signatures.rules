@@ -1,0 +1,60 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-0284
+# Product:   pan-os
+# Tags:      [RCE] [CRIT]
+# Score:     70
+# Tier:      HIGH PRIORITY
+# SEVERITY DISCREPANCY: NVD/vulnx says 9.9 (CRITICAL) — CVE.org (CNA, v4.0) says 4.7 (MEDIUM). See https://www.cve.org/CVERecord?id=CVE-2026-0284
+# Generated: 2026-07-14T11:51:42.099405Z
+# Status:    OK
+# ---
+
+# DRAFT FOR ANALYST REVIEW — CVE-2026-0284
+#
+# Target: Palo Alto Networks PAN-OS — XML Injection in Large Scale VPN (LSVPN)
+#
+# SEVERITY DISCREPANCY — Analysts must review before deployment:
+#   [1] NVD scores this CVSS 9.9 (CRITICAL)
+#   [3] CVE.org (CNA-published, CVSS v4.0) scores this 4.7 (MEDIUM)
+#   These scores differ substantially. The CNA (Palo Alto Networks) assigned
+#   the lower score via their own advisory [2], which lists urgency MODERATE
+#   and exploit maturity UNREPORTED. Analysts should weigh both before
+#   prioritising response.
+#
+# PoC status: No public PoC known — pattern inferred from the CVE/advisory
+#   description only. [2] lists exploit maturity as UNREPORTED.
+#
+# PCAP status: No packet-capture (PCAP) data source is available to this
+#   pipeline — this pattern is NOT verified against captured exploit traffic.
+#
+# Pattern confidence: LOW.
+#   The rule targets HTTP/HTTPS traffic toward PAN-OS LSVPN endpoints,
+#   looking for common XML injection sequences (injected tag delimiters and
+#   entity references) in request bodies. PAN-OS LSVPN satellite
+#   communication typically uses HTTPS on port 443; the specific URI path
+#   and parameter names for the vulnerable LSVPN input are NOT confirmed in
+#   available public sources [1][2][3]. The content matches below are
+#   generic XML injection indicators and MUST be validated against real
+#   PAN-OS LSVPN traffic by an analyst before any enforcement action is
+#   considered. High false-positive risk against any XML-bearing traffic.
+#
+alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS (
+  msg:"THREATFORGE CVE-2026-0284 PAN-OS LSVPN XML injection attempt";
+  flow:established,to_server;
+  http.method; content:"POST";
+  http.uri; content:"/ssl-vpn/"; nocase;
+  http.request_body;
+  pcre:"/(?:<[^>]*>.*<\/[^>]*>|&#x?[0-9a-fA-F]+;|%3C[^%]*%3E|<!\[CDATA\[)/i";
+  threshold:type limit, track by_src, count 3, seconds 60;
+  reference:cve,2026-0284;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:attempted-recon; sid:9000084; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0284
+[2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0284
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0284
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-0284
+# [2] security.paloaltonetworks.com — https://security.paloaltonetworks.com/CVE-2026-0284
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-0284
