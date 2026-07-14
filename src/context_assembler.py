@@ -89,6 +89,8 @@ class ContextAssembler:
             "rce_vector": "unknown",
             "severity_discrepancy": {},
             "sources": [],
+            "poc_available": cve_data.get("is_poc", False),
+            "poc_count": cve_data.get("poc_count") or 0,
         }
 
         if context["is_kev"] and cve_id in self.kev:
@@ -134,6 +136,15 @@ class ContextAssembler:
         if cna_metrics:
             sources.append({"label": "CVE.org (CNA-published record)", "url": cna_metrics["source_url"]})
 
+        # PoC availability — vulnx tracks this with per-entry source attribution
+        # (is_poc/poc_count/pocs). No packet-capture (PCAP) data is tracked by
+        # any source this pipeline has access to — there's no equivalent signal
+        # to surface for that, so it's stated as a fixed caveat in the
+        # signatures prompt template instead of computed here.
+        for poc in (cve_data.get("pocs") or [])[:2]:
+            if poc.get("url"):
+                sources.append({"label": f"PoC ({poc.get('source', 'unknown')})", "url": poc["url"]})
+
         context["sources"] = sources
         return context
 
@@ -154,6 +165,11 @@ class ContextAssembler:
             lines.append("RCE: YES — network-exploitable (AV:N/PR:N/UI:N)")
         if context["advisory_summary"]:
             lines.append(f"Advisory Context: {context['advisory_summary'][:800]}")
+
+        if context.get("poc_available"):
+            lines.append(f"PoC Availability: {context['poc_count']} public proof-of-concept(s) known to exist (see PoC sources below).")
+        else:
+            lines.append("PoC Availability: No public proof-of-concept known.")
 
         sources = context.get("sources") or []
         if sources:

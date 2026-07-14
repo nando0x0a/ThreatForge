@@ -291,10 +291,26 @@ prompts:
       - Include appropriate classtype
       - Assign a unique sid in the range 9000000-9999999
       - Set rev:1
+      - Precede the rule with a comment block (# lines, above the alert line)
+        stating exactly how confident this pattern is, based on what evidence
+        was actually available:
+          * PoC status: if the context's PoC Availability line shows known
+            proof-of-concept(s), say so and cite the PoC source(s) by [N];
+            if none, say "No public PoC known — pattern inferred from the
+            CVE/advisory description only."
+          * PCAP status: always state "No packet-capture (PCAP) data source
+            is available to this pipeline — this pattern is NOT verified
+            against captured exploit traffic."
+        This block is the single most important signal for how much an
+        analyst should trust the match logic before deploying it.
 
-      Return ONLY the rule text. No explanation, no markdown fencing.
+      Return ONLY the rule text (comment block + rule). No explanation outside
+      the comment block, no markdown fencing.
 
       Example format:
+      # Confidence: PoC known — see [4]. No PCAP data source available; pattern
+      # inferred from PoC + advisory description, not verified against captured
+      # exploit traffic.
       alert http $EXTERNAL_NET any -> $HOME_NET any (
         msg:"THREATFORGE CVE-XXXX-XXXX product exploit attempt";
         flow:established,to_server; http.uri; content:"/exploit/path";
