@@ -1,0 +1,168 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2020-1350
+# Product:   windows
+# Tags:      [KEV] [RCE-KEV] [CRIT] [EPSS] [T1] [WIDE]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-14T04:53:39.188209Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+**CVE:** CVE-2020-1350
+**Affected Product:** Microsoft Windows DNS Server (dns.exe) — affects Windows Server 2003 through Windows Server 2019. Specifically: Windows Server 2008, 2008 R2, 2012, 2012 R2, 2016, 2019 (all editions running the Windows DNS Server role). Windows DNS client libraries are NOT affected; only hosts acting as DNS servers are vulnerable.
+**Fixed Version:** July 2020 Cumulative Update (KB4569509 for Server 2019; KB4571687 for Server 2016; KB4571694 for Server 2012 R2; KB4571736 for Server 2012; KB4571729 for Server 2008 R2 SP1; KB4571730 for Server 2008 SP2). Full patch list published at https://msrc.microsoft.com/update-guide/vulnerability/CVE-2020-1350
+**Urgency:** **IMMEDIATE** — CISA KEV confirmed active exploitation, CVSS 10.0, wormable RCE as SYSTEM. Patch within hours, not days.
+**Rollback Risk:**
+- Cumulative updates may alter DNS server behaviour; regression testing against internal DNS zones is recommended post-patch.
+- Revert path: Windows Update rollback via `wusa /uninstall /kb:<KB_NUMBER>` or System Restore if enabled. Note that rollback re-exposes the critical vulnerability and should only be performed if a confirmed service-breaking regression occurs, with immediate compensating controls applied (registry workaround — see Validation Steps).
+- The registry-based workaround (TcpReceivePacketSize = 0xFF00) is available as a temporary compensating control if patching must be delayed for change-management reasons, but it does not fully remediate the vulnerability and must not substitute for patching.
+
+---
+
+> ⚠️ **ANALYST REVIEW REQUIRED — DRAFT OUTPUT**
+> CVE-2020-1350 (SIGRed) affects **Windows DNS Server** (dns.exe). The Ansible playbook below targets **Linux-based DNS servers** (BIND9 on Debian/Ubuntu family). If your environment runs Windows DNS Server exclusively, this playbook does **not apply** — use Windows-targeted tooling (Ansible `win_updates`, SCCM, WSUS, or manual KB deployment). The BIND9 playbook is provided for environments that may have migrated DNS roles to Linux or run hybrid DNS infrastructure. Confirm applicability before execution.
+
+---
+
+## Ansible Remediation Playbook
+
+---
+# DRAFT FOR ANALYST REVIEW
+# CVE:          CVE-2020-1350 (SIGRed)
+# Component:    BIND9 DNS Server (Linux/Debian-family hosts only)
+# Urgency:      IMMEDIATE - CISA KEV, CVSS 10.0, Active Exploitation Confirmed
+# Generated:    ThreatForge - Proposed draft, requires analyst validation
+# NOTE:         CVE-2020-1350 is a Windows DNS Server vulnerability. This playbook
+#               targets Linux BIND9 as a compensating/hybrid-environment measure.
+#               For Windows DNS Server remediation, use WSUS/SCCM/win_updates.
+
+- name: "Remediate CVE-2020-1350 on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  become: true
+  vars:
+    cve_id: "CVE-2020-1350"
+    affected_package: "bind9"
+    dns_service_name: "named"
+    patch_log_path: "/var/log/cve_patch_audit.log"
+
+  pre_tasks:
+    - name: "Assert target is Debian/Ubuntu family"
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: >
+          This playbook targets Debian/Ubuntu hosts only.
+          For RHEL/CentOS use the bind package via yum/dnf.
+          For Windows DNS Server use win_updates or WSUS targeting KB4569509 et al.
+
+    - name: "Record pre-patch BIND version"
+      ansible.builtin.command:
+        cmd: named -v
+      register: pre_patch_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Log pre-patch state"
+      ansible.builtin.debug:
+        msg: >
+          [{{ cve_id }}] Pre-patch DNS version on {{ inventory_hostname }}:
+          {{ pre_patch_version.stdout | default('named not found or not installed') }}
+
+  tasks:
+    - name: "Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: "Upgrade bind9 package to latest available version"
+      ansible.builtin.apt:
+        name: "{{ affected_package }}"
+        state: latest
+        only_upgrade: true
+      register: patch_result
+
+    - name: "Upgrade bind9utils (companion package)"
+      ansible.builtin.apt:
+        name: "bind9utils"
+        state: latest
+        only_upgrade: true
+      register: utils_patch_result
+
+    - name: "Upgrade bind9-dnsutils (companion package)"
+      ansible.builtin.apt:
+        name: "bind9-dnsutils"
+        state: latest
+        only_upgrade: true
+      register: dnsutils_patch_result
+      failed_when: false  # Package name varies across distro versions
+
+    - name: "Restart BIND9 service if any package was upgraded"
+      ansible.builtin.service:
+        name: "{{ dns_service_name }}"
+        state: restarted
+      when: >
+        patch_result.changed or
+        utils_patch_result.changed or
+        dnsutils_patch_result.changed
+
+    - name: "Verify BIND9 service is running post-restart"
+      ansible.builtin.service:
+        name: "{{ dns_service_name }}"
+        state: started
+        enabled: true
+
+    - name: "Record post-patch BIND version"
+      ansible.builtin.command:
+        cmd: named -v
+      register: post_patch_version
+      changed_when: false
+
+    - name: "Write audit log entry"
+      ansible.builtin.lineinfile:
+        path: "{{ patch_log_path }}"
+        line: >
+          {{ ansible_date_time.iso8601 }} | {{ cve_id }} |
+          host={{ inventory_hostname }} |
+          pre={{ pre_patch_version.stdout | default('unknown') }} |
+          post={{ post_patch_version.stdout | default('unknown') }} |
+          changed={{ patch_result.changed }}
+        create: true
+        mode: '0640'
+
+    - name: "Audit log summary"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }} patch task completed on {{ inventory_hostname }}
+          at {{ ansible_date_time.iso8601 }}.
+          Package changed: {{ patch_result.changed }}.
+          Post-patch version: {{ post_patch_version.stdout }}.
+
+---
+
+## Validation Steps
+
+**1. Confirm patch installation (Linux/BIND9):**
+named -v
+# Expected: version string reflecting patched BIND9 release in distro repo
+apt-cache policy bind9
+# Confirm installed version matches candidate (latest available)
+
+**2. Confirm BIND9 service health:**
+systemctl status named
+# Expected: active (running)
+journalctl -u named --since "10 minutes ago" | grep -i error
+# Expected: no critical errors
+
+**3. Test DNS resolution:**
+dig @<dns-server-ip> google.com
+# Expected: ANSWER SECTION populated, status: NOERROR
+
+**4. For Windows DNS Server — confirm KB installation:**
+# Run on patched Windows DNS Server
+Get-HotFix | Where-Object { $_.HotFixID -in @('KB4569509','KB4571687','KB4571694','KB4571736','KB4571729','KB4571730') }
+# Expected: matching KB entry with InstalledOn date
+
+**5. For Windows — registry workaround verification (if applied as interim measure):**
+Get-ItemProperty -Path "H
