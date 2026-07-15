@@ -27,6 +27,28 @@ When a high-severity CVE lands, a detection engineer has to read the advisory, c
 - **Interactive CLI wizard** (`src/cli.py`) plus broad spot-check modes (`--test`, `--recent`) for validating against CISA KEV / cve.org
 - **Scheduler is opt-in** — fully analyst-driven by default; enable a daily cron run only if you want it
 
+## See it in action
+
+**Interactive CLI wizard** — pick a run mode, produce outputs, no flags to memorize:
+
+![CLI wizard running the daily pipeline and producing all six outputs](screenshots/cli-wizard-run.png)
+
+**Summary table** — printed after every `--produce` run, one row per generated draft:
+
+![Rich-rendered summary table listing CVE, output type, product, tier, score, and status](screenshots/outputs-summary-table.png)
+
+**Discord briefing** — every produced draft is posted directly to the channel, source-cited and flagged if severity is disputed:
+
+![A patch recommendation posted to Discord, citing sources by number](screenshots/discord-output-post.png)
+
+**Source-cited outputs** — a generated Suricata rule, published to GitHub, with an explicit confidence caveat and a verified source list:
+
+![A Suricata signature file on GitHub showing analyst guidance comments and a numbered Sources footer](screenshots/github-signature-with-sources.png)
+
+**GitHub audit trail** — every draft type gets its own subfolder, one commit per generation:
+
+![The outputs/ directory on GitHub showing advisories, hunting, iocs, patches, and rules subfolders](screenshots/github-outputs-directory.png)
+
 ## Output modules
 
 | # | Module | Audience |
