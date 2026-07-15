@@ -92,12 +92,3 @@ ThreatForge/
 └── outputs/                # generated drafts (gitignored locally; published to GitHub separately)
 ```
 
-## Documentation
-
-- [`01_ThreatForge_Overview.md`](01_ThreatForge_Overview.md) — architecture, design principles, roadmap
-- [`02_ThreatForge_Implementation.md`](02_ThreatForge_Implementation.md) — install, configuration, operating the container
-- [`03_ThreatForge_Code.md`](03_ThreatForge_Code.md) — full source reference
-
-## Status
-
-Running in production in a homelab (Phase 1: single host, Discord + GitHub audit trail, analyst-triggered). See the [roadmap](01_ThreatForge_Overview.md#platform-roadmap) for planned Phase 2/3 work — chat-bot interactivity, persistent output storage, SIEM logging, and enterprise integrations (SOAR, MISP, ticketing).
