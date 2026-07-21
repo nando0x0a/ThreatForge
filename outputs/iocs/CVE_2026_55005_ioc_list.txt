@@ -1,0 +1,77 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-55005
+# Product:   microsoft exchange
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:32:12.765189Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-55005
+# Generated: 2025-07-15
+# Confidence: LOW (see Notes)
+# ⚠️ DRAFT — For analyst review only. Not validated for production deployment.
+
+---
+
+## Network Indicators
+*No specific IPs observed or attributed to CVE-2026-55005 exploitation in the provided context.*
+
+## Domain Indicators
+*No specific domains observed or attributed to CVE-2026-55005 exploitation in the provided context.*
+
+## URL Indicators
+*No specific exploit URLs identified in the provided context.*
+
+## File Indicators
+*No specific file hashes (malware payloads, exploit artifacts) associated with CVE-2026-55005 are available in the provided context.*
+
+## User-Agent Indicators
+*No specific malicious User-Agent strings associated with exploitation attempts have been identified in the provided context.*
+
+## URI Path Indicators
+URI: /ews/exchange.asmx  # Exchange Web Services endpoint — commonly targeted in Exchange RCE exploitation; **LOW confidence / generic**
+URI: /autodiscover/autodiscover.xml  # Autodiscover endpoint — historically targeted in Exchange attacks; **LOW confidence / generic**
+URI: /oab/  # Offline Address Book endpoint — referenced in prior Exchange heap-corruption chains; **LOW confidence / generic**
+URI: /mapi/  # MAPI-over-HTTP endpoint — relevant to authenticated Exchange RCE vectors; **LOW confidence / generic**
+
+> ⚠️ These URI paths are derived from general Exchange attack surface knowledge, not from confirmed exploitation activity specific to CVE-2026-55005. They are included only as candidate monitoring points pending confirmation.
+
+---
+
+## Notes
+
+### Indicator Confidence
+**Overall confidence: LOW.** No public proof-of-concept (PoC) code is known to exist at time of generation [1][3]. No CISA KEV entry was present in the provided context, meaning no confirmed in-the-wild exploitation has been recorded by CISA as of this writing. The advisory context from MSRC [2] did not contain specific exploitation artefacts or threat actor attributions.
+
+### Why IoCs Are Limited
+- CVE-2026-55005 is **5 days old** as of generation date — insufficient time for OSINT-observable exploitation campaigns to be documented and attributed.
+- No public PoC exists [1], reducing the likelihood that broad scanning/exploitation activity is currently detectable at scale.
+- The MSRC advisory page [2] returned JavaScript-rendered content without structured IoC data.
+- The vulnerability requires **attacker authorization** [1][3], meaning exploitation is unlikely to generate the same high-volume indiscriminate network noise as unauthenticated vulnerabilities. This narrows the detection surface to authenticated sessions and post-auth behaviour.
+
+### Observable Behaviour Patterns (In Lieu of Confirmed IoCs)
+Given the heap-based buffer overflow in Microsoft Exchange Server with a CVSS 8.8 (HIGH) [1] and network-based RCE vector, analysts should monitor for:
+
+1. **Authenticated Exchange sessions followed by anomalous process spawning** — e.g., `w3wp.exe` or `UMWorkerProcess.exe` spawning unexpected child processes (cmd.exe, powershell.exe, wscript.exe).
+2. **Memory anomalies in Exchange worker processes** — crash dumps, WER reports, or application event log errors in Exchange transport/backend services.
+3. **Unusual outbound connections from Exchange servers** — particularly from IIS application pools or Exchange service accounts to non-Exchange infrastructure.
+4. **Lateral movement from Exchange server host** — Exchange servers are high-value pivot points; monitor for unusual SMB, WMI, or RPC activity originating from Exchange hosts post-authentication.
+5. **Exploitation of Exchange service accounts** — review for privilege escalation attempts or token manipulation following authenticated Exchange API calls.
+
+### Recommended Actions
+- Apply Microsoft security update per [2] immediately given CVSS 8.8 and T1/HIGH priority tagging.
+- Baseline normal Exchange process trees and network egress **now**, before exploitation activity is observed.
+- Re-evaluate this IoC list when PoC code or threat intelligence reporting becomes available.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-55005
+[2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-55005
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-55005
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-55005
+# [2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-55005
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-55005
