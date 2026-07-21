@@ -1,0 +1,99 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-60005
+# Product:   nginx
+# Tags:      [RCE] [HIGH] [T1] [WIDE]
+# Score:     90
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-21T04:22:06.136143Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-60005
+# Generated: 2025-07-15
+# Confidence: Varied — see per-indicator notes
+# **DRAFT FOR ANALYST REVIEW**
+
+---
+
+## Network Indicators
+
+*No specific malicious IP addresses are available from the provided sources [1][2][3]. No CISA KEV attribution data or OSINT threat-actor infrastructure is present in the supplied context.*
+
+---
+
+## Domain Indicators
+
+*No malicious domains have been identified in connection with CVE-2026-60005 exploitation activity. No public proof-of-concept is known at time of generation.*
+
+---
+
+## URL Indicators
+
+*No exploit-specific URLs are available. No public PoC has been published as of this report.*
+
+---
+
+## File Indicators
+
+*No malware samples, dropper hashes, or exploit payloads associated with CVE-2026-60005 have been identified in the provided context. No SHA256 or MD5 indicators can be stated with confidence.*
+
+---
+
+## User-Agent Indicators
+
+*No specific exploit User-Agent strings have been observed or documented for this CVE at this time.*
+
+---
+
+## URI Path Indicators
+
+Based on the vulnerability description [1][2], exploitation targets NGINX configurations using the `ngx_http_slice_module` with unnamed regex captures or background cache update paths. The following observable URI patterns are **behavioural indicators** (Medium confidence — inferred from vulnerability mechanics, not confirmed exploit traffic):
+
+URI: /*          # Any URI served through a slice-enabled location block with unnamed regex captures
+URI: /           # Root-level requests may trigger background cache update path
+
+> **Analyst Note:** There is no single "magic path." The vulnerable condition is configuration-dependent — any URI routed through a `location` block combining `slice` directive with unnamed regex capture groups, or any URI eligible for background cache update on slice-enabled endpoints, represents a potential trigger surface [1][2]. URI indicators alone have low detection value without correlating with response anomalies (see Notes).
+
+---
+
+## Notes
+
+### Confidence Assessment
+
+| Indicator Type | Confidence | Rationale |
+|---|---|---|
+| Network IPs / Domains | LOW / NONE | No exploitation campaigns observed; CVE is 4 days old [1]; no public PoC [3] |
+| URI Patterns | LOW–MEDIUM | Inferred from vulnerability mechanics [1][2]; config-dependent |
+| Behavioural patterns | MEDIUM | Derived from authoritative advisory detail [2] |
+
+### Recommended Observable Behaviour Patterns (Detection Proxies)
+
+Because direct IoCs are unavailable, analysts should instrument for the following behavioural signals on NGINX Plus / NGINX Open Source instances:
+
+1. **Unexpected worker process restarts** — The vulnerability enables denial-of-service via worker crash [1][2]. Monitoring `nginx` process supervisor logs for abnormal respawn events (especially correlated with slice-module-enabled vhosts) is the highest-confidence detection signal.
+
+2. **Uninitialized memory disclosure in responses** — Responses from slice-enabled endpoints containing anomalous binary or non-printable content in unexpected positions may indicate triggered memory disclosure [1][2]. DLP or response inspection controls should be reviewed for these endpoints.
+
+3. **High-volume requests to cached, slice-enabled endpoints** — Adversaries probing for the background cache update code path may generate elevated request rates to cacheable URIs. Correlate with `X-Slice-Range` or `Range` headers if applicable to your configuration.
+
+4. **Configuration audit** — The prerequisite for exploitation is `ngx_http_slice_module` being enabled alongside unnamed regex captures [1][2]. Treat any confirmed matching configuration as a high-priority remediation target regardless of observed traffic.
+
+### CVE Age & PoC Status
+
+This CVE is **4 days old** with **no known public proof-of-concept** [3]. The IoC landscape is expected to be sparse at this stage. This list should be **re-evaluated within 7–14 days** as threat-actor scanning and potential PoC publication may surface new indicators. Given the CRITICAL priority tier (Priority Score: 90) [1], patching or mitigation per vendor advisory [2] takes precedence over indicator-based detection at this stage.
+
+### ⚠️ SEVERITY NOTE
+
+The provided CVSS score is **8.2 HIGH** [1]. However, the CVE metadata also flags **RCE: YES (AV:N/PR:N/UI:N)**. Analysts should note that a CVSS 8.2 score for a vulnerability characterised as enabling memory disclosure and DoS — **not typically full RCE** — may represent a discrepancy between the CVSS vector components and the RCE classification tag. **Analysts should independently verify the actual impact scope** against the F5 advisory [2] and CVE.org CNA record [3] before assuming arbitrary code execution is achievable. The memory disclosure component could theoretically be chained toward code execution in some configurations, but this is not confirmed in the provided context.
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-60005
+[2] my.f5.com — https://my.f5.com/manage/s/article/K000162100
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-60005
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-60005
+# [2] my.f5.com — https://my.f5.com/manage/s/article/K000162100
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-60005
