@@ -1,0 +1,91 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-53412
+# Product:   windows
+# Tags:      [RCE] [CRIT] [T1] [WIDE]
+# Score:     100
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-21T04:18:23.176591Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-53412
+# Generated: 2025-07-14
+# Confidence: See per-indicator and Notes section
+# ⚠️ DRAFT — For analyst review and validation before operational use
+
+---
+
+## Network Indicators
+
+*No specific attacker IPs are available in the provided context. No CISA KEV enrichment or OSINT threat-actor infrastructure data was supplied.*
+
+---
+
+## Domain Indicators
+
+*No malicious domains attributed to exploitation of CVE-2026-53412 are present in the provided context.*
+
+---
+
+## URL Indicators
+
+*No specific exploit-delivery or C2 URLs are available from the provided context.*
+
+---
+
+## File Indicators
+
+*No malicious file hashes are available from the provided context. No samples have been identified in the supplied sources.*
+
+---
+
+## User-Agent Indicators
+
+*No specific attacker user-agent strings have been identified in the provided context.*
+
+---
+
+## URI Path Indicators
+
+URI: *(Zoom client protocol handler and network-facing authentication endpoints)*
+— The vulnerability is described as an authentication bypass via improper input validation in the Zoom Desktop Client for Windows, Zoom VDI Client for Windows, and Zoom Meeting SDK for Windows [1][2][3]. The precise internal API endpoint or protocol path targeted is not disclosed in the available advisory text [2]; specific URI patterns cannot be confirmed without further vendor detail or traffic analysis.
+
+---
+
+## Observable Behaviour Patterns
+
+Because specific technical IoCs are not derivable from the current context, analysts should monitor for the following behavioural indicators:
+
+| Pattern | Description | Confidence |
+|---|---|---|
+| Unauthenticated inbound connections to Zoom client listening ports | CVE-2026-53412 is network-exploitable with AV:N/PR:N/UI:N [1]; watch for unexpected inbound TCP/UDP sessions to Zoom process ports from untrusted hosts | MEDIUM |
+| Account takeover indicators post-authentication | Successful exploitation leads to account takeover [1][2][3]; monitor for Zoom session tokens appearing from unexpected source IPs or geolocations | MEDIUM |
+| Anomalous Zoom process behaviour | Child process spawning, unexpected network connections, or credential access from the Zoom Desktop Client process (e.g., `Zoom.exe`) following inbound network activity | MEDIUM |
+| Zoom Meeting SDK unusual API calls | Applications embedding the Zoom Meeting SDK for Windows making or receiving unexpected authentication-phase traffic | LOW — detail unavailable |
+| VDI environment lateral movement | In Zoom VDI Client deployments, watch for privilege escalation or lateral movement from VDI broker hosts following Zoom client compromise | MEDIUM |
+
+---
+
+## Notes
+
+1. **No public PoC is known** at time of generation. The provided context confirms no public proof-of-concept exists. IoC confidence will increase significantly if PoC code is released; re-assess this list at that time.
+
+2. **CVE is 3 days old** [1][3]. Threat-actor infrastructure has not yet been publicly attributed. Network indicators should be added as threat intelligence feeds produce attribution data.
+
+3. **Advisory content partially unavailable**: The advisory source [2] (ZSB-26014) contained rendering artefacts and CSS/markup content in the provided context, obscuring technical detail such as affected version ranges and specific vulnerable components. Analysts should retrieve the clean advisory directly from `https://www.zoom.com/en/trust/security-bulletin/zsb-26014` to obtain version-specific indicators and patched build numbers.
+
+4. **Priority Tier is CRITICAL** (Score: 100, Tags: [RCE] [CRIT] [T1] [WIDE]). Even without confirmed exploitation IoCs, detection engineering and patch prioritisation should proceed immediately given CVSS 9.8 [1] and unauthenticated network-exploitable RCE/account-takeover capability.
+
+5. **All entries in this list are proposed drafts for analyst review.** No indicators should be actioned (blocked, alerted, or shared as confirmed) without independent validation.
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-53412
+[2] www.zoom.com — https://www.zoom.com/en/trust/security-bulletin/zsb-26014
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-53412
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-53412
+# [2] www.zoom.com — https://www.zoom.com/en/trust/security-bulletin/zsb-26014
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-53412
