@@ -1,0 +1,86 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-58598
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:29:32.362650Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-58598
+# Generated: 2025-07-15
+# Confidence: LOW — see Notes
+
+---
+
+> **ANALYST REVIEW REQUIRED — DRAFT OUTPUT**
+> This IoC list is a proposed draft generated for analyst review and should not be operationalised without independent verification.
+
+---
+
+## Network Indicators
+*None identified.*
+No network-based indicators are available from the provided context. CVE-2026-58598 describes a **local privilege escalation** via race condition in the Windows Backup Engine [1][2]. Exploitation does not require or inherently produce observable network traffic, and no threat actor infrastructure has been associated with this vulnerability at this time.
+
+## Domain Indicators
+*None identified.*
+No malicious domains are associated with this vulnerability in the provided context.
+
+## URL Indicators
+*None identified.*
+No exploit delivery URLs are known. No public proof-of-concept is available at this time.
+
+## File Indicators
+*None identified.*
+No specific malicious file hashes, dropper binaries, or exploit payloads have been attributed to exploitation of CVE-2026-58598 in the provided context. Absence of PoC availability supports this gap.
+
+## User-Agent Indicators
+*None identified.*
+This is a local exploitation vector; no relevant user-agent strings apply.
+
+## URI Path Indicators
+*None identified.*
+No web-facing endpoint is involved. Exploitation is local (requires an authenticated session on the target host) [1].
+
+---
+
+## Notes
+
+**Confidence Assessment: LOW for all indicator categories.**
+The low confidence reflects the following constraints:
+
+1. **Local exploitation vector only** [1][2]: CVE-2026-58598 is a race condition (CWE: improper synchronisation) exploitable only by **authorised local attackers**. It does not expose a network attack surface, meaning traditional network- or web-based IoCs (IPs, domains, URLs, user-agents) are structurally not applicable to initial exploitation.
+
+2. **No public PoC** : No proof-of-concept code or exploit tooling is publicly known at this time, making it unlikely that known payload hashes or specific file artefacts exist for detection.
+
+3. **Vulnerability age — 3 days** [1][3]: The CVE is extremely recent. Threat actor tooling, attribution, or post-exploitation artefacts linked specifically to this CVE have not been reported in the provided context or available OSINT.
+
+4. **Advisory context limitation** [2]: The Microsoft Security Response Center advisory page did not render fully in the provided context (JavaScript-dependent), limiting extraction of specific technical detail such as affected binary names, patch file paths, or detection signatures.
+
+5. **No CISA KEV entry**: This vulnerability has not been added to the CISA Known Exploited Vulnerabilities catalogue at this time, indicating no confirmed in-the-wild exploitation has been reported.
+
+**Observable Behaviour Patterns (in lieu of specific IoCs):**
+Analysts should consider hunting for the following behavioural indicators on Windows endpoints, noting these are generic patterns associated with local privilege escalation via race conditions — **not confirmed specific to CVE-2026-58598**:
+
+- Unexpected privilege elevation events involving the Windows Backup Engine process (`wbengine.exe` or associated services) — *specific binary names not confirmed from available context; analyst should verify against Microsoft patch documentation* [2].
+- Time-of-check/time-of-use (TOCTOU) patterns: rapid, repeated filesystem or object handle operations by a low-privileged process targeting backup-related resources.
+- New high-privileged processes spawned as children of backup-related services from a standard user session.
+- Windows Event Log entries: Security Event ID 4688 (process creation) with elevated integrity level originating from a standard user context in proximity to backup engine activity.
+- Unexpected modifications to backup-related registry keys or service configurations by non-SYSTEM, non-Administrator accounts.
+
+**Recommended Actions:**
+- Apply Microsoft's security update for CVE-2026-58598 as the primary mitigation [2].
+- Monitor this vulnerability for escalation to CISA KEV or publication of PoC code, both of which would significantly increase priority and may surface concrete IoCs.
+- Re-run IoC extraction if threat intelligence feeds or sandbox submissions associate specific hashes with exploitation attempts.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-58598
+[2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-58598
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-58598
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-58598
+# [2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-58598
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-58598

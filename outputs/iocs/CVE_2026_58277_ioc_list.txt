@@ -1,0 +1,77 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-58277
+# Product:   microsoft sharepoint
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:34:03.324165Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-58277
+# Generated: 2025-07-14
+# Confidence: LOW (see Notes)
+
+---
+
+## Network Indicators
+*No specific malicious IPs identified in available context. No CISA KEV entry or OSINT threat actor infrastructure available at this time.*
+
+## Domain Indicators
+*No malicious domains identified in available context.*
+
+## URL Indicators
+*No specific exploit URLs identified in available context.*
+
+## File Indicators
+*No file hashes associated with exploitation of CVE-2026-58277 are available in the provided context.*
+
+## User-Agent Indicators
+*No exploit-specific user-agent strings identified in available context.*
+
+## URI Path Indicators
+URI: /_layouts/  # SharePoint layout/admin endpoint — commonly targeted in SharePoint privilege escalation abuse; monitor for anomalous access patterns
+URI: /_api/  # SharePoint REST API endpoint — monitor for unexpected privilege elevation requests from authenticated users
+URI: /_vti_bin/  # Legacy SharePoint ISAPI endpoint — monitor for unusual authenticated calls
+URI: /sites/  # SharePoint site collection paths — monitor for unauthorized cross-site access attempts by authenticated low-privilege users
+
+> **Note:** The above URI paths are derived from general SharePoint architecture knowledge, not from specific exploitation evidence for CVE-2026-58277. They represent observable behaviour patterns to monitor, not confirmed exploit paths. Analyst review and tuning required.
+
+---
+
+## Notes
+
+**⚠️ DRAFT — Proposed for analyst review. Do not deploy without validation.**
+
+**Confidence Assessment: LOW**
+All indicators in this list are **inferred from the vulnerability class and affected product** (Microsoft SharePoint, broken access control / improper authorization [1][2][3]), not from observed exploitation activity.
+
+**Reasons for low confidence:**
+- CVE-2026-58277 is only **5 days old** [1]; no threat actor infrastructure has been publicly attributed.
+- **No public proof-of-concept (PoC) is known** at time of generation, meaning active scanning/exploitation campaigns have not been observed yet.
+- The Microsoft Security Response Center advisory context provided was **incomplete** (JavaScript rendering required) [2], limiting extraction of specific affected endpoints or patch detail.
+- There is **no CISA KEV entry** for this CVE, indicating no confirmed in-the-wild exploitation as of generation date.
+- No OSINT threat feeds, sandbox detonation reports, or incident reports were available in the provided context.
+
+**Observable Behaviour Patterns to Monitor Instead:**
+1. Authenticated low-privilege users accessing SharePoint resources or administrative functions beyond their assigned role.
+2. Unexpected permission changes or role assignments initiated by non-administrative accounts.
+3. Lateral access from one SharePoint site collection to another by the same authenticated identity without explicit permissions.
+4. Anomalous SharePoint API calls (REST or CSOM) that return elevated-privilege data to standard user tokens.
+5. Audit log entries showing access to site administration pages (`/_layouts/settings.aspx`, `/_layouts/user.aspx`) by non-admin accounts.
+
+**Recommended Actions:**
+- Apply Microsoft's security update for CVE-2026-58277 immediately given CVSS 8.8 HIGH [1] and network exploitability by any authenticated user [2].
+- Enable SharePoint Unified Audit Logging and alert on privilege escalation patterns above.
+- Revisit this IoC list if a PoC is published or CISA adds this to the KEV catalog.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-58277
+[2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-58277
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-58277
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-58277
+# [2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-58277
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-58277

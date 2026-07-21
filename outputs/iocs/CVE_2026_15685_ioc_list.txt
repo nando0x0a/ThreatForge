@@ -1,0 +1,87 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-15685
+# Product:   ollama
+# Tags:      [RCE] [HIGH]
+# Score:     60
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:25:25.713530Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-15685
+# Generated: 2026-07-14
+# ⚠️ DRAFT — Proposed for analyst review. All indicators require validation before operationalisation.
+# Confidence: LOW — No public PoC; IoCs are behavioural/inferred, not observed in active campaigns.
+
+---
+
+## Network Indicators
+*No specific attacker IPs or C2 infrastructure identified in the provided context. No active exploitation campaign data is available at this time.*
+
+---
+
+## Domain Indicators
+*No malicious domains associated with exploitation of CVE-2026-15685 are known from the provided sources.*
+
+---
+
+## URL Indicators
+*No specific exploit URLs identified. No public PoC is known [2].*
+
+---
+
+## File Indicators
+*No malware samples, exploit binaries, or associated file hashes have been identified in the provided context. If a PoC becomes public, hashes should be added here.*
+
+---
+
+## User-Agent Indicators
+*No specific user-agent strings associated with exploitation tooling are known at this time. If scanning activity is observed, anomalous or tool-default user-agents targeting Ollama endpoints should be captured and added here.*
+
+---
+
+## URI Path Indicators
+
+URI: /api/blobs/sha256:<digest>
+# Ollama blob download API endpoint handled by the vulnerable downloadBlob function [2].
+# Confidence: MEDIUM — This is the functional endpoint exposed by Ollama's API surface
+# that is processed by the vulnerable code path. Anomalous or malformed requests
+# to this endpoint should be treated as suspicious.
+
+URI: /api/pull
+# Confidence: LOW — Pull requests may trigger blob download operations internally,
+# potentially reaching the vulnerable downloadBlob code path [2].
+
+URI: /api/push
+# Confidence: LOW — Push operations may similarly invoke blob handling logic.
+
+---
+
+## Observable Behaviour Patterns
+*Given the absence of a public PoC [2] and no known active exploitation, the following behavioural patterns are provided as detection guidance in lieu of hard IoCs:*
+
+1. **Malformed or out-of-bounds array index values** in blob-related API requests targeting Ollama's HTTP API surface (default port 11434/tcp) [2].
+2. **Sudden Ollama process crashes or service unavailability** following inbound API requests — indicative of a successful memory access past array bounds trigger [1][2].
+3. **Unauthenticated, high-frequency requests** to blob endpoints from unexpected source IPs, consistent with DoS attempt patterns. Ollama requires no authentication by default [2].
+4. **Network connections to Ollama's API port (default 11434/tcp) from external/untrusted sources** — Ollama is not designed for unauthenticated internet exposure; any such traffic is inherently anomalous [2].
+5. **Anomalous process memory faults or OOM-killer events** in the Ollama process on Linux hosts.
+
+---
+
+## Notes
+
+- **Confidence is LOW across all indicators** because no public proof-of-concept exists [2], no CISA KEV listing has been identified in the provided context, and no observed exploitation campaign data was supplied. All URI patterns are inferred from advisory description of the vulnerable function (`downloadBlob`) [2].
+- **CVSS 7.5 (HIGH) — AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H** [2]: The vulnerability is network-exploitable with no privileges and no user interaction required. Impact is limited to Availability (DoS); no Confidentiality or Integrity impact is scored. Despite the RCE tag in priority metadata, the CVSS vector and advisory description [1][2] indicate a **Denial-of-Service** outcome (memory access past array bounds), not confirmed arbitrary code execution. **Analysts should scrutinise the [RCE] priority tag** — it may reflect the memory-corruption primitive class rather than confirmed code execution. This discrepancy should be resolved before escalating response priority.
+- **No fabricated indicators have been included.** All sections without confirmed data explicitly state their absence per standing ThreatForge rules.
+- This list should be refreshed immediately if a public PoC is released or if active exploitation is reported. CVE is 6 days old at time of generation.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-15685
+[2] www.zerodayinitiative.com — https://www.zerodayinitiative.com/advisories/ZDI-26-403/
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-15685
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-15685
+# [2] www.zerodayinitiative.com — https://www.zerodayinitiative.com/advisories/ZDI-26-403/
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-15685

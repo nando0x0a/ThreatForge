@@ -1,0 +1,91 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-59084
+# Product:   apache tomcat
+# Tags:      [RCE] [CRIT] [T1] [WIDE]
+# Score:     100
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-21T04:20:42.132190Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-59084
+# Generated: 2026-07-20
+# Confidence: See per-indicator and Notes sections
+# ⚠️ DRAFT FOR ANALYST REVIEW — All indicators require validation before operational use.
+
+---
+
+## Network Indicators
+*No specific malicious IP addresses have been identified in the provided context.*
+
+## Domain Indicators
+*No malicious domains have been identified in the provided context.*
+
+## URL Indicators
+*No specific exploit URLs have been identified in the provided context.*
+
+## File Indicators
+*No file hashes associated with exploit tooling or payloads have been identified in the provided context.*
+
+## User-Agent Indicators
+*No distinctive attacker User-Agent strings have been identified in the provided context.*
+
+## URI Path Indicators
+URI: /  # Generic — EncryptInterceptor operates at the cluster communication layer (not a standard HTTP URI path); no specific vulnerable endpoint URI is attributable from available context.
+
+---
+
+## Observable Behaviour Patterns
+*Given the absence of confirmed IoCs at this early stage (CVE age: 6 days [1]; no public PoC known), the following behavioural patterns should be monitored as proxy indicators:*
+
+**1. Cluster Communication Anomalies (Confidence: MEDIUM)**
+- Unexpected or malformed inter-node cluster replication traffic on Tomcat cluster ports (default: TCP 4000 / UDP multicast, or custom ports per deployment).
+- Connections to cluster replication ports from unexpected source IPs (i.e., outside the known cluster member IP range).
+- Sudden spike in cluster replication traffic volume, which may indicate exploit attempts targeting misconfigured EncryptInterceptor.
+
+**2. Authentication/Encryption Bypass Indicators (Confidence: MEDIUM)**
+- Unencrypted or weakly encrypted cluster session replication traffic where EncryptInterceptor is expected to enforce encryption — detectable via packet inspection on cluster ports.
+- Cluster communication accepted without a valid encryption key, indicating EncryptInterceptor is absent or misconfigured.
+
+**3. Unexpected Process or Session Behaviour (Confidence: LOW)**
+- New or unexpected Java process spawns from Tomcat worker threads (relevant given RCE classification [1]).
+- Anomalous session replication data containing serialised Java objects (flag for Java deserialization inspection tooling).
+- Unexpected outbound connections originating from Tomcat JVM processes.
+
+**4. Configuration Indicators (Confidence: HIGH — defensive)**
+- Presence of `<Interceptor className="org.apache.catalina.tribes.group.interceptors.EncryptInterceptor" ...>` in `server.xml` WITHOUT a strong, explicitly set encryption key → confirms misconfiguration exposure per advisory [2][3].
+- Absence of EncryptInterceptor entirely in cluster configurations where replication is enabled → confirms exposure.
+
+**5. Log Indicators (Confidence: MEDIUM)**
+- Tomcat catalina.out / cluster log entries referencing `EncryptInterceptor` errors, key negotiation failures, or unexpected plaintext cluster messages.
+- Access log entries showing high-frequency requests consistent with automated exploitation attempts against cluster endpoints.
+
+---
+
+## Notes
+
+**Confidence Assessment:**
+- **No concrete network, domain, URL, hash, or UA IoCs are available** from the provided sources [1][2][3] at this time. This is expected: the CVE is only 6 days old [1] and no public proof-of-concept has been published.
+- All IoCs listed here are **behavioural/pattern-based** and derived from the known vulnerability mechanism (misconfigured EncryptInterceptor in Apache Tomcat cluster communication) rather than observed attacker infrastructure.
+
+**⚠️ SEVERITY DISCREPANCY NOTE:**
+The CVE carries a CVSS score of 9.1 (CRITICAL) with an RCE vector of AV:N/PR:N/UI:N [1]. However, the vulnerability description explicitly states that **exploitation requires user misconfiguration** — i.e., the vulnerability is in documentation clarity, not a directly exploitable code flaw. Analysts should assess whether the 9.1 CRITICAL score accurately reflects the exploitability in their environment. The NVD score [1] and the oss-security advisory description [3] present a potential tension between the severity rating and the precondition of misconfiguration. **This discrepancy should be reviewed by your team before prioritisation decisions are finalised.**
+
+**Affected Versions (for scoping IoC collection):**
+Apache Tomcat 7.0.100–7.0.109, 8.5.38–8.5.100, 9.0.13–9.0.119, 10.1.0-M1–10.1.56, 11.0.0-M1–11.0.23 [1][2].
+
+**Recommended Analyst Actions:**
+- Pivot to threat intel platforms (VirusTotal, Shodan, Censys, GreyNoise) for emerging IoCs as exploitation attempts may surface.
+- Monitor oss-security thread [3] and Apache advisory [2] for updated IoC or PoC disclosures.
+- Prioritise detection on cluster-enabled Tomcat deployments with EncryptInterceptor present but misconfigured.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-59084
+[2] lists.apache.org — https://lists.apache.org/thread/7w9746ootcxo0gvx26xjpw80l31f1qw7
+[3] www.openwall.com — http://www.openwall.com/lists/oss-security/2026/07/14/8
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-59084
+# [2] lists.apache.org — https://lists.apache.org/thread/7w9746ootcxo0gvx26xjpw80l31f1qw7
+# [3] www.openwall.com — http://www.openwall.com/lists/oss-security/2026/07/14/8

@@ -1,0 +1,102 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-56171
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:26:41.695610Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-56171
+# Generated: 2025-07-14
+# Confidence: See per-section notes
+# ⚠️ DRAFT FOR ANALYST REVIEW — Not for production deployment without validation
+
+---
+
+## Network Indicators
+
+*No specific malicious IP addresses are available from the provided context.*
+
+**Observable Network Behaviour Patterns (LOW–MEDIUM confidence — inferred from vulnerability class):**
+
+- Unusual or unexpected inbound/outbound RDP connections (TCP/3389) originating from or destined to hosts not in the approved RDP baseline [1][2]
+- RDP sessions initiated by accounts with no prior RDP history
+- High-frequency RDP connection attempts (potential scanning or enumeration activity) targeting exposed RDP endpoints [1]
+- RDP traffic observed on non-standard ports if RDP has been reconfigured (e.g., TCP/3388, TCP/33890)
+
+---
+
+## Domain Indicators
+
+*No specific malicious domains are available from the provided context.*
+
+---
+
+## URL Indicators
+
+*No specific malicious URLs are available from the provided context.*
+
+---
+
+## File Indicators
+
+*No file hashes (patch binaries, exploit artifacts, or dropped payloads) are available from the provided context.*
+*No public proof-of-concept is currently known, which reduces the likelihood of associated file artifacts at this time.*
+
+---
+
+## User-Agent Indicators
+
+*No user-agent strings are available from the provided context. CVE-2026-56171 exploits the RDP protocol layer rather than HTTP, making user-agent indicators not applicable to the primary attack vector.*
+
+---
+
+## URI Path Indicators
+
+*Not applicable. The vulnerability operates over the RDP protocol (typically TCP/3389), not an HTTP/web URI path.*
+
+---
+
+## Notes
+
+### Context & Confidence Assessment
+
+1. **No public IoCs exist for this CVE.** The vulnerability is 3 days old [1], no public proof-of-concept is known, and the advisory context from the Microsoft Security Response Center does not surface specific threat-actor infrastructure or campaign indicators [2].
+
+2. **Severity context:** CVE-2026-56171 is rated CVSS 7.1 HIGH [1] and classified as an information disclosure vulnerability in Windows RDP, exploitable over a network without special privileges [1][2]. This combination (network-reachable, no privileges required) warrants heightened monitoring even absent active exploitation evidence.
+
+3. **⚠️ Severity Discrepancy Check:** Only a single CVSS score (7.1 HIGH) has been provided across the available sources [1][2][3]. No discrepancy between sources is evident from the supplied context. Analysts should independently verify scoring in NVD [1], MSRC [2], and CVE.org [3] in case scores are updated as the record matures (the CVE is only 3 days old and NVD enrichment may be incomplete).
+
+4. **CISA KEV Status:** No CISA KEV listing is referenced in the provided context. Analysts should monitor https://www.cisa.gov/known-exploited-vulnerabilities-catalog for additions.
+
+5. **Recommended Observable Behaviours to Hunt (in absence of concrete IoCs):**
+   - Unexpected data egress correlating with RDP session activity (characteristic of information disclosure exploitation)
+   - RDP authentication successes from anomalous source IPs or geolocations
+   - Windows Event ID 4624 (Logon) / 4625 (Logon Failure) spikes on RDP-exposed hosts
+   - Windows Event ID 1149 (RDP user authentication succeeded) for unexpected accounts
+   - NetFlow anomalies: elevated bytes-out on RDP sessions (potential data exfiltration of disclosed personal information) [1]
+
+6. **Indicator Confidence Summary:**
+
+   | Indicator Type | Availability | Confidence |
+   |---|---|---|
+   | Malicious IPs / Domains | Not available | N/A |
+   | File hashes | Not available | N/A |
+   | Network behaviour patterns | Inferred from vuln class | LOW–MEDIUM |
+   | RDP event log patterns | Standard RDP monitoring | MEDIUM |
+
+7. **Advisory Note:** The MSRC advisory page [2] required JavaScript to render fully; some technical detail from that source may be incomplete in this context. Analysts should access the advisory directly for patch and mitigation specifics.
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-56171
+[2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-56171
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-56171
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-56171
+# [2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-56171
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-56171

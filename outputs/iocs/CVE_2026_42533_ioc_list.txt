@@ -1,0 +1,104 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-42533
+# Product:   nginx
+# Tags:      [RCE] [HIGH] [T1] [WIDE] [POC]
+# Score:     100
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-21T04:19:56.014367Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-42533
+# Generated: 2025-07-15
+# Confidence: See per-indicator ratings below
+
+> **DRAFT FOR ANALYST REVIEW** — This IoC list is a proposed draft generated from available CVE metadata, advisory context, and PoC repository observations. All indicators must be validated by a qualified analyst before operational use (e.g., blocking, alerting tuning, threat hunting). CVE-2026-42533 is 5 days old [1]; the IoC landscape is actively evolving.
+
+---
+
+## Network Indicators
+
+*No specific attacker-controlled IPs are available from the provided context. The advisory context retrieved from my.f5.com [2] did not yield parseable technical detail (JavaScript tag manager content was returned). Attacker infrastructure has not been attributed in available sources.*
+
+**Observable behaviour:** Unauthenticated inbound HTTP connections to NGINX Plus/Open Source instances sending crafted requests targeting `map` directive regex capture variable handling. Attack surface is network-accessible with no authentication required (AV:N/PR:N/UI:N) [1].
+
+---
+
+## Domain Indicators
+
+*No attacker-controlled domains are identifiable from the provided context. PoC repositories [4][5] are hosted on GitHub (legitimate infrastructure used for proof-of-concept publication) and do not indicate attacker C2 domains.*
+
+---
+
+## URL Indicators
+
+*No specific exploit delivery URLs are available from the provided context.*
+
+**PoC Repository References (for analyst awareness — NOT attacker infrastructure confirmed):**
+- `https://github.com/Daniyal48/ghostlock-vagrant-box` [4] — public PoC, confidence: LOW (purpose and exploit fidelity unverified)
+- `https://github.com/srkyn/nginx-map-risk-audit` [5] — public PoC/audit tool, confidence: LOW (purpose and exploit fidelity unverified)
+
+---
+
+## File Indicators
+
+*No payload hashes, dropper hashes, or exploit artifacts are available from the provided context. The advisory content retrieved [2] was not analytically parseable. Analyst should monitor PoC repositories [4][5] for compiled artifacts or payload samples as the situation matures.*
+
+---
+
+## User-Agent Indicators
+
+*No specific exploit user-agent strings have been identified from the provided context.*
+
+**Observable behaviour patterns to monitor (MEDIUM confidence — derived from vulnerability class):**
+UA: [anomalous/missing UA strings in requests triggering map directive evaluation]
+UA: [automated scanner UAs commonly associated with NGINX CVE exploitation campaigns]
+Analysts should baseline normal UA distribution on exposed NGINX instances and alert on statistical outliers correlated with regex-heavy URI patterns.
+
+---
+
+## URI Path Indicators
+
+*No specific URI paths are confirmed exploitable from available context. Exploitation depends on the victim's NGINX configuration — specifically, which URI paths or request attributes are evaluated by `map` directives using regex capture variables.*
+
+**Observable behaviour patterns (MEDIUM confidence — derived from vulnerability mechanism [1][3]):**
+URI: [any path/header evaluated by a vulnerable `map` directive block in site config]
+
+Analyst action: Enumerate all `map` directive blocks in deployed NGINX configurations that use regex captures (e.g., `$1`, `$2`, etc.) in string expressions. Those evaluation points are the effective attack surface.
+
+---
+
+## Notes
+
+### Confidence Summary
+| Indicator Category | Confidence | Rationale |
+|---|---|---|
+| Attacker IPs | N/A — none identified | No attribution data in sources |
+| Attacker Domains | N/A — none identified | No attribution data in sources |
+| PoC Repository URLs | LOW | GitHub repos exist [4][5]; exploit fidelity and attacker use unverified |
+| Payload Hashes | N/A — none identified | Advisory content not parseable [2] |
+| User-Agent patterns | LOW | Derived from vulnerability class, not observed exploitation |
+| URI Path patterns | MEDIUM | Derived from vulnerability mechanism [1][3]; config-dependent |
+
+### Key Caveats
+1. **CVE age:** This vulnerability is only 5 days old [1]. IoC coverage at this stage is expected to be sparse. This list should be refreshed as threat intelligence matures.
+2. **4 public PoCs exist [4][5]:** Exploitation tooling is already public. Prioritise patching over detection-only posture.
+3. **Advisory context degraded:** The F5 advisory source [2] returned JavaScript tag manager content rather than technical advisory detail. Analyst should manually review `https://my.f5.com/manage/s/article/K000162097` [2] for affected version ranges, patch availability, and any F5-published detection guidance.
+4. **RCE-capable [1]:** CVSS 8.1 HIGH with network-exploitable RCE (AV:N/PR:N/UI:N) and no authentication requirement [1]. Treat any NGINX instance exposed to untrusted networks as urgently at risk until patched.
+5. **Config-dependent attack surface:** Exploitation requires that the target NGINX configuration uses `map` directive regex capture variables in string expressions [1][3]. Instances without this configuration pattern may not be exploitable for RCE, though DoS impact may differ.
+6. **No CISA KEV data in provided context.** Analyst should check `https://www.cisa.gov/known-exploited-vulnerabilities-catalog` for KEV listing status, which would further elevate urgency.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-42533
+[2] my.f5.com — https://my.f5.com/manage/s/article/K000162097
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-42533
+[4] PoC (gh-nomi-sec) — https://github.com/Daniyal48/ghostlock-vagrant-box
+[5] PoC (gh-nomi-sec) — https://github.com/srkyn/nginx-map-risk-audit
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-42533
+# [2] my.f5.com — https://my.f5.com/manage/s/article/K000162097
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-42533
+# [4] PoC (gh-nomi-sec) — https://github.com/Daniyal48/ghostlock-vagrant-box
+# [5] PoC (gh-nomi-sec) — https://github.com/srkyn/nginx-map-risk-audit

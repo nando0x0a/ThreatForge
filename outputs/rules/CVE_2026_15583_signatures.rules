@@ -1,0 +1,55 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-15583
+# Product:   grafana
+# Tags:      [RCE] [HIGH] [POC]
+# Score:     70
+# Tier:      HIGH PRIORITY
+# Generated: 2026-07-21T04:23:43.395760Z
+# Status:    OK
+# ---
+
+# Confidence: PoC known — see [4] (https://github.com/codeb0ssx/CVE-2026-15583-PoC).
+# No packet-capture (PCAP) data source is available to this pipeline — this
+# pattern is NOT verified against captured exploit traffic.
+#
+# Pattern basis: The vulnerability [1][2] involves an unauthenticated attacker
+# supplying a crafted X-Grafana-URL HTTP header to the Grafana MCP Server
+# endpoint. The server fails to validate this header, enabling confused-deputy
+# SSRF and service-account token exfiltration [2]. The detection targets HTTP
+# requests bearing an X-Grafana-URL header whose value references internal/
+# loopback address space (common SSRF pivot targets), or external URLs that
+# would not appear in a legitimate Grafana MCP deployment.
+#
+# Limitations:
+#   - The Grafana MCP Server listener port is not explicitly stated in the
+#     available advisory text [2]; $HTTP_PORTS is used as a best-effort
+#     approximation. Analyst should confirm and restrict to the actual port.
+#   - The PCRE covers common SSRF target patterns (loopback, RFC-1918,
+#     metadata service, file:// scheme). A crafted header pointing to an
+#     arbitrary external host would NOT match; additional behavioural detection
+#     (e.g., proxy/WAF inspection) is recommended as a complement.
+#   - is_kev is set to false — no CISA KEV entry was referenced in the
+#     supplied context for this CVE.
+#   - This rule is a PROPOSED DRAFT for analyst review before deployment.
+
+alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS (
+  msg:"THREATFORGE CVE-2026-15583 Grafana MCP Server X-Grafana-URL SSRF/confused-deputy attempt";
+  flow:established,to_server;
+  http.header_names; content:"X-Grafana-URL"; nocase;
+  http.header; content:"X-Grafana-URL:"; nocase;
+  pcre:"/X-Grafana-URL\s*:\s*(file:\/\/|https?:\/\/(127\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|169\.254\.|localhost|0\.0\.0\.0|\[::1\]))/Hi";
+  reference:cve,2026-15583;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:attempted-recon;
+  sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-15583
+[2] grafana.com — https://grafana.com/security/security-advisories/cve-2026-15583
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-15583
+[4] PoC (gh-nomi-sec) — https://github.com/codeb0ssx/CVE-2026-15583-PoC
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-15583
+# [2] grafana.com — https://grafana.com/security/security-advisories/cve-2026-15583
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-15583
+# [4] PoC (gh-nomi-sec) — https://github.com/codeb0ssx/CVE-2026-15583-PoC

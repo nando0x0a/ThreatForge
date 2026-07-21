@@ -1,0 +1,55 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-56171
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:26:17.260071Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only. The vulnerability is described as an information disclosure
+# in Windows RDP (CVE-2026-56171) [1][2], exploitable over the network without
+# special privileges [1], with a CVSS score of 7.1 (HIGH) [1].
+#
+# IMPORTANT LIMITATIONS:
+# - No packet-capture (PCAP) data source is available to this pipeline —
+#   this pattern is NOT verified against captured exploit traffic.
+# - The advisory context retrieved from MSRC [2] was incomplete (JavaScript
+#   required to render full advisory detail); no specific wire-level
+#   indicators, affected protocol fields, or response payloads were
+#   recoverable from source material.
+# - The RDP content match below targets the standard RDP negotiation
+#   sequence on TCP/3389 from external hosts. It is intentionally broad
+#   and WILL produce false positives against legitimate RDP traffic.
+# - This rule should be treated as a VISIBILITY/TRIAGE aid only. Do NOT
+#   deploy in drop/reject mode without analyst validation against
+#   environment-specific traffic baselines.
+# - An analyst with access to full MSRC advisory detail [2] or vendor-
+#   supplied indicators should refine or replace this pattern before
+#   production use.
+# - CVE-2026-56171 is 3 days old at time of rule generation; this rule
+#   is a proposed draft for analyst review.
+
+alert tcp $EXTERNAL_NET any -> $HOME_NET 3389 (
+  msg:"THREATFORGE CVE-2026-56171 Windows RDP Information Disclosure attempt";
+  flow:established,to_server;
+  content:"|03 00|";
+  depth:2;
+  content:"|e0|";
+  within:10;
+  threshold:type both, track by_src, count 3, seconds 60;
+  reference:cve,2026-56171;
+  metadata:mitre_technique_id T1040, is_kev false, status experimental;
+  classtype:attempted-recon;
+  sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-56171
+[2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-56171
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-56171
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-56171
+# [2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-56171
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-56171

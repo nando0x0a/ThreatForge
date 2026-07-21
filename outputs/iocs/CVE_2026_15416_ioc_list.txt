@@ -1,0 +1,81 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-15416
+# Product:   kubernetes
+# Tags:      [HIGH] [WIDE]
+# Score:     30
+# Tier:      MONITOR
+# Generated: 2026-07-21T04:38:54.664164Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-15416
+# Generated: 2025-07-14
+# Confidence: See per-section notes
+# STATUS: PROPOSED DRAFT — For analyst review prior to operational use.
+
+---
+
+## Network Indicators
+
+*No specific malicious IP addresses are available from the provided context.*
+
+Relevant network exposure pattern (LOW–MEDIUM confidence):
+- Any host making unauthenticated connections to the Argo CD repo-server port (default: TCP/8081) from outside expected cluster-internal CIDR ranges should be treated as suspicious in the context of this CVE [1][4].
+
+## Domain Indicators
+
+*No domain indicators are available from the provided context. The advisory context provided did not contain threat-actor infrastructure details — it appears to be UI/configuration metadata from a Red Hat portal page rather than a security advisory body [2][3].*
+
+## URL Indicators
+
+*No exploit-specific URLs are available from the provided context.*
+
+## File Indicators
+
+*No file hashes (malicious payloads, exploit artifacts) are available from the provided context. No public proof-of-concept is known at time of generation.*
+
+## User-Agent Indicators
+
+*No specific user-agent strings associated with exploitation of this CVE are available from the provided context.*
+
+## URI Path Indicators
+
+URI: /api/v1/repositories  # Argo CD repo-server API — unauthenticated access relevant to this CVE class; MEDIUM confidence based on Argo CD architecture
+URI: /api/v1/settings        # Argo CD repo-server settings endpoint — monitor for unauthenticated access attempts
+URI: /repository.RepositoryService/*  # gRPC service exposed by repo-server — relevant attack surface per CVE description [1][4]
+
+*Note: These URI patterns reflect the known Argo CD repo-server attack surface based on the CVE description of unauthenticated network access to repo-server. They are not confirmed exploit-path indicators derived from an active PoC or observed campaign — treat as MEDIUM confidence behavioural patterns only.*
+
+---
+
+## Observable Behaviour Patterns
+*(Substituted in lieu of confirmed IoCs — for detection hypothesis development)*
+
+1. **Unauthenticated gRPC/HTTP connections to repo-server (TCP/8081)** from hosts outside the expected Kubernetes pod CIDR or GitOps pipeline IPs [1].
+2. **Unexpected Kubernetes resource creation or modification** originating from Argo CD service accounts shortly after repo-server contact — may indicate post-exploitation deployment of malicious manifests [4].
+3. **Anomalous repository additions or sync operations** in Argo CD audit logs not initiated by known users or service accounts [1].
+4. **Elevated repo-server process activity** (unexpected subprocess spawning, outbound network calls from repo-server pod) that may indicate RCE execution [1][4].
+5. **New or modified CRDs, ClusterRoles, or privileged Pods** appearing in cluster namespaces without corresponding GitOps commit history.
+
+---
+
+## Notes
+
+- **Confidence: LOW** for all specific IoC fields above — no concrete indicators (IPs, hashes, domains, exploit URLs) are derivable from the provided context. No public PoC is known [1].
+- **CVE age: 6 days** [1] — the threat landscape is early-stage; IoCs should be refreshed as threat intelligence matures.
+- **CVSS 8.9 HIGH** [1] with no authentication required, making network-exposed repo-server instances the primary risk surface.
+- The advisory context field provided [2][3] did not yield usable technical indicator content — it appears to be Red Hat portal UI configuration rather than advisory body text. Analyst should review [2] and [3] directly for any updated technical indicators.
+- **Priority Tier: MONITOR** — no active exploitation confirmed; escalate to RESPOND if unauthenticated repo-server access is detected in environment.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-15416
+[2] access.redhat.com — https://access.redhat.com/security/cve/CVE-2026-15416
+[3] bugzilla.redhat.com — https://bugzilla.redhat.com/show_bug.cgi?id=2496732
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-15416
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-15416
+# [2] access.redhat.com — https://access.redhat.com/security/cve/CVE-2026-15416
+# [3] bugzilla.redhat.com — https://bugzilla.redhat.com/show_bug.cgi?id=2496732
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-15416
