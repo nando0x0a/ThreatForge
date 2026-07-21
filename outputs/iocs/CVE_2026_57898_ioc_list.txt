@@ -1,0 +1,95 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-57898
+# Product:   mongodb server
+# Tags:      [RCE] [CRIT]
+# Score:     70
+# Tier:      HIGH PRIORITY
+# Generated: 2026-07-21T04:24:47.546137Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-57898
+# Generated: 2025-07-15
+# Confidence: see per-indicator ratings below
+# NOTE: This is a proposed draft for analyst review.
+
+---
+
+## Network Indicators
+*No specific malicious IPs or infrastructure identified from available sources.*
+
+---
+
+## Domain Indicators
+*No malicious domains identified from available sources.*
+
+---
+
+## URL Indicators
+*No specific exploit URLs identified from available sources. No public PoC is known at this time.*
+
+---
+
+## File Indicators
+*No malware hashes or dropped-file hashes identified from available sources.*
+*If exploitation occurs, arbitrary files written to the server filesystem would be attacker-controlled; filenames and paths are not predictable without a PoC.*
+
+---
+
+## User-Agent Indicators
+*No specific exploit user-agent strings identified from available sources.*
+
+---
+
+## URI Path Indicators
+
+# Confidence: MEDIUM — derived from vulnerability description [2] and advisory context
+URI: /aas/thumbnail  # Eclipse BaSyx V2 AAS thumbnail API endpoint — the vulnerable upload/write surface [2]
+URI: /api/v3/*/aas/thumbnail  # Versioned AAS thumbnail endpoint pattern (Eclipse BaSyx REST API convention) — analyst should confirm exact path against deployment
+
+---
+
+## Observable Behaviour Patterns
+*Because no public PoC is available and IoCs are sparse (6-day-old CVE [1]), focus detection on the following behavioural patterns:*
+
+1. **Unauthenticated HTTP requests to the AAS thumbnail endpoint** [2]
+   - PUT or POST requests to any `/aas/thumbnail` or equivalent path from unexpected source IPs, with no prior authentication exchange.
+   - Confidence: MEDIUM
+
+2. **Filename anomalies in thumbnail upload requests** [2]
+   - Request payloads containing path traversal sequences in filename parameters: `../`, `..\`, URL-encoded variants (`%2F`, `%2E%2E`), null bytes, or absolute path prefixes.
+   - Confidence: MEDIUM
+
+3. **Unexpected file creation outside designated storage directories**
+   - On MongoDB-backend BaSyx deployments [2], new files appearing in web root, system directories, or shell-accessible locations (e.g., cron directories, SSH authorized_keys paths) following thumbnail API activity.
+   - Confidence: MEDIUM
+
+4. **Abnormal outbound connections following file write**
+   - Post-exploitation RCE activity [1] may manifest as unexpected outbound connections from the BaSyx server process if a web shell or scheduled task is written.
+   - Confidence: LOW (no PoC, speculative)
+
+5. **Large or non-image content in thumbnail API payloads**
+   - Requests to the thumbnail endpoint carrying content-types inconsistent with images (e.g., `text/x-php`, `application/x-sh`, `text/plain`) or oversized payloads.
+   - Confidence: MEDIUM
+
+---
+
+## Notes
+
+- **Indicator confidence is generally LOW-to-MEDIUM** across all categories. CVE-2026-57898 is 6 days old [1], no public PoC exists, and no observed exploitation campaigns have been reported. IoCs above are derived from the vulnerability's technical nature (CWE-22, unauthenticated file write via AAS thumbnail API in MongoDB deployments) [2] rather than from confirmed attack telemetry.
+- **CVSS 9.0 CRITICAL with AV:N/PR:N/UI:N and confirmed RCE potential** [1] means the attack surface is fully remote and unauthenticated. Treat any anomalous thumbnail API traffic as high-priority for triage.
+- **Affected versions**: Eclipse BaSyx Java Server SDK 2.0.0-milestone-05 through 2.0.0-milestone-12 [2]. Detections should be scoped to deployments running these versions with MongoDB backends.
+- **No CISA KEV entry** is noted in the provided context; monitor KEV for addition given the critical unauthenticated RCE profile.
+- Analyst should instrument the BaSyx server access logs and MongoDB audit logs for the URI patterns above pending vendor patch guidance.
+- All indicators require analyst validation before operationalisation.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-57898
+[2] gitlab.eclipse.org — https://gitlab.eclipse.org/security/cve-assignment/-/work_items/159
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-57898
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-57898
+# [2] gitlab.eclipse.org — https://gitlab.eclipse.org/security/cve-assignment/-/work_items/159
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-57898
