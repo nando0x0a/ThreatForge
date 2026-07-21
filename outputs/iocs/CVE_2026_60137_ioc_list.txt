@@ -1,0 +1,166 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-60137
+# Product:   wordpress
+# Tags:      [KEV] [RCE] [T1] [POC]
+# Score:     120
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-21T06:26:55.649998Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-60137
+# Generated: 2025-07-14
+# Status: PROPOSED DRAFT — For analyst review and validation before operational use
+# Confidence: Varies per indicator (see inline ratings)
+
+---
+
+## ⚠️ Severity Discrepancy Notice
+
+A discrepancy exists between assigned severity and operational risk profile that analysts **must** evaluate:
+
+- **CVSS Score:** 5.9 (MEDIUM) [1] — This score may under-represent real-world risk due to metric assumptions about required context (plugin/theme pass-through of untrusted input).
+- **Operational Reality:** CVE-2026-60137 is listed in the CISA Known Exploited Vulnerabilities catalog as **ACTIVELY EXPLOITED IN THE WILD** [2], carries confirmed RCE potential (AV:N/PR:N/UI:N) [1][3], has 19 public proof-of-concept exploits [6][7], and is only 3 days old with a Priority Tier of CRITICAL.
+
+**Analyst Action Required:** Do not rely solely on the CVSS 5.9 score to triage this vulnerability. The KEV listing [2] and active PoC availability [6][7] materially elevate operational risk beyond what the MEDIUM CVSS score implies. Treat as CRITICAL until patched.
+
+---
+
+## Network Indicators
+# No specific attacker infrastructure IPs are confirmed from the provided context.
+# Scanning activity should be expected globally given KEV status [2] and 19 known PoCs [6][7].
+# Confidence: N/A — specific IPs not available from provided sources
+
+---
+
+## Domain Indicators
+# No specific malicious domains confirmed from provided context.
+# Confidence: N/A — not available from provided sources
+
+---
+
+## URL Indicators
+# No specific attacker-controlled URLs confirmed from provided context.
+# Confidence: N/A — not available from provided sources
+
+# Observable exploit delivery paths likely target WordPress REST API or
+# front-end query endpoints; see URI Path Indicators below.
+
+---
+
+## File Indicators
+# No specific file hashes confirmed from provided context.
+# Confidence: N/A — not available from provided sources
+
+# Analyst note: PoC repositories [6][7] may contain artifacts suitable
+# for hash extraction if analyst review of those repos is authorised
+# under your organisation's policy.
+
+---
+
+## User-Agent Indicators
+# No confirmed malicious User-Agent strings available from provided context.
+# Confidence: LOW (pattern-based inference only)
+
+# Pattern: Automated exploitation tools targeting WordPress are commonly
+# observed with generic or tool-branded UAs. Analysts should monitor for:
+#   - Unusual UA strings paired with high-frequency WP_Query requests
+#   - Headless/scripted UA patterns (e.g., python-requests/*, curl/*)
+#     combined with indicators in URI Path Indicators below
+
+---
+
+## URI Path Indicators
+# Confidence: MEDIUM — inferred from vulnerability mechanics [3][4]
+
+URI: /?author__not_in[]=<payload>
+  # Direct GET parameter exploitation of WP_Query author__not_in parameter [3]
+  # Attacker input passed via URL query string; look for array-style injection patterns
+
+URI: /wp-json/wp/v2/posts?author_exclude=<payload>
+  # REST API surface that may map to WP_Query author__not_in internally [3]
+  # Confidence: MEDIUM — REST API exposure depends on plugin/theme pass-through [3]
+
+URI: /wp-admin/admin-ajax.php
+  # Common vector when vulnerable plugins/themes pass author__not_in via AJAX [3]
+  # Confidence: MEDIUM — plugin/theme dependent
+
+URI: /index.php
+  # Generic WordPress front-end entry point; included for completeness
+  # Confidence: LOW — overly broad without additional correlation
+
+# Note: The vulnerability requires untrusted input to be passed through
+# a plugin or theme to WP_Query [3]. The precise exploitable URI will
+# vary significantly depending on installed plugin/theme ecosystem.
+# Analysts should correlate URI patterns with WAF and application logs.
+
+---
+
+## SQL Injection Payload Patterns
+# Confidence: MEDIUM — inferred from vulnerability class and WP_Query parameter [3][4]
+# These are detection patterns, NOT exploitation instructions.
+
+# Look for the following in HTTP request logs and WAF telemetry targeting
+# the author__not_in parameter:
+
+PATTERN: author__not_in.*UNION.*SELECT
+  # Classic UNION-based injection attempt
+
+PATTERN: author__not_in.*--
+  # SQL comment terminator indicating injection attempt
+
+PATTERN: author__not_in.*OR.*1=1
+  # Boolean-based blind injection
+
+PATTERN: author__not_in.*SLEEP\(
+  # Time-based blind injection
+
+PATTERN: author__not_in.*BENCHMARK\(
+  # Alternative time-based probe
+
+PATTERN: author__not_in\[\]=.*[';\"\\]
+  # Array parameter with SQL metacharacters
+
+---
+
+## Notes
+
+**Confidence Summary:**
+| Indicator Type | Confidence | Reason |
+|---|---|---|
+| Network (IP/Domain) | N/A | Not available in provided context |
+| File Hashes | N/A | Not available in provided context |
+| URI Paths | MEDIUM | Inferred from CVE mechanics [3][4]; plugin-dependent |
+| SQL Patterns | MEDIUM | Inferred from vulnerability class; not confirmed via PoC review |
+| User-Agent | LOW | No confirmed strings; generic pattern guidance only |
+
+**Key Caveats:**
+
+1. **PoC Repositories Not Fully Analysed:** The two named PoC repositories [6][7] (`wp2shell.git` from Crypto-Cat and `wp2shell` from h4cd0c) have not been reverse-engineered in this output. Analyst review of those repositories under organisational policy may yield specific payloads, User-Agent strings, and network indicators with higher confidence. **Do not execute PoC code in production environments.**
+
+2. **Exploit Condition:** Exploitation requires untrusted input to be passed by an installed plugin or theme to `WP_Query` via the `author__not_in` parameter [3]. The attack surface is therefore installation-specific. Prioritise WordPress instances with high plugin/theme counts or those accepting user-controlled query parameters.
+
+3. **Affected Versions:** WordPress 6.8.x < 6.8.6, 6.9.x < 6.9.5, and 7.0.x < 7.0.2 [3][4]. Patch immediately given KEV status [2].
+
+4. **Active Exploitation:** CISA KEV listing [2] confirms in-the-wild exploitation. With 19 public PoCs [6][7] and a 3-day-old vulnerability, assume opportunistic mass scanning is already occurring. Defenders should treat any unpatched instance as compromised until forensically cleared.
+
+5. **RCE Path:** While the primary vulnerability is SQL injection, the RCE flag (AV:N/PR:N/UI:N) [1] suggests a path from SQLi to code execution exists — potentially via reading/writing PHP files through SQL `INTO OUTFILE`, extracting credentials, or achieving authentication bypass leading to further exploitation. Monitor for secondary post-exploitation indicators (new admin accounts, file modifications, webshell uploads).
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-60137
+[2] CISA Known Exploited Vulnerabilities Catalog — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+[3] patchstack.com — https://patchstack.com/database/wordpress/plugin/wordpress/vulnerability/wordpress-core-7-0-2-unauthenticated-sql-injection-vulnerability
+[4] github.com — https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-fpp7-x2x2-2mjf
+[5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-60137
+[6] PoC (vulncheck-xdb) — https://github.com/Crypto-Cat/wp2shell.git
+[7] PoC (gh-nomi-sec) — https://github.com/h4cd0c/wp2shell
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-60137
+# [2] CISA Known Exploited Vulnerabilities Catalog — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+# [3] patchstack.com — https://patchstack.com/database/wordpress/plugin/wordpress/vulnerability/wordpress-core-7-0-2-unauthenticated-sql-injection-vulnerability
+# [4] github.com — https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-fpp7-x2x2-2mjf
+# [5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-60137
+# [6] PoC (vulncheck-xdb) — https://github.com/Crypto-Cat/wp2shell.git
+# [7] PoC (gh-nomi-sec) — https://github.com/h4cd0c/wp2shell
