@@ -1,0 +1,60 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-55723
+# Product:   nginx
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:30:34.301008Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only. The vulnerability involves configuration injection via
+# unsanitized Ingress annotations or CRD fields submitted to the Kubernetes
+# API server (typically HTTPS on port 443 or 6443). Observable network
+# behaviour is limited to API write requests containing NGINX directive
+# injection payloads in annotation values — no exploit-specific wire format
+# is documented in available sources [1][2][3].
+#
+# Pattern targets HTTP(S) requests to the Kubernetes API containing common
+# NGINX directive injection sequences (e.g., newline-delimited directives)
+# within annotation or spec fields. TLS termination at the API server will
+# render this rule ineffective unless the sensor is positioned at a point
+# where traffic is decrypted (e.g., via mTLS inspection or a service mesh
+# tap). The PCRE attempts to catch URI paths consistent with Ingress or
+# CRD write operations combined with suspected injection characters.
+#
+# PoC status: No public PoC known — pattern inferred from the CVE/advisory
+# description only.
+#
+# PCAP status: No packet-capture (PCAP) data source is available to this
+# pipeline — this pattern is NOT verified against captured exploit traffic.
+#
+# SEVERITY NOTE: CVE-2026-55723 carries a CVSS score of 8.3 (HIGH) [1].
+# No CISA KEV listing is indicated for this CVE at this time.
+#
+# THIS RULE IS A PROPOSED DRAFT FOR ANALYST REVIEW ONLY. Validate and tune
+# before production deployment, especially given the absence of PoC or PCAP
+# confirmation and the likelihood that API traffic is TLS-encrypted.
+
+alert http $EXTERNAL_NET any -> $HOME_NET [443,6443,8443] (
+  msg:"THREATFORGE CVE-2026-55723 NGINX Ingress Controller annotation config injection attempt";
+  flow:established,to_server;
+  http.method; content:"PUT"; nocase;
+  http.uri; content:"/apis/"; nocase;
+  pcre:"/\/apis\/(networking\.k8s\.io|extensions)\/v[0-9a-z]+\/namespaces\/[^\/]+\/(ingresses|ingressclasses)/iU";
+  http.request_body;
+  pcre:"/annotations[^\}]{0,512}(?:\\\\n|\%0[aA]|\\\\r|;)\s*(?:access_log|add_header|allow|auth_request|autoindex|deny|error_page|if\s*\(|include|lua_|proxy_pass|proxy_set_header|rewrite|return\s+[0-9]|set\s+\$|ssl_|worker_processes)/";
+  threshold:type limit, track by_src, count 3, seconds 60;
+  reference:cve,2026-55723;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:attempted-admin; sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-55723
+[2] my.f5.com — https://my.f5.com/manage/s/article/K000161800
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-55723
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-55723
+# [2] my.f5.com — https://my.f5.com/manage/s/article/K000161800
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-55723
