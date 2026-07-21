@@ -1,0 +1,83 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-53411
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:30:15.770302Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-53411
+# Generated: 2025-07-14
+# Confidence: See per-section notes
+# DRAFT — For analyst review only
+
+---
+
+## Network Indicators
+*None identified.*
+No network-based indicators are associated with this vulnerability. CVE-2026-53411 is a local privilege escalation (LPE) via a TOCTOU race condition in the Zoom client installer/uninstaller on Windows [1][2]. Exploitation does not require or generate network-observable activity.
+
+## Domain Indicators
+*None identified.*
+No C2 or delivery domains are associated with the vulnerability mechanics itself [1][2][3].
+
+## URL Indicators
+*None identified.*
+No exploit delivery URLs are known. No public proof-of-concept is available at time of writing.
+
+## File Indicators
+*No confirmed hashes available from provided context.*
+
+Observable file-system artefacts to monitor (behaviour-based, not confirmed IoCs):
+
+PATH: %TEMP%\Zoom\ZoomInstaller*.exe       # Suspicious installer drop during race window
+PATH: C:\Program Files\Zoom\*              # Unexpected file replacements during install/uninstall
+PATH: %APPDATA%\Zoom\*                     # Unexpected privilege-elevated file writes
+PATH: C:\Windows\System32\*               # DLL/binary planted during TOCTOU window (analyst: validate)
+Confidence: LOW — these are inferred from TOCTOU LPE patterns, not confirmed from advisory artefacts [2]. Specific malicious hashes are not available.
+
+## User-Agent Indicators
+*None identified.*
+Exploitation is local; no network user-agent is involved.
+
+## URI Path Indicators
+*None identified.*
+No web-facing endpoint is involved in this vulnerability [1][2][3].
+
+---
+
+## Notes
+
+### Confidence Statement
+**Overall IoC confidence: LOW.**
+The advisory context retrieved from ZSB-26013 [2] did not yield parseable technical detail (the advisory page appears to have returned CSS/rendering content rather than vulnerability body text). Specific file hashes, installer version strings, or confirmed malicious artefacts cannot be extracted from the provided context. All file-system patterns above are analyst-inferred from the vulnerability class (Windows installer TOCTOU → LPE) and should be validated independently.
+
+### Vulnerability Context
+- **Type:** TOCTOU (Time-Of-Check Time-Of-Use) race condition in Zoom Client for Windows installation and uninstallation routines [1][2].
+- **Impact:** Local privilege escalation to a higher-privileged context; requires an authenticated local user [1].
+- **CVSS:** 7.8 HIGH [1]. No CVSS discrepancy between sources was identified in the provided context; however, the advisory body could not be fully parsed [2], so analyst cross-check is recommended.
+- **PoC:** No public proof-of-concept known at time of generation.
+- **Age:** 3 days — patch adoption will be low; treat as active risk on unpatched Windows endpoints.
+- **CISA KEV:** No KEV entry noted in provided context.
+
+### Recommended Detection Approach (Behaviour-Based)
+Since no confirmed IoCs exist, detection should focus on:
+1. **Process integrity:** Monitor `ZoomInstaller.exe` / `ZoomUninstaller.exe` spawning unexpected child processes or writing to `System32` / privileged paths.
+2. **File substitution:** Alert on file modifications within the Zoom installation directory during active installer/uninstaller execution windows (short time-window file replacement is characteristic of TOCTOU exploitation).
+3. **Privilege changes:** Correlate `ZoomInstaller.exe` process tree with Windows Event ID 4672 (special privileges assigned) or 4688 (new process creation) showing elevated token grants to unexpected users.
+4. **Signed binary abuse:** Monitor for Zoom-signed binaries executing from non-standard paths, which may indicate a planted binary winning a race condition.
+
+Analyst action: Obtain the full ZSB-26013 advisory text directly from [2] to confirm affected installer versions and any vendor-provided hashes before operationalising these patterns.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-53411
+[2] www.zoom.com — https://www.zoom.com/en/trust/security-bulletin/zsb-26013
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-53411
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-53411
+# [2] www.zoom.com — https://www.zoom.com/en/trust/security-bulletin/zsb-26013
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-53411
