@@ -1,0 +1,91 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-63087
+# Product:   grafana
+# Tags:      [RCE] [CRIT]
+# Score:     70
+# Tier:      HIGH PRIORITY
+# Generated: 2026-07-21T04:23:28.222805Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-63087
+# Generated: 2025-07-14
+# Confidence: HIGH / MEDIUM / LOW per indicator
+
+> **ANALYST REVIEW REQUIRED — This is a proposed draft for analyst review.**
+> No public proof-of-concept is known at time of generation [2]. Indicators below are derived from vulnerability mechanics described in advisory context [2][3] and CVE metadata [1][4]. No attacker-infrastructure IoCs (IPs, domains, hashes) are available from the provided sources. Confidence levels reflect this limitation.
+
+---
+
+## Network Indicators
+*No attacker-controlled IP addresses are available from the provided context. No in-the-wild exploitation infrastructure has been identified at this time.*
+
+---
+
+## Domain Indicators
+*No malicious domains associated with exploitation of CVE-2026-63087 are available from the provided context.*
+
+---
+
+## URL Indicators
+*No specific exploit URLs from attacker infrastructure are available. See URI Path Indicators below for the vulnerable endpoint pattern.*
+
+---
+
+## File Indicators
+*No malware samples, payloads, or associated file hashes are available from the provided context. No public PoC has been published [2].*
+
+---
+
+## User-Agent Indicators
+*No specific user-agent strings associated with exploitation are available from the provided context. Analysts should consider logging and alerting on anomalous or absent User-Agent headers on requests to the plugin install endpoint.*
+
+---
+
+## URI Path Indicators
+
+| Confidence | Indicator | Description |
+|------------|-----------|-------------|
+| HIGH | `URI: /api/v1/plugin/install` | Internal plugin install endpoint in Grafana OnCall; exploitation target per vulnerability description [2][3]. Exact path should be confirmed against your Grafana OnCall deployment. |
+| MEDIUM | `URI: /api/v1/plugin/` (prefix) | Broader plugin API path family; may capture related enumeration or abuse of the plugin subsystem [2]. |
+
+> **Note:** The exact URI path of the vulnerable endpoint is inferred from the advisory description of an "internal plugin install endpoint" [2][3]. Analysts should verify the precise path against Grafana OnCall 1.16.11 source or local deployment before deploying detections.
+
+---
+
+## Observable Behaviour Patterns
+*In the absence of attacker IoCs, the following exploitation behaviours should be treated as detection targets:*
+
+1. **Unauthenticated POST/GET requests to the plugin install endpoint** — CVE-2026-63087 requires no authentication (PR:N, UI:N) [1][4]. Any request to the plugin install URI lacking valid session credentials should be treated as suspicious.
+
+2. **Requests using default/hardcoded `stack_id` and `org_id` parameter values** — The vulnerability is caused by hardcoded default values for these parameters [1][2]. Requests carrying predictable/default integer values (e.g., `stack_id=1`, `org_id=1` or similar) to the install endpoint warrant investigation [2][3].
+
+3. **Unexpected `PluginAuthToken` issuance or admin-level API activity** — Post-exploitation, an attacker obtains a valid `PluginAuthToken` and may perform admin actions [1][2]. Monitor Grafana OnCall audit logs for unexpected plugin installations, configuration changes, or admin actions not correlated to authenticated user sessions.
+
+4. **Anomalous traffic to Grafana OnCall from external/internet-facing sources** — Given AV:N (network-accessible, no authentication required) [1], any access to the plugin install endpoint originating from external or unexpected IP ranges is a high-confidence indicator of exploitation attempt.
+
+5. **Repeated or rapid sequential requests to the plugin install endpoint** — Scanning or brute-force behaviour targeting the endpoint to confirm exploitability.
+
+---
+
+## Notes
+
+- **CVSS 9.8 CRITICAL** [1]: This vulnerability is rated maximum-severity for exploitability (AV:N/AC:L/PR:N/UI:N). Detection coverage should be treated as urgent.
+- **Age:** CVE is 3 days old at time of generation. Attacker tooling and PoC code may emerge rapidly. This IoC list should be reviewed and updated as new intelligence becomes available [2].
+- **No public PoC known** [2]: Absence of PoC reduces immediate exploitation risk slightly but does not eliminate it. The vulnerability mechanics are described in public advisories [2][3], which provides sufficient detail for capable threat actors.
+- **No CISA KEV entry** cited in provided context. Monitor KEV for additions.
+- **Affected versions:** Grafana OnCall through 1.16.11 [1][2]. Verify your deployment version immediately.
+- All URI path indicators should be validated against your specific Grafana OnCall deployment before use in production detection rules.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-63087
+[2] www.vulncheck.com — https://www.vulncheck.com/advisories/grafana-oncall-unauthenticated-token-hijack-via-plugin-install-endpoint
+[3] github.com — https://github.com/geo-chen/oss/blob/main/oncall.md
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-63087
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-63087
+# [2] www.vulncheck.com — https://www.vulncheck.com/advisories/grafana-oncall-unauthenticated-token-hijack-via-plugin-install-endpoint
+# [3] github.com — https://github.com/geo-chen/oss/blob/main/oncall.md
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-63087
