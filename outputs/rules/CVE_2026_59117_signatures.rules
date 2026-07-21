@@ -1,0 +1,42 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-59117
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:28:29.832681Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the
+# CVE/advisory description only. The CVE describes an integer overflow
+# via improper input validation in Windows Terminal, exploitable remotely
+# over the network [1][2]. No specific protocol framing, payload bytes,
+# or wire-format details are available from the advisory [2] (the MSRC
+# page failed to render actionable technical content). The match below
+# targets anomalously large TCP payloads toward Windows Terminal's default
+# SSH/connection-broker port (2222) as a heuristic for oversized input
+# that may trigger the integer overflow — this is a LOW-CONFIDENCE
+# behavioural proxy, not a verified exploit signature.
+# No packet-capture (PCAP) data source is available to this pipeline —
+# this pattern is NOT verified against captured exploit traffic.
+# ANALYST REVIEW REQUIRED before any deployment. Tune port and dsize
+# thresholds to match your environment's Windows Terminal listener config.
+# NOTE: CVE-2026-59117 is 3 days old [1]; advisory detail is minimal and
+# no CISA KEV entry is present at time of generation.
+alert tcp $EXTERNAL_NET any -> $HOME_NET 2222 (
+  msg:"THREATFORGE CVE-2026-59117 Windows Terminal integer overflow RCE attempt";
+  flow:established,to_server; dsize:>65000;
+  threshold:type both, track by_src, count 3, seconds 10;
+  reference:cve,2026-59117;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:attempted-admin; sid:9000104; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-59117
+[2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-59117
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-59117
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-59117
+# [2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-59117
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-59117
