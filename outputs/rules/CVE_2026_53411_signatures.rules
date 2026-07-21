@@ -1,0 +1,65 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-53411
+# Product:   windows
+# Tags:      [HIGH] [T1] [WIDE]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:29:50.934797Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only.
+# No packet-capture (PCAP) data source is available to this pipeline —
+# this pattern is NOT verified against captured exploit traffic.
+#
+# IMPORTANT ANALYST NOTES:
+# CVE-2026-53411 describes a local privilege escalation (LPE) via a TOCTOU
+# race condition in the Zoom client for Windows installer/uninstaller process.
+# This is a LOCAL vulnerability — exploitation does not produce a
+# distinctive network payload observable by a network IDS. There is no
+# known network-level indicator that reliably distinguishes malicious from
+# legitimate Zoom installer traffic at this time.
+#
+# This rule detects HTTP download of the Zoom Windows installer/updater
+# binary from Zoom infrastructure as a proximity indicator only. It does
+# NOT detect exploitation itself. A host-based detection approach (e.g.,
+# monitoring for suspicious child processes spawned from the Zoom installer,
+# privilege changes during install/uninstall, or file-system race activity
+# via EDR) is strongly preferred for this CVE.
+#
+# This rule is a PROPOSED DRAFT for analyst review. Deploy with extreme
+# caution; expected false-positive rate is HIGH (any legitimate Zoom
+# installer download will match).
+#
+# CVE: CVE-2026-53411
+# Advisory: ZSB-26013 [2]
+# CVSS: 7.8 HIGH [1]
+# MITRE Technique: T1068 (Exploitation for Privilege Escalation)
+# KEV: Not listed as CISA KEV in provided context
+# PoC: None public known
+# Priority Tier: STANDARD (score 50)
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-53411 Zoom Windows Client Installer Download - LPE TOCTOU Proximity Indicator";
+  flow:established,to_server;
+  http.uri;
+  content:"ZoomInstaller";
+  nocase;
+  pcre:"/\/ZoomInstaller(Full)?\.exe/i";
+  http.header;
+  content:"zoom.us";
+  nocase;
+  reference:cve,2026-53411;
+  metadata:mitre_technique_id T1068, is_kev false, status experimental;
+  classtype:policy-violation;
+  sid:9000041; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-53411
+[2] www.zoom.com — https://www.zoom.com/en/trust/security-bulletin/zsb-26013
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-53411
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-53411
+# [2] www.zoom.com — https://www.zoom.com/en/trust/security-bulletin/zsb-26013
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-53411
