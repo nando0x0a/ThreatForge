@@ -1,0 +1,158 @@
+# ThreatForge Output — PATCH_RECS
+# CVE:       CVE-2026-63030
+# Product:   wordpress
+# Tags:      [KEV] [RCE] [CRIT] [T1] [POC]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-21T06:25:18.735078Z
+# Status:    OK
+# ---
+
+## Patch Recommendation
+
+> **DRAFT FOR ANALYST REVIEW** — Verify all version numbers, package names, and service identifiers against your environment before executing.
+
+**CVE:** CVE-2026-63030
+
+**Affected Product:** WordPress Core — versions 6.9.x < 6.9.5 and 7.0.x < 7.0.2 [1][3]
+
+**Fixed Version:** WordPress 6.9.5 (for 6.9.x branch) or 7.0.2 (for 7.0.x branch) [1][3]
+
+**Urgency:** **IMMEDIATE** — This vulnerability is rated CVSS 9.8 (CRITICAL) [1], is listed in the CISA Known Exploited Vulnerabilities Catalog as actively exploited in the wild [2], enables unauthenticated remote code execution over the network (AV:N/PR:N/UI:N) [1][5], and has 86 known public proof-of-concept exploits [6][7]. It is 3 days old and carries a Priority Tier of CRITICAL — ACT NOW. Patch within hours, not days.
+
+**Rollback Risk:**
+- WordPress core updates can break plugin or theme compatibility. Identify and test against known plugin dependencies before production rollout.
+- Database schema changes introduced between versions may prevent clean downgrade. Take a full database backup before patching.
+- The REST API batch endpoint involved in this vulnerability [3][4] may be used by plugins; verify plugin functionality post-patch.
+- Revert method: restore WordPress core files from a pre-patch snapshot and restore the database backup. In managed hosting environments, use the host's point-in-time restore feature.
+- If using `wordpress` apt/deb packaging (e.g., Debian/Ubuntu distro package), note that distro-packaged WordPress versions frequently lag behind upstream. **Analyst must confirm whether the distro package has been updated to a fixed version before relying on the apt playbook below.** If not, manual upstream installation or a CMS-native update (WP-CLI) is required.
+
+> ⚠️ **IMPORTANT NOTE:** WordPress is not typically distributed as an `apt` package on production servers — it is most commonly installed manually, via WP-CLI, or through managed hosting panels. The Ansible playbook below uses the `apt` module for environments where WordPress is installed via a distribution package (e.g., the `wordpress` package on Debian/Ubuntu). **For servers using manual or WP-CLI installations, a WP-CLI-based playbook is more appropriate.** Analyst must verify the installation method before use. WP-CLI alternative task is noted inline in the playbook comments.
+
+---
+
+## Ansible Remediation Playbook
+
+---
+# DRAFT FOR ANALYST REVIEW
+# CVE: CVE-2026-63030
+# WordPress SQL Injection / RCE via REST API batch endpoint
+# CISA KEV: ACTIVELY EXPLOITED — patch immediately
+# Sources: [1] NVD, [2] CISA KEV, [3] GitHub Advisory GHSA-fpp7-x2x2-2mjf
+#
+# WARNING: This playbook targets environments where WordPress is installed
+# via the distro apt package (e.g., Debian/Ubuntu 'wordpress' package).
+# If WordPress was installed manually or via WP-CLI, use the commented
+# WP-CLI tasks instead and disable the apt tasks.
+# Analyst must verify the correct installation method before running.
+
+- name: "Remediate CVE-2026-63030 — WordPress SQLi/RCE on {{ target_group }}"
+  hosts: "{{ target_group }}"
+  become: true
+  vars:
+    cve_id: "CVE-2026-63030"
+    affected_package: "wordpress"
+    # WordPress service: adjust to match your environment.
+    # Common values: apache2, nginx, php8.1-fpm, php8.2-fpm
+    web_service: "apache2"
+    # WP-CLI path — used only if switching to WP-CLI tasks
+    wpcli_path: "/usr/local/bin/wp"
+    # WordPress installation path — used only if switching to WP-CLI tasks
+    wp_install_path: "/var/www/html"
+    # WordPress user — used only if switching to WP-CLI tasks
+    wp_user: "www-data"
+
+  pre_tasks:
+    - name: "Pre-patch — verify target host facts"
+      ansible.builtin.setup:
+        gather_subset:
+          - "!all"
+          - "date_time"
+          - "distribution"
+
+    - name: "Pre-patch — confirm OS is Debian/Ubuntu family (apt prerequisite)"
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: >
+          This playbook uses the apt module and requires a Debian/Ubuntu host.
+          For RHEL/CentOS or manual WordPress installs, adapt accordingly.
+        success_msg: "OS family confirmed: {{ ansible_os_family }}"
+
+    - name: "Pre-patch — record installed WordPress package version (apt)"
+      ansible.builtin.shell:
+        cmd: "dpkg-query -W -f='${Version}' {{ affected_package }} 2>/dev/null || echo 'NOT_INSTALLED_VIA_APT'"
+      register: pre_patch_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Pre-patch — display current version"
+      ansible.builtin.debug:
+        msg: >
+          {{ cve_id }}: Pre-patch WordPress version on {{ inventory_hostname }}:
+          {{ pre_patch_version.stdout }}
+
+    - name: "Pre-patch — warn if not installed via apt"
+      ansible.builtin.debug:
+        msg: >
+          WARNING: WordPress does not appear to be installed via apt on
+          {{ inventory_hostname }}. Output: '{{ pre_patch_version.stdout }}'.
+          Manual or WP-CLI installation may be present. Analyst review required
+          before proceeding. Consider using WP-CLI tasks (see playbook comments).
+      when: "'NOT_INSTALLED_VIA_APT' in pre_patch_version.stdout"
+
+  tasks:
+    # === APT-BASED TASKS (for distro-packaged WordPress) ===
+    # Disable these tasks if WordPress is installed via WP-CLI or manually.
+
+    - name: "Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: "Upgrade WordPress package to patched version (apt)"
+      ansible.builtin.apt:
+        name: "{{ affected_package }}"
+        state: latest
+      register: patch_result
+      when: "'NOT_INSTALLED_VIA_APT' not in pre_patch_version.stdout"
+
+    # === WP-CLI ALTERNATIVE TASKS ===
+    # Uncomment and adapt these tasks for manual/WP-CLI WordPress installations.
+    # Disable the apt tasks above when using these.
+    #
+    # - name: "Check current WordPress version via WP-CLI"
+    #   ansible.builtin.command:
+    #     cmd: "{{ wpcli_path }} core version --path={{ wp_install_path }} --allow-root"
+    #   become_user: "{{ wp_user }}"
+    #   register: wpcli_version_check
+    #   changed_when: false
+    #
+    # - name: "Update WordPress core via WP-CLI to patched version"
+    #   ansible.builtin.command:
+    #     cmd: >
+    #       {{ wpcli_path }} core update
+    #       --path={{ wp_install_path }}
+    #       --allow-root
+    #       --version=6.9.5
+    #   become_user: "{{ wp_user }}"
+    #   register: wpcli_patch_result
+    #   # NOTE: Set --version=7.0.2 if running 7.0.x branch [1][3]
+    #   # Analyst must confirm target branch before running.
+    #
+    # - name: "Verify WP-CLI update result"
+    #   ansible.builtin.debug:
+    #     msg: "WP-CLI update output: {{ wpcli_patch_result.stdout }}"
+
+    - name: "Restart web service if package was upgraded"
+      ansible.builtin.service:
+        name: "{{ web_service }}"
+        state: restarted
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-63030
+# [2] CISA Known Exploited Vulnerabilities Catalog — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+# [3] github.com — https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-fpp7-x2x2-2mjf
+# [4] slcyber.io — https://slcyber.io/research-center/wp2shell-pre-authentication-rce-in-wordpress-core
+# [5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-63030
+# [6] PoC (gh-nomi-sec) — https://github.com/eyesecurity/wp2shell-compromise-scanner-plugin
+# [7] PoC (vulncheck-xdb) — https://github.com/bahartanir/wp2shell-scanner.git
