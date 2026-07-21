@@ -1,0 +1,47 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-55009
+# Product:   microsoft exchange
+# Tags:      [HIGH] [T1]
+# Score:     40
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:32:25.195328Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only.
+# No packet-capture (PCAP) data source is available to this pipeline —
+# this pattern is NOT verified against captured exploit traffic.
+#
+# CVE-2026-55009 — Microsoft Exchange Server insecure deserialization
+# (local privilege escalation via deserialization of untrusted data).
+# This vulnerability requires an authenticated/authorized attacker [1][2].
+# Exchange Server's deserialization attack surface is historically associated
+# with .NET BinaryFormatter/ViewState payloads delivered over HTTPS to
+# Exchange OWA/ECP/EWS endpoints. The content match below targets the
+# well-known .NET BinaryFormatter magic bytes (0x00 0x01 0x00 0x00 0x00)
+# that commonly appear in malicious serialized payloads submitted to
+# Exchange HTTP endpoints. This is a heuristic approximation ONLY.
+# Analyst review and tuning against baseline Exchange traffic is MANDATORY
+# before any deployment. False-positive rate against legitimate Exchange
+# traffic is UNKNOWN without PCAP validation.
+# DRAFT — FOR ANALYST REVIEW ONLY.
+
+alert http $EXTERNAL_NET any -> $HOME_NET [443,80] (
+  msg:"THREATFORGE CVE-2026-55009 Microsoft Exchange Server insecure deserialization attempt";
+  flow:established,to_server;
+  http.uri; content:"/ews/"; nocase; isdataat:1,relative;
+  http.request_body;
+  content:"|00 01 00 00 00|"; depth:20;
+  reference:cve,2026-55009;
+  metadata:mitre_technique_id T1068, is_kev false, status experimental;
+  classtype:attempted-admin; sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-55009
+[2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-55009
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-55009
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-55009
+# [2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-55009
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-55009
