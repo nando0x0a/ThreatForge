@@ -1,0 +1,48 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-55008
+# Product:   microsoft exchange
+# Tags:      [CRIT] [T1]
+# Score:     50
+# Tier:      STANDARD
+# Generated: 2026-07-21T04:31:10.559725Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only.
+# No packet-capture (PCAP) data source is available to this pipeline —
+# this pattern is NOT verified against captured exploit traffic.
+#
+# CVE-2026-55008 — Microsoft Exchange Server Stored XSS / Spoofing
+# Vulnerability class: Stored XSS via improper input neutralization [1][2]
+# CVSS: 9.6 CRITICAL [1], no privileges required [2]
+# The rule targets HTTP POST requests to Exchange OWA or ECP endpoints
+# carrying common XSS payload patterns (script injection, event handler
+# injection) in the request body. Exchange web endpoints are well-known
+# but the exact injectable parameter is not disclosed in available
+# advisory detail [2]; the content matches below are therefore broad
+# heuristics and MUST be reviewed and tuned by an analyst before
+# deployment. False-positive risk is HIGH in environments where
+# legitimate HTML is submitted via Exchange web interfaces.
+# THIS IS A PROPOSED DRAFT FOR ANALYST REVIEW.
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-55008 Microsoft Exchange Server Stored XSS spoofing attempt";
+  flow:established,to_server;
+  http.method; content:"POST";
+  http.uri; content:"/owa/"; nocase; isdataat:1,relative;
+  http.request_body;
+  pcre:"/(<script[\s>]|javascript\s*:|on(?:load|error|mouseover|click|focus)\s*=)/Pi";
+  threshold:type limit, track by_src, count 3, seconds 60;
+  reference:cve,2026-55008;
+  metadata:mitre_technique_id T1190, is_kev false, status experimental;
+  classtype:web-application-attack; sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-55008
+[2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-55008
+[3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-55008
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-55008
+# [2] msrc.microsoft.com — https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-55008
+# [3] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-55008
