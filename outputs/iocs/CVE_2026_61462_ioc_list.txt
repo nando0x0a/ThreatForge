@@ -1,0 +1,119 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-61462
+# Product:   gitlab
+# Tags:      [RCE] [HIGH]
+# Score:     60
+# Tier:      STANDARD
+# SEVERITY DISCREPANCY: NVD/vulnx says 8.6 (HIGH) — CVE.org (CNA, v4.0) says 9.2 (CRITICAL). See https://www.cve.org/CVERecord?id=CVE-2026-61462
+# Generated: 2026-07-21T04:26:03.650931Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-61462
+# Generated: 2025-07-25
+# Confidence: MEDIUM / LOW per indicator (see Notes)
+
+> **DRAFT — Proposed for analyst review. All indicators below are inferred from vulnerability mechanics and advisory context; none have been confirmed from active exploitation telemetry or threat intelligence feeds.**
+
+---
+
+## ⚠️ Severity Discrepancy Notice
+
+A scoring disagreement exists between sources and **must be considered during triage**:
+
+- **NVD [1]:** CVSS 8.6 (HIGH)
+- **CVE.org CNA record [4]:** CVSS v4.0 — 9.2 (CRITICAL)
+
+The CNA-published score [4] uses CVSS v4.0 methodology and rates this CRITICAL. Analysts should assess which scoring reflects their environment's exposure model. The higher score [4] may be more appropriate given the no-auth, network-exploitable, RCE-capable attack vector [1].
+
+---
+
+## Network Indicators
+
+*No specific IP addresses associated with active exploitation have been identified in the provided sources.*
+
+---
+
+## Domain Indicators
+
+*No malicious domains associated with active exploitation have been identified in the provided sources.*
+
+---
+
+## URL Indicators
+
+*No specific exploitation URLs are available. No public proof-of-concept is known at this time.*
+
+---
+
+## File Indicators
+
+*No malicious file hashes associated with this vulnerability have been identified in the provided sources.*
+
+---
+
+## User-Agent Indicators
+
+*No specific user-agent strings associated with exploitation have been identified in the provided sources.*
+
+---
+
+## URI Path Indicators
+
+**Confidence: MEDIUM** — Derived from vulnerability mechanics described in the advisory [2] and source repository [3].
+
+URI: /api/v4/projects/*/jobs/<TRAVERSAL_PAYLOAD>/artifacts
+# Likely exploitation path — job_id parameter in mcp-gitlab build/index.js used to redirect GitLab API requests [2]
+
+URI: /api/v4/projects/*/jobs/../../<ARBITRARY_ENDPOINT>
+# Path traversal pattern — crafted job_id values containing directory traversal sequences redirect API calls to unintended GitLab API endpoints [2]
+
+URI: /api/v4/projects/*/jobs/%2E%2E%2F<ARBITRARY_ENDPOINT>
+# URL-encoded traversal variant — analysts should monitor for percent-encoded traversal sequences in job_id parameter positions [2]
+
+URI: /api/v4/projects/*/jobs/%252E%252E%252F<ARBITRARY_ENDPOINT>
+# Double URL-encoded traversal variant — defensive controls performing single-pass decoding may miss this pattern [2]
+
+**Source file of interest (non-IoC, for detection tuning):**
+FILE_PATH: build/index.js  # Vulnerable component within mcp-gitlab package [2][3]
+
+---
+
+## Notes
+
+### Confidence Assessment
+
+| Indicator Type | Confidence | Rationale |
+|---|---|---|
+| URI path patterns | MEDIUM | Directly derived from described vulnerability mechanic (path traversal via job_id) [2] |
+| Specific IPs / Domains | N/A | No exploitation infrastructure identified in sources |
+| File hashes | N/A | No malicious payloads or modified package hashes identified in sources |
+
+### Observational Behaviour Patterns
+
+In the absence of confirmed active-exploitation IoCs, analysts should monitor for the following **behavioural patterns** in logs and telemetry:
+
+1. **Anomalous job_id values** — Any `job_id` field in requests to the mcp-gitlab service containing `..`, `/`, `%2e`, `%2f`, `%252e`, or similar traversal sequences [2].
+2. **Unexpected GitLab API endpoint access** — GitLab API calls originating from the mcp-gitlab service to endpoints outside the expected `/api/v4/projects/*/jobs/*` scope, particularly administrative or secrets-related endpoints [2].
+3. **Unauthenticated requests to the MCP server** — Given AV:N/PR:N/UI:N [1][4], monitor for requests from external or unexpected source IPs.
+4. **Elevated API activity** — Unusual volume of GitLab API calls via mcp-gitlab, potentially indicating automated exploitation attempts.
+
+### Additional Context
+
+- CVE is 6 days old [1]; no public PoC is currently known, but the vulnerability is described in sufficient detail in the advisory [2] that independent PoC development is plausible in the near term.
+- The affected file `build/index.js` is part of the `mcp-gitlab` npm package; analysts should verify installed package versions against the advisory [2][3].
+- CISA KEV status: Not listed in the provided context.
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-61462
+[2] www.vulncheck.com — https://www.vulncheck.com/advisories/mcp-gitlab-path-traversal-via-job-id-parameter
+[3] github.com — https://github.com/zereight/gitlab-mcp
+[4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-61462
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-61462
+# [2] www.vulncheck.com — https://www.vulncheck.com/advisories/mcp-gitlab-path-traversal-via-job-id-parameter
+# [3] github.com — https://github.com/zereight/gitlab-mcp
+# [4] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-61462
