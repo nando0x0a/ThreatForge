@@ -1,0 +1,55 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-63030
+# Product:   wordpress
+# Tags:      [KEV] [RCE] [CRIT] [T1] [POC]
+# Score:     150
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-21T06:00:19.169332Z
+# Status:    OK
+# ---
+
+# Confidence: PoC known — see [6] and [7]. 86 public proof-of-concept(s) reported [6][7].
+# No packet-capture (PCAP) data source is available to this pipeline — this pattern
+# is NOT verified against captured exploit traffic.
+#
+# Pattern basis: CVE-2026-63030 describes exploitation via crafted REST API batch
+# endpoint requests targeting WordPress 6.9.x < 6.9.5 and 7.0.x < 7.0.2 [4][5].
+# The attack abuses REST API route confusion at the batch processing endpoint
+# (/wp-json/batch/v1 or /__experimental/batch) combined with a malicious
+# author__not_in WP_Query parameter to achieve SQL injection and RCE [4].
+# Active exploitation confirmed via CISA KEV [2] and honeypot observations [3].
+# Tool name "wp2shell" observed in the wild [3][6][7].
+# The PCRE targets the REST batch endpoint path combined with author__not_in
+# parameter injection patterns. Analyst review is STRONGLY recommended before
+# deployment — this rule may require tuning to reduce false positives in
+# environments with legitimate batch API usage.
+# THIS IS A PROPOSED DRAFT FOR ANALYST REVIEW.
+
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-63030 WordPress REST API Batch SQLi/RCE attempt";
+  flow:established,to_server;
+  http.method; content:"POST";
+  http.uri; content:"/wp-json/"; nocase; fast_pattern;
+  pcre:"/\/wp-json\/(batch\/v1|__experimental\/batch)/i";
+  http.request_body; content:"author__not_in"; nocase;
+  pcre:"/author__not_in[\"'\s]*[:=][\"'\s]*[\[\(0-9\s,\-\)UNION SELECT]/i";
+  reference:cve,2026-63030;
+  metadata:mitre_technique_id T1190, is_kev true, status experimental;
+  classtype:attempted-admin; sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-63030
+[2] CISA Known Exploited Vulnerabilities Catalog — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+[3] x.com — https://x.com/kmkz_security/status/2079212253434323246
+[4] patchstack.com — https://patchstack.com/database/wordpress/plugin/wordpress/vulnerability/wordpress-core-7-0-1-unauthenticated-remote-code-execution-vulnerability
+[5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-63030
+[6] PoC (gh-nomi-sec) — https://github.com/ZephrFish/wp2shell-scanner
+[7] PoC (gh-nomi-sec) — https://github.com/Icex0/wp2shell-poc
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-63030
+# [2] CISA Known Exploited Vulnerabilities Catalog — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+# [3] x.com — https://x.com/kmkz_security/status/2079212253434323246
+# [4] patchstack.com — https://patchstack.com/database/wordpress/plugin/wordpress/vulnerability/wordpress-core-7-0-1-unauthenticated-remote-code-execution-vulnerability
+# [5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-63030
+# [6] PoC (gh-nomi-sec) — https://github.com/ZephrFish/wp2shell-scanner
+# [7] PoC (gh-nomi-sec) — https://github.com/Icex0/wp2shell-poc
