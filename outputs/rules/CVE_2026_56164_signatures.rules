@@ -1,0 +1,64 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-56164
+# Product:   sharepoint_server
+# Tags:      [KEV] [RCE] [POC]
+# Score:     100
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-22T03:18:56.863728Z
+# Status:    OK
+# ---
+
+# Confidence: PoC known — public proof-of-concept exists [7]; advisory
+# detail from Resecurity [5] and Check Point [4] confirms unauthenticated
+# HTTP-based privilege escalation against SharePoint endpoints. However,
+# NO packet-capture (PCAP) data source is available to this pipeline —
+# this pattern is NOT verified against captured exploit traffic. The
+# content and PCRE matches below target generic unauthenticated access
+# patterns on SharePoint API/authentication paths consistent with a
+# missing-authentication-for-critical-function class of vulnerability
+# (CWE-306). Specific request paths used by the PoC were not extractable
+# from the available advisory text; pattern is inferred from CVE
+# description [1][6], CISA KEV entry [3], and advisory titles [5].
+# Analyst MUST review and validate match logic against actual exploit
+# traffic or PoC source [7] before deployment. Do NOT deploy to IPS
+# blocking mode without validation.
+#
+# SEVERITY DISCREPANCY NOTE: The NVD CVSS score for CVE-2026-56164 is
+# 5.3 (MEDIUM) [1], yet the vulnerability is actively exploited in the
+# wild per both CISA KEV (added 2026-07-14) [3] and VulnCheck KEV
+# (added 2026-07-14) [2], with confirmed RCE via network-exploitable
+# AV:N/PR:N/UI:N vector and a public PoC [7]. The MEDIUM CVSS score is
+# likely an underrepresentation of operational risk. Analysts should
+# treat this as CRITICAL priority consistent with the KEV listing and
+# Priority Tier assigned by ThreatForge. Do not use the CVSS score alone
+# to deprioritise response.
+#
+# THIS RULE IS A PROPOSED DRAFT FOR ANALYST REVIEW.
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-56164 Microsoft SharePoint missing auth privilege escalation attempt";
+  flow:established,to_server;
+  http.uri; content:"/_api/"; nocase;
+  pcre:"/\/_api\/(web|site|contextinfo|lists|siteusers|SP\.UserProfiles)/i";
+  http.header; content:!"Authorization"; nocase;
+  content:!"Cookie"; nocase;
+  threshold:type both, track by_src, count 5, seconds 60;
+  reference:cve,2026-56164;
+  metadata:mitre_technique_id T1190, is_kev true, status experimental;
+  classtype:attempted-admin; sid:9000164; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-56164
+[2] VulnCheck KEV, added 2026-07-14 — https://www.vulncheck.com/kev
+[3] CISA Known Exploited Vulnerabilities Catalog, added 2026-07-14 — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+[4] research.checkpoint.com — https://research.checkpoint.com/2026/20th-july-threat-intelligence-report/
+[5] www.resecurity.com — https://www.resecurity.com/es/blog/article/from-web-request-to-domain-compromise-understanding-the-july-2026-sharepoint-attacks
+[6] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-56164
+[7] PoC (gh-nomi-sec) — https://github.com/sentinel-aidefense/CVE-2026-56164-EXP
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-56164
+# [2] VulnCheck KEV, added 2026-07-14 — https://www.vulncheck.com/kev
+# [3] CISA Known Exploited Vulnerabilities Catalog, added 2026-07-14 — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+# [4] research.checkpoint.com — https://research.checkpoint.com/2026/20th-july-threat-intelligence-report/
+# [5] www.resecurity.com — https://www.resecurity.com/es/blog/article/from-web-request-to-domain-compromise-understanding-the-july-2026-sharepoint-attacks
+# [6] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-56164
+# [7] PoC (gh-nomi-sec) — https://github.com/sentinel-aidefense/CVE-2026-56164-EXP
