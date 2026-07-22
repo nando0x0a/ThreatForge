@@ -1,0 +1,59 @@
+# ThreatForge Output — SIGNATURES
+# CVE:       CVE-2026-58644
+# Product:   sharepoint_server
+# Tags:      [KEV] [RCE] [CRIT]
+# Score:     120
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-22T03:08:52.996483Z
+# Status:    OK
+# ---
+
+# Confidence: No public PoC known — pattern inferred from the CVE/advisory
+# description only. The advisory [4] describes unauthenticated HTTP requests
+# targeting SharePoint endpoints as the initial attack vector, consistent with
+# the NVD description [1] of deserialization of untrusted data over the network
+# (AV:N/PR:N/UI:N, CVSS 9.8 [1]). The CISA KEV entry [3] and VulnCheck KEV
+# listing [2] confirm active in-the-wild exploitation as of 2026-07-14/16.
+# Specific serialized payload byte sequences, request paths, or HTTP headers
+# unique to CVE-2026-58644 exploits are NOT available without PCAP or PoC data.
+# The content/pcre matches below target .NET BinaryFormatter / ViewState
+# serialization artefacts commonly associated with SharePoint deserialization
+# attacks and HTTP request patterns noted in the Resecurity advisory [4], but
+# HAVE NOT been validated against captured exploit traffic.
+#
+# No packet-capture (PCAP) data source is available to this pipeline — this
+# pattern is NOT verified against captured exploit traffic.
+#
+# ANALYST ACTION REQUIRED before any deployment:
+#   1. Validate match logic against actual SharePoint exploit traffic or PoC
+#      once available.
+#   2. Tune or suppress rule against known-good SharePoint serialization traffic
+#      to reduce false positives.
+#   3. Review CISA BOD 26-04 patching requirements [3] — patching is the
+#      primary mitigation for this actively exploited vulnerability.
+alert http $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"THREATFORGE CVE-2026-58644 Microsoft SharePoint unauthenticated deserialization RCE attempt";
+  flow:established,to_server;
+  http.method; content:"POST";
+  http.uri; content:"/_layouts/"; nocase;
+  pcre:"/\/_layouts\/[^\s]*\.(aspx|ashx)/i";
+  http.request_body;
+  content:"|00 01 00 00 00|"; offset:0; depth:5;
+  reference:cve,2026-58644;
+  metadata:mitre_technique_id T1190, is_kev true, status experimental;
+  classtype:attempted-admin; sid:9000004; rev:1; )
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-58644
+[2] VulnCheck KEV, added 2026-07-14 — https://www.vulncheck.com/kev
+[3] CISA Known Exploited Vulnerabilities Catalog, added 2026-07-16 — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+[4] www.resecurity.com — https://www.resecurity.com/es/blog/article/from-web-request-to-domain-compromise-understanding-the-july-2026-sharepoint-attacks
+[5] www.rapid7.com — https://www.rapid7.com/blog/post/etr-cve-2026-58644-microsoft-sharepoint-server-unauthenticated-remote-code-execution-vulnerability-exploited-in-the-wild/
+[6] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-58644
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-58644
+# [2] VulnCheck KEV, added 2026-07-14 — https://www.vulncheck.com/kev
+# [3] CISA Known Exploited Vulnerabilities Catalog, added 2026-07-16 — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+# [4] www.resecurity.com — https://www.resecurity.com/es/blog/article/from-web-request-to-domain-compromise-understanding-the-july-2026-sharepoint-attacks
+# [5] www.rapid7.com — https://www.rapid7.com/blog/post/etr-cve-2026-58644-microsoft-sharepoint-server-unauthenticated-remote-code-execution-vulnerability-exploited-in-the-wild/
+# [6] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-58644
