@@ -1,0 +1,99 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-50522
+# Product:   sharepoint_server
+# Tags:      [KEV] [RCE] [CRIT]
+# Score:     120
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-22T03:18:02.774211Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-50522
+# Generated: 2026-07-26
+# ⚠️ DRAFT FOR ANALYST REVIEW — Not validated for production deployment without further investigation
+# Confidence: HIGH / MEDIUM / LOW per indicator
+
+---
+
+## Network Indicators
+
+*No specific attacker IP addresses are available from the provided context. Attribution of infrastructure to this campaign cannot be confirmed without additional threat intelligence reporting. Analyst should monitor SIEM/firewall logs for anomalous inbound traffic to SharePoint-exposed endpoints.*
+
+---
+
+## Domain Indicators
+
+*No specific malicious domains have been identified in the provided context for CVE-2026-50522. No C2 domains are attributable at this time.*
+
+---
+
+## URL Indicators
+
+*No specific exploit URLs or payload delivery paths are confirmed in the provided context. No public proof-of-concept is known [2], limiting URL-level indicator derivation.*
+
+---
+
+## File Indicators
+
+*No payload hashes, dropped files, or malware samples have been identified in the provided context. Analyst should consult EDR telemetry on affected SharePoint servers for anomalous process creation or file writes post-exploitation.*
+
+---
+
+## User-Agent Indicators
+
+*No specific exploit-associated User-Agent strings are confirmed from the provided context.*
+
+---
+
+## URI Path Indicators
+
+*The following URI patterns are derived from known SharePoint deserialization attack surfaces and are assessed as MEDIUM confidence based on vulnerability class — NOT confirmed specific to CVE-2026-50522 exploitation. Analyst validation required.*
+
+URI: /_vti_bin/client.svc          # SharePoint WCF endpoint commonly associated with deserialization attack surface (MEDIUM — class-based inference)
+URI: /_api/                        # SharePoint REST API endpoint; potential deserialization entry point (MEDIUM — class-based inference)
+URI: /_layouts/15/                 # SharePoint ASPX handler paths; historically abused in deserialization chains (MEDIUM — class-based inference)
+URI: /sites/*/                     # Site collection paths; may appear in exploit chains targeting deserialization handlers (LOW — generic)
+
+**⚠️ NOTE:** These URI patterns are inferred from the vulnerability class (insecure deserialization, unauthenticated, network-accessible) [1][5] and SharePoint's known attack surface. They are NOT derived from confirmed exploit telemetry for this specific CVE. Do not treat these as confirmed IoCs without corroborating evidence.
+
+---
+
+## Observable Behaviour Patterns
+
+Given active exploitation in the wild [2][4] and the absence of confirmed specific IoCs in the provided context, analysts should monitor for the following behavioural indicators on affected SharePoint systems (Microsoft SharePoint Enterprise Server 2016, SharePoint Server 2019, SharePoint Server Subscription Edition) [3]:
+
+| # | Behaviour Pattern | Confidence | Notes |
+|---|---|---|---|
+| 1 | Anomalous child processes spawned by `w3wp.exe` (IIS worker process) | HIGH | Classic post-deserialization RCE indicator on SharePoint/IIS |
+| 2 | Unauthenticated or pre-auth requests to SharePoint service endpoints returning 200 OK with unexpected payloads | HIGH | AV:N/PR:N/UI:N exploit profile [1] implies no credential use |
+| 3 | PowerShell or cmd.exe invocations parented by IIS worker processes | HIGH | Typical post-exploitation behaviour following .NET deserialization RCE |
+| 4 | Outbound network connections from SharePoint servers to unexpected external IPs | HIGH | May indicate post-exploitation C2 establishment |
+| 5 | New or modified web.config files, ASPX webshells in SharePoint wwwroot or layouts directories | MEDIUM | Common persistence mechanism post SharePoint RCE |
+| 6 | Unexpected scheduled tasks or registry run keys created on SharePoint server host | MEDIUM | Persistence post-exploitation |
+| 7 | Large or malformed HTTP POST bodies to SharePoint service endpoints from external IPs | MEDIUM | Deserialization payloads typically delivered via POST |
+| 8 | Lateral movement from SharePoint server host to internal domain controllers or file servers | MEDIUM | SharePoint servers are often domain-joined with privileged service accounts |
+
+---
+
+## Notes
+
+- **IoC Confidence Overall: LOW-MEDIUM** — No specific network, file, or domain IoCs are derivable from the provided context. The advisory context reference [4] (LinkedIn/watchTowr) indicates active observed exploitation, but no technical IoC detail was extractable from the provided source content.
+- **KEV Status:** CVE-2026-50522 is listed as actively exploited in the wild by VulnCheck KEV, added 2026-07-20 [2]. Exploitation activity is also referenced via watchTowr observations [4].
+- **No PoC Available:** No public proof-of-concept is known at time of generation, which limits derivation of specific exploit-path indicators. This may change rapidly given the vulnerability age (6 days) [1].
+- **Analyst Action Required:** Enrich this list with threat intelligence feeds (e.g., VirusTotal, Shodan, commercial TI platforms) and EDR/SIEM telemetry from affected SharePoint infrastructure before operationalising any indicators.
+- **CVE Age:** 6 days — IoC landscape is likely to evolve rapidly. Re-assess within 48–72 hours.
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-50522
+[2] VulnCheck KEV, added 2026-07-20 — https://www.vulncheck.com/kev
+[3] kevintel.com — https://kevintel.com/CVE-2026-50522
+[4] www.linkedin.com — https://www.linkedin.com/posts/exploitation-alert-watchtowr-is-observing-share-7485278592730333184-rV0l/
+[5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-50522
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-50522
+# [2] VulnCheck KEV, added 2026-07-20 — https://www.vulncheck.com/kev
+# [3] kevintel.com — https://kevintel.com/CVE-2026-50522
+# [4] www.linkedin.com — https://www.linkedin.com/posts/exploitation-alert-watchtowr-is-observing-share-7485278592730333184-rV0l/
+# [5] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-50522
