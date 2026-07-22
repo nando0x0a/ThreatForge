@@ -1,0 +1,125 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-56164
+# Product:   sharepoint_server
+# Tags:      [KEV] [RCE] [POC]
+# Score:     100
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-22T03:19:33.381574Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-56164
+# Generated: 2026-07-20
+# Confidence: HIGH / MEDIUM / LOW per indicator
+# ⚠️ DRAFT — For analyst review and validation before operational use.
+
+---
+
+## ⚠️ SEVERITY DISCREPANCY BETWEEN SOURCES
+
+The NVD CVSS score for CVE-2026-56164 is **5.3 (MEDIUM)** [1], yet the KEV listings from both VulnCheck [2] and CISA [3] confirm **active exploitation in the wild** as of 2026-07-14, and the vulnerability carries network-exploitable RCE characteristics (AV:N/PR:N/UI:N) with a public PoC available [7]. Analysts should **not** rely on the NVD CVSS score alone to prioritize this vulnerability. The KEV status, exploitation evidence, and attack vector profile elevate operational risk significantly above what the 5.3 MEDIUM score implies. Treat as CRITICAL for patching priority in accordance with BOD 26-04 [3].
+
+---
+
+## Network Indicators
+
+*No specific threat-actor IP addresses were extractable from the provided advisory context [4][5]. The Resecurity advisory [5] references active attacks against SharePoint environments in July 2026 but does not publish raw attacker IPs in the context provided.*
+
+**Observable network behaviour patterns (MEDIUM confidence):**
+- Unauthenticated inbound HTTP/HTTPS requests targeting SharePoint web application endpoints, originating from unexpected or external source IPs
+- Repeated authentication bypass attempts to SharePoint API or web service endpoints with no valid session tokens or credentials
+- Network traffic to SharePoint servers exhibiting patterns consistent with privilege escalation probing (e.g., rapid sequential requests to administrative functions)
+
+---
+
+## Domain Indicators
+
+*No specific malicious domains were extractable from the provided advisory context [4][5]. The advisory snippets do not contain confirmed C2 or staging domain names.*
+
+---
+
+## URL Indicators
+
+*No specific exploit URLs were confirmed from the provided advisory context. The PoC repository [7] exists but offensive URL patterns from it are not reproduced here per policy.*
+
+**Observable URI behaviour patterns — see URI Path Indicators below.**
+
+---
+
+## File Indicators
+
+*No file hashes (SHA256 or MD5) were available from the provided advisory context [4][5]. The PoC repository [7] exists; analysts should obtain and hash the PoC artifacts independently in a controlled environment for detection purposes.*
+
+*If the vendor releases patched binary hashes or if DFIR tooling identifies dropped payloads during incident response, update this section accordingly.*
+
+---
+
+## User-Agent Indicators
+
+*No specific malicious User-Agent strings were identified in the provided context [4][5].*
+
+**Observable patterns (LOW confidence — generic, requires tuning):**
+UA: Anomalous or absent User-Agent strings in SharePoint IIS logs on authenticated endpoints
+UA: Scripted/automated UA strings (e.g., python-requests/*, curl/*, Go-http-client/*) accessing privileged SharePoint functions without prior authentication flow
+*These are behavioural heuristics, not confirmed threat-actor UAs. Analyst validation required.*
+
+---
+
+## URI Path Indicators
+
+*Specific vulnerable endpoint paths are not confirmed from the provided context. The vulnerability class is **missing authentication for a critical function** in Microsoft SharePoint [1][3], which typically involves administrative or privileged API paths.*
+
+**Candidate URI patterns to monitor (MEDIUM confidence — based on vulnerability class, not confirmed from advisory):**
+
+URI: /_api/          # SharePoint REST API root — monitor for unauth access to privileged operations
+URI: /_layouts/      # SharePoint layouts directory — common target for auth bypass techniques
+URI: /_vti_bin/      # SharePoint legacy web services endpoint
+URI: /sites/*/       # Site collection paths — watch for privilege escalation patterns
+
+⚠️ **These paths are inferred from the vulnerability class (missing authentication on critical function in SharePoint) and are NOT confirmed exploit paths from the advisory. Analyst must validate against vendor advisory and IIS logs.**
+
+---
+
+## Notes
+
+### Confidence Summary
+| Indicator Type | Confidence | Basis |
+|---|---|---|
+| Network IPs | NOT AVAILABLE | Not published in provided context |
+| Malicious Domains | NOT AVAILABLE | Not published in provided context |
+| File Hashes | NOT AVAILABLE | Not published in provided context |
+| URI Paths | LOW–MEDIUM | Inferred from vulnerability class; not confirmed |
+| User-Agents | LOW | Generic scripting patterns; not threat-actor specific |
+| Behavioural Patterns | MEDIUM | Derived from KEV description and Resecurity advisory |
+
+### Contextual Intelligence
+- CVE-2026-56164 is **6 days old** and already listed in both CISA KEV [3] and VulnCheck KEV [2] as of 2026-07-14, indicating rapid weaponization.
+- A public proof-of-concept exists [7], which materially lowers the bar for opportunistic exploitation.
+- The Resecurity advisory [5] is titled "From Web Request to Domain Compromise," suggesting observed attack chains progress from initial SharePoint access to full Active Directory / domain compromise. Defenders should treat any confirmed SharePoint exploitation as a potential domain-level incident.
+- CISA's required action [3] mandates forensic triage in addition to patching — organizations should preserve IIS logs, SharePoint ULS logs, and Windows Security event logs immediately.
+- Microsoft patch application per vendor instructions is the primary required mitigation [3].
+
+### Recommended Detection Focus (Pending Specific IoCs)
+1. Monitor SharePoint IIS and ULS logs for unauthenticated requests to privileged API endpoints.
+2. Alert on privilege escalation events in SharePoint audit logs (site collection admin grants, permission changes) not correlated to legitimate admin sessions.
+3. Watch for post-exploitation indicators: new local/domain admin accounts, lateral movement from SharePoint server hosts, LSASS access, or AD object modifications originating from SharePoint server processes.
+4. Cross-correlate with threat intelligence feeds for IPs/domains associated with July 2026 SharePoint exploitation campaigns referenced in [4] and [5].
+
+---
+
+## Sources
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-56164
+[2] VulnCheck KEV, added 2026-07-14 — https://www.vulncheck.com/kev
+[3] CISA Known Exploited Vulnerabilities Catalog, added 2026-07-14 — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+[4] research.checkpoint.com — https://research.checkpoint.com/2026/20th-july-threat-intelligence-report/
+[5] www.resecurity.com — https://www.resecurity.com/es/blog/article/from-web-request-to-domain-compromise-understanding-the-july-2026-sharepoint-attacks
+[6] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-56164
+[7] PoC (gh-nomi-sec) — https://github.com/sentinel-aidefense/CVE-2026-56164-EXP
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-56164
+# [2] VulnCheck KEV, added 2026-07-14 — https://www.vulncheck.com/kev
+# [3] CISA Known Exploited Vulnerabilities Catalog, added 2026-07-14 — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+# [4] research.checkpoint.com — https://research.checkpoint.com/2026/20th-july-threat-intelligence-report/
+# [5] www.resecurity.com — https://www.resecurity.com/es/blog/article/from-web-request-to-domain-compromise-understanding-the-july-2026-sharepoint-attacks
+# [6] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-56164
+# [7] PoC (gh-nomi-sec) — https://github.com/sentinel-aidefense/CVE-2026-56164-EXP
