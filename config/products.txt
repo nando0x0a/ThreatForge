@@ -9,6 +9,7 @@ openssh,1
 jenkins,2
 ubuntu,1
 windows,1
+wordpress,1
 
 # aiserver homelab stack (confirmed running via `docker ps`, 2026-07-14)
 grafana,2

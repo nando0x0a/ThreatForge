@@ -75,10 +75,13 @@ class DiscordNotifier:
         lines += [
             "**0. All of the above**",
             "",
+            "**7. Post produced outputs to Discord** (opt-in — `0` does not include this; "
+            "outputs are otherwise only saved locally/GitHub)",
+            "",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             "**Produce outputs:**",
-            "`docker exec threatforge python3 src/orchestrate.py --produce 1,3,6`",
-            "*(comma-separated, no spaces — e.g. `1,3,6` or `0` for all)*",
+            "`docker exec threatforge python3 src/orchestrate.py --produce 1,3,6,7`",
+            "*(comma-separated, no spaces — e.g. `1,3,6` or `0` for all file outputs; add `7` to also post to Discord)*",
         ]
         _post("\n".join(lines))
         log.info(f"Brief report posted to Discord: {len(enriched_cves)} CVEs")

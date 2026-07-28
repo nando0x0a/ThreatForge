@@ -10,7 +10,7 @@ When a high-severity CVE lands, a detection engineer has to read the advisory, c
 
 ## How it works
 
-1. **Pipeline** — queries [vulnx](https://github.com/projectdiscovery/vulnx) per product in `products.txt`, filters to what's actionable (recent + high severity, or KEV-listed regardless of age).
+1. **Pipeline** — queries [vulnx](https://github.com/projectdiscovery/vulnx) per product in `products.txt`, filters to what's actionable (recent + high severity, or KEV-listed with a recent KEV addition/update — an old KEV-listed CVE doesn't bypass the age window on its own).
 2. **Score & tag** — a composite model combining CISA KEV status, network-exploitable RCE detection, CVSS, EPSS, asset tier, PoC availability, and software prevalence. KEV + RCE together always means drop-everything priority.
 3. **Verify** — cross-checks NVD/vulnx's CVSS score against the CVE Program's own CNA-published record; disagreements are surfaced explicitly, never silently resolved. Every fact-bearing output carries a numbered, deterministic source list.
 4. **Brief** — posts a prioritised report to Discord and waits. No output is generated until the analyst selects one.

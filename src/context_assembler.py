@@ -13,6 +13,18 @@ log = logging.getLogger("context_assembler")
 CISA_KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 CISA_KEV_CATALOG_URL = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
 NVD_URL = "https://nvd.nist.gov/vuln/detail/{cve_id}"
+
+# vulnx's is_kev can come from any catalog it indexes (each kev[] entry carries
+# its own "source"), not just CISA — label/link known ones by name, and fall
+# back to a generic "KEV (<source>)" label for anything else it reports.
+KEV_SOURCE_LABELS = {
+    "cisa": "CISA Known Exploited Vulnerabilities Catalog",
+    "vulncheck": "VulnCheck KEV",
+}
+KEV_SOURCE_URLS = {
+    "cisa": CISA_KEV_CATALOG_URL,
+    "vulncheck": "https://www.vulncheck.com/kev",
+}
 RCE_KEYWORDS = [
     "remote code execution", "execute arbitrary code",
     "arbitrary command", "code injection", "command injection",
@@ -78,6 +90,7 @@ class ContextAssembler:
             "cvss_score": cve_data.get("cvss_score", 0),
             "severity": cve_data.get("severity", "unknown"),
             "is_kev": cve_data.get("is_kev", False),
+            "kev_sources": [],
             "age_in_days": cve_data.get("age_in_days", 0),
             "kev_short_description": "",
             "kev_required_action": "",
@@ -93,12 +106,27 @@ class ContextAssembler:
             "poc_count": cve_data.get("poc_count") or 0,
         }
 
-        if context["is_kev"] and cve_id in self.kev:
-            kev_entry = self.kev[cve_id]
-            context["kev_short_description"] = kev_entry.get("shortDescription", "")
-            context["kev_required_action"] = kev_entry.get("requiredAction", "")
-            context["rce_in_kev"] = detect_rce_in_kev(kev_entry)
-            log.debug(f"{cve_id}: KEV entry found, rce_in_kev={context['rce_in_kev']}")
+        if context["is_kev"]:
+            # vulnx reports its own per-source kev[] entries (e.g. vulncheck) —
+            # trust those for source/added-date attribution.
+            kev_sources = [
+                {"source": e.get("source", "unknown"), "added_date": e.get("added_date", "")}
+                for e in (cve_data.get("kev") or [])
+            ]
+            # Cross-check against ThreatForge's own live CISA fetch: vulnx
+            # doesn't always tag "cisa" as a kev[] source even when the CVE is
+            # genuinely CISA-listed, so add it if our independent check confirms it
+            # and vulnx didn't already report it.
+            if cve_id in self.kev and not any(s["source"] == "cisa" for s in kev_sources):
+                kev_sources.append({"source": "cisa", "added_date": self.kev[cve_id].get("dateAdded", "")})
+            context["kev_sources"] = kev_sources
+
+            if cve_id in self.kev:
+                kev_entry = self.kev[cve_id]
+                context["kev_short_description"] = kev_entry.get("shortDescription", "")
+                context["kev_required_action"] = kev_entry.get("requiredAction", "")
+                context["rce_in_kev"] = detect_rce_in_kev(kev_entry)
+                log.debug(f"{cve_id}: KEV entry found, rce_in_kev={context['rce_in_kev']}")
 
         if context["cvss_vector"]:
             components = parse_cvss_vector(context["cvss_vector"])
@@ -120,8 +148,14 @@ class ContextAssembler:
         cve_id = context["cve_id"]
         sources = [{"label": "NVD", "url": NVD_URL.format(cve_id=cve_id)}]
 
-        if context["is_kev"]:
-            sources.append({"label": "CISA Known Exploited Vulnerabilities Catalog", "url": CISA_KEV_CATALOG_URL})
+        for kev_src in context.get("kev_sources") or []:
+            src = kev_src["source"]
+            label = KEV_SOURCE_LABELS.get(src, f"KEV ({src})")
+            if kev_src.get("added_date"):
+                label += f", added {kev_src['added_date'][:10]}"
+            sources.append({"label": label, "url": KEV_SOURCE_URLS.get(src, "")})
+        if context["is_kev"] and not context.get("kev_sources"):
+            sources.append({"label": "KEV (source unspecified)", "url": ""})
 
         references = [c.get("url") for c in cve_data.get("citations", []) if c.get("url")]
         for ref in references[:2]:
@@ -156,7 +190,15 @@ class ContextAssembler:
             f"Age: {context['age_in_days']} days old",
         ]
         if context["is_kev"]:
-            lines.append("CISA KEV Status: ACTIVELY EXPLOITED IN THE WILD")
+            kev_sources = context.get("kev_sources") or []
+            if kev_sources:
+                src_desc = ", ".join(
+                    f"{s['source']} (added {s['added_date'][:10]})" if s.get("added_date") else s["source"]
+                    for s in kev_sources
+                )
+                lines.append(f"KEV Status: ACTIVELY EXPLOITED IN THE WILD — listed by {src_desc}")
+            else:
+                lines.append("KEV Status: ACTIVELY EXPLOITED IN THE WILD (source unspecified)")
             if context["kev_short_description"]:
                 lines.append(f"CISA KEV Description: {context['kev_short_description']}")
             if context["kev_required_action"]:

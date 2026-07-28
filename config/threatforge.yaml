@@ -6,10 +6,11 @@
 # effect on the next run without rebuilding the image.
 
 pipeline:
-  cve_age_days: 7          # only consider CVEs newer than this many days
+  cve_age_days: 7          # only consider CVEs newer than this many days; for KEV-listed CVEs, measured from the KEV-added/CVE-updated date instead of publish date — an old KEV entry does not bypass this
   cvss_threshold: 7.0      # minimum CVSS score to be actionable (unless KEV-listed); also the [HIGH] tag boundary
   epss_threshold: 0.5      # EPSS probability above which the [EPSS] tag applies
   new_threshold_days: 3    # CVE age below which the [NEW] tag applies
+  query_limit: 15          # candidates to pull per product per query (KEV, and CVSS-sorted), before filtering — same shape as test_mode.query_limit
 
 # Daily automated run — disabled by default. When disabled, ThreatForge only
 # runs when triggered manually (via `docker exec ... src/cli.py` or

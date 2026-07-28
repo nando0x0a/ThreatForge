@@ -16,14 +16,6 @@ def ask(prompt_text: str, default: str = None) -> str:
     return val if val else default
 
 
-def ask_yn(prompt_text: str, default: bool = False) -> bool:
-    suffix = " (Y/n)" if default else " (y/N)"
-    val = input(f"{prompt_text}{suffix}: ").strip().lower()
-    if not val:
-        return default
-    return val.startswith("y")
-
-
 def run_orchestrate(args: list[str]) -> None:
     print(f"\n$ orchestrate.py {' '.join(args)}\n")
     try:
@@ -36,14 +28,10 @@ def run_orchestrate(args: list[str]) -> None:
 
 
 def build_produce_args() -> list[str]:
-    if not ask_yn("Produce output drafts for these results?"):
-        return []
-    which = ask(
-        "Which outputs? 1=advisory 2=technical 3=signatures 4=iocs 5=hunting "
-        "6=patches (comma-separated, or 0 for all)",
-        "0",
-    )
-    return ["--produce", which]
+    # "ask" defers the "which outputs?" question to orchestrate.py, which asks
+    # it only after the CVE table has printed — asking here, before the
+    # pipeline has even run, meant analysts were deciding blind.
+    return ["--produce", "ask"]
 
 
 def wizard_daily():
@@ -73,7 +61,7 @@ def wizard_product():
 
 
 def wizard_cve():
-    cve_id = ask("CVE ID (e.g. CVE-2024-12345)")
+    cve_id = ask("CVE ID(s), comma-separated (e.g. CVE-2024-12345, CVE-2024-12346)")
     if not cve_id:
         print("No CVE given, cancelled.")
         return

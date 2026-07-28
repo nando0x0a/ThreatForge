@@ -7,7 +7,7 @@ import tempfile
 import logging
 import click
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
@@ -34,6 +34,7 @@ _cfg = load_config()
 PRODUCTS_FILE = "/opt/threatforge/config/products.txt"
 CVE_AGE_DAYS = _cfg["pipeline"]["cve_age_days"]
 CVSS_THRESHOLD = _cfg["pipeline"]["cvss_threshold"]
+QUERY_LIMIT = _cfg["pipeline"]["query_limit"]
 TEST_DEFAULT_COUNT = _cfg["test_mode"]["default_count"]
 TEST_QUERY_LIMIT = _cfg["test_mode"]["query_limit"]
 TEST_GLOBAL_LIMIT = _cfg["test_mode"]["global_limit"]
@@ -50,19 +51,50 @@ def print_summary_table(produced: list[dict]) -> None:
     if not produced:
         return
     table = Table(title="ThreatForge — Outputs Produced")
+    table.add_column("#", justify="right", no_wrap=True)
     table.add_column("CVE", style="cyan", no_wrap=True)
     table.add_column("Output Type", no_wrap=True)
     table.add_column("Product", no_wrap=True)
     table.add_column("Tier", no_wrap=True)
     table.add_column("Score", justify="right", no_wrap=True)
+    table.add_column("KEV Source (added)", no_wrap=True)
     table.add_column("Status", no_wrap=True)
     table.add_column("File", no_wrap=True)
-    for item in produced:
+    for i, item in enumerate(produced, 1):
         status = item["status"]
         status_markup = f"[green]{status}[/green]" if status == "OK" else f"[red]{status}[/red]"
         table.add_row(
-            item["cve_id"], item["output_type"], item["product"], item["tier"],
-            str(item["score"]), status_markup, item["file"],
+            str(i), item["cve_id"], item["output_type"], item["product"], item["tier"],
+            str(item["score"]), _format_kev_sources(item.get("kev_sources", [])), status_markup, item["file"],
+        )
+    Console(width=200).print(table)
+
+
+def _format_kev_sources(kev_sources: list[dict]) -> str:
+    if not kev_sources:
+        return ""
+    return ", ".join(
+        f"{s['source']} ({s['added_date'][:10]})" if s.get("added_date") else s["source"]
+        for s in kev_sources
+    )
+
+
+def print_candidate_table(enriched_cves: list[dict]) -> None:
+    """Same numbered-table format as print_summary_table, shown before any
+    produce decision — the CVE-selection prompt refers to CVEs by this same
+    '#' position, so an analyst can answer it directly from what's on screen."""
+    table = Table(title="ThreatForge — CVEs Found")
+    table.add_column("#", justify="right", no_wrap=True)
+    table.add_column("CVE", style="cyan", no_wrap=True)
+    table.add_column("Product", no_wrap=True)
+    table.add_column("Score", justify="right", no_wrap=True)
+    table.add_column("Tags", no_wrap=True)
+    table.add_column("KEV Source (added)", no_wrap=True)
+    for i, c in enumerate(enriched_cves, 1):
+        kev_sources = c.get("context", {}).get("kev_sources", [])
+        table.add_row(
+            str(i), c["cve_id"], c.get("product", "unknown"), str(c["composite_score"]),
+            " ".join(c["tags"]), _format_kev_sources(kev_sources),
         )
     Console(width=200).print(table)
 
@@ -125,6 +157,27 @@ def _run_vulnx(product_name: str, extra_args: list[str]) -> list[dict]:
         Path(output_file).unlink(missing_ok=True)
 
 
+def _days_since(iso_ts: str) -> int:
+    dt = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
+    return (datetime.now(timezone.utc) - dt).days
+
+
+def _kev_recency_days(r: dict) -> int | None:
+    """Days since this CVE last became actionable via KEV: either newly added
+    to the KEV catalog or the underlying CVE record was updated. Returns None
+    if vulnx supplied neither timestamp, so the caller can fall back to
+    age_in_days instead of treating it as automatically recent."""
+    candidates = []
+    for entry in r.get("kev") or []:
+        added = entry.get("added_date")
+        if added:
+            candidates.append(_days_since(added))
+    updated = r.get("cve_updated_at")
+    if updated:
+        candidates.append(_days_since(updated))
+    return min(candidates) if candidates else None
+
+
 def query_vulnx(product_name: str, test_mode: bool = False) -> list[dict]:
     if test_mode:
         # Test mode: search broadly for the CVEs that check the most boxes —
@@ -140,12 +193,36 @@ def query_vulnx(product_name: str, test_mode: bool = False) -> list[dict]:
         log.info(f"{product_name} [test mode]: {len(results)} candidate CVE(s) (KEV or CVSS>={CVSS_THRESHOLD}, any age)")
         return results
 
-    results = _run_vulnx(product_name, ["--limit", "10"])
-    filtered = [
-        r for r in results
-        if r.get("age_in_days", 999) < CVE_AGE_DAYS
-        and (r.get("cvss_score", 0) >= CVSS_THRESHOLD or r.get("is_kev", False))
-    ]
+    # Two targeted queries instead of one unsorted fetch — a plain `--limit N`
+    # fetch (previously --limit 10) returns whatever the index gives, roughly
+    # most-recently-indexed first. For high-volume products (e.g. wordpress,
+    # with constant plugin-CVE churn) that silently crowds out older-but-still-
+    # actionable CVEs before the filter below ever sees them. Querying with
+    # the filter baked in (like test mode's kev_results/crit_results) guarantees
+    # anything KEV-listed or high-CVSS for this product actually gets fetched.
+    kev_results = _run_vulnx(product_name, ["--kev=true", "--limit", str(QUERY_LIMIT)])
+    crit_results = _run_vulnx(
+        product_name,
+        ["--cvss-score", f">={CVSS_THRESHOLD}", "--sort-desc", "cve_created_at", "--limit", str(QUERY_LIMIT)],
+    )
+    by_id = {r["cve_id"]: r for r in kev_results + crit_results if r.get("cve_id")}
+    results = list(by_id.values())
+
+    # KEV-listed CVEs are actionable when the KEV listing itself is recent —
+    # newly added to the catalog, or the CVE record was recently updated —
+    # not simply because the underlying CVE is KEV-listed. A CVE added to KEV
+    # years ago is stale: almost certainly already patched, not worth fresh
+    # advisories/signatures. Falls back to age_in_days if vulnx supplies
+    # neither KEV-added nor updated timestamp.
+    def _actionable(r: dict) -> bool:
+        if r.get("is_kev", False):
+            recency = _kev_recency_days(r)
+            recency = recency if recency is not None else r.get("age_in_days", 999)
+        else:
+            recency = r.get("age_in_days", 999)
+        return recency < CVE_AGE_DAYS
+
+    filtered = [r for r in results if _actionable(r)]
     log.info(f"{product_name}: {len(results)} CVEs found, {len(filtered)} actionable")
     return filtered
 
@@ -195,6 +272,26 @@ def query_vulnx_id(cve_id: str) -> dict:
         Path(output_file).unlink(missing_ok=True)
 
 
+def _parse_cve_selection(choice: str, enriched_cves: list[dict]) -> list[dict]:
+    """Parse an analyst's numbered CVE selection against the printed, 1-indexed
+    list. Blank input or a selection with nothing valid in range both mean
+    "skip production" — the caller treats any empty return the same way."""
+    choice = choice.strip()
+    if not choice:
+        return []
+    if choice == "0":
+        return enriched_cves
+    try:
+        indices = [int(x) for x in choice.replace(",", " ").split()]
+    except ValueError:
+        log.warning(f"Could not parse CVE selection {choice!r} — skipping production.")
+        return []
+    in_range = [enriched_cves[i - 1] for i in indices if 1 <= i <= len(enriched_cves)]
+    if len(in_range) != len(indices):
+        log.warning(f"Some selected numbers were outside 1-{len(enriched_cves)} and were ignored.")
+    return in_range
+
+
 def _derive_product_label(cve_raw: dict) -> str:
     affected = cve_raw.get("affected_products") or []
     products = sorted({p.get("product") for p in affected if p.get("product")})
@@ -215,17 +312,19 @@ def run_pipeline(
     enriched_cves = []
 
     if single_cve:
-        log.info(f"Processing single CVE: {single_cve}")
-        cve_data = query_vulnx_id(single_cve)
-        if not cve_data:
-            log.warning(f"No data found for {single_cve} — skipping")
-            return []
-        cve_data["cve_id"] = cve_data.get("cve_id", single_cve)
-        cve_data["product"] = _derive_product_label(cve_data)
-        cve_data["tier"] = 2
-        context = assembler.assemble(cve_data)
-        scored = scorer.score(cve_data, context)
-        enriched_cves.append({**cve_data, "context": context, **scored})
+        cve_ids = [c.strip() for c in single_cve.split(",") if c.strip()]
+        log.info(f"Processing {len(cve_ids)} CVE(s): {', '.join(cve_ids)}")
+        for cve_id in cve_ids:
+            cve_data = query_vulnx_id(cve_id)
+            if not cve_data:
+                log.warning(f"No data found for {cve_id} — skipping")
+                continue
+            cve_data["cve_id"] = cve_data.get("cve_id", cve_id)
+            cve_data["product"] = _derive_product_label(cve_data)
+            cve_data["tier"] = 2
+            context = assembler.assemble(cve_data)
+            scored = scorer.score(cve_data, context)
+            enriched_cves.append({**cve_data, "context": context, **scored})
     else:
         products = products or load_products()
         for product in products:
@@ -259,8 +358,13 @@ def run_pipeline(
 
 @click.command()
 @click.option("--product", default=None, help="Run pipeline for a single product")
-@click.option("--cve", default=None, help="Force-process a specific CVE ID")
-@click.option("--produce", default=None, help="Comma-separated output numbers 1-6, or 0 for all. Example: --produce 1,3,6")
+@click.option("--cve", default=None, help="Force-process specific CVE ID(s), comma-separated")
+@click.option(
+    "--produce", default=None,
+    help="Comma-separated output numbers 1-6 (7=post to Discord), or 0 for all file outputs. "
+         "Example: --produce 1,3,6. Pass --produce ask to defer the output-type prompt until "
+         "after the CVE list is printed (interactive terminals only).",
+)
 @click.option("--scheduled", is_flag=True, help="Scheduled run mode (cron trigger)")
 @click.option("--dry-run", is_flag=True, help="Run pipeline without Claude calls or Discord posts")
 @click.option(
@@ -308,51 +412,121 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
             DiscordNotifier().post_empty_report()
         return
 
+    # Show what the pipeline found before anything gets produced — same
+    # numbered-table format as the outputs-produced summary, so an analyst
+    # attached to a terminal can select a subset by position before any
+    # produce decision is made.
+    print_candidate_table(enriched_cves)
+
     if dry_run:
         log.info("Dry run — skipping Discord post and output production.")
-        for c in enriched_cves:
-            print(f"  {c['cve_id']} | Score: {c['composite_score']} | Tags: {' '.join(c['tags'])}")
         return
 
-    # Advisory reference fetching is network I/O — only do it for the final,
-    # already-trimmed set, not every scoring candidate (test mode can pull many).
-    assembler = ContextAssembler()
-    for c in enriched_cves:
-        assembler.enrich_advisory(c["context"], c)
-
     notifier = DiscordNotifier()
-    notifier.post_brief_report(enriched_cves)
+    assembler = ContextAssembler()
 
-    if produce:
-        router = OutputRouter(OUTPUT_DIR)
+    if not produce:
+        # No production requested — the "brief and wait" path (README step 4):
+        # enrich and post the full candidate list so an analyst watching
+        # Discord, not this terminal, can decide what to produce later via
+        # `--cve`/`--produce`. No prompt exists here to defer enrichment past.
+        for c in enriched_cves:
+            assembler.enrich_advisory(c["context"], c)
+        notifier.post_brief_report(enriched_cves)
+        log.info("ThreatForge run complete.")
+        return
 
-        if CLEAN_BEFORE_RUN:
-            clean_outputs(OUTPUT_DIR)
-            router.clean_remote()
+    # Scheduled/cron runs and non-interactive invocations must never block on
+    # input — only prompt when a human is actually attached and watching.
+    interactive = not scheduled and sys.stdin.isatty()
 
-        selected = list(range(1, 7)) if produce == "0" else [int(x) for x in produce.replace(",", " ").split()]
-        caller = AICaller()
-        produced = []
+    if produce == "ask":
+        # Defers "which outputs?" until after the CVE table above is on
+        # screen, instead of cli.py asking it blind before the pipeline runs.
+        if not interactive:
+            log.warning("--produce ask requires an interactive terminal — nothing to produce.")
+            return
+        which = click.prompt(
+            "Which outputs? 1=advisory 2=technical 3=signatures 4=iocs 5=hunting "
+            "6=patches 7=post to Discord (comma-separated, 0=all file outputs, "
+            "blank to skip production — 7 is opt-in and not included by 0)",
+            default="", show_default=False,
+        )
+        if not which.strip():
+            log.info("Production skipped by analyst.")
+            return
+        produce = which.strip()
 
-        for cve_data in enriched_cves:
-            for output_num in selected:
-                log.info(f"Producing output {output_num} for {cve_data['cve_id']}")
-                result = caller.produce(output_num, cve_data)
-                filepath = router.save(output_num, cve_data, result)
+    raw_selected = list(range(1, 7)) if produce == "0" else [int(x) for x in produce.replace(",", " ").split()]
+    # 7 is a reserved toggle ("post produced drafts to Discord"), not an
+    # output_menu entry — ai_caller/output_router only know about 1-6
+    # (real prompts with a save location), so it's split out here rather
+    # than treated as a 7th produce-able draft type. "0" (all outputs)
+    # never implies it — posting to Discord is always opt-in.
+    post_to_discord = 7 in raw_selected
+    selected = [n for n in raw_selected if n != 7]
+
+    if not selected:
+        log.info("No output types selected (only the Discord toggle) — nothing to produce.")
+        return
+
+    # Interactive prompt runs BEFORE any network I/O (enrich_advisory is a
+    # per-CVE HTTP round trip — advisory fetch + cve.org cross-check — so
+    # running it against the full candidate list first could mean minutes of
+    # silent work standing between the printed list and the prompt).
+    target_cves = enriched_cves
+    if interactive:
+        choice = click.prompt(
+            f"Produce outputs {selected} for which CVE(s)? "
+            f"(Discord post: {'on' if post_to_discord else 'off'}) "
+            "(comma-separated numbers from the list above, 0 for all, blank to skip)",
+            default="", show_default=False,
+        )
+        target_cves = _parse_cve_selection(choice, enriched_cves)
+        if not target_cves:
+            log.info("Production skipped by analyst.")
+            return
+
+    # Only now — after the analyst has narrowed the list, or immediately for
+    # non-interactive/scheduled runs — enrich and brief just the CVEs that
+    # are actually about to be produced. Unlike post_output/post_outputs_complete
+    # below, this brief always posts regardless of the item-7 toggle — it's
+    # the "here's what's about to happen" notification, not produced content.
+    for c in target_cves:
+        assembler.enrich_advisory(c["context"], c)
+    notifier.post_brief_report(target_cves)
+
+    router = OutputRouter(OUTPUT_DIR)
+
+    if CLEAN_BEFORE_RUN:
+        clean_outputs(OUTPUT_DIR)
+        router.clean_remote()
+
+    caller = AICaller()
+    produced = []
+
+    for cve_data in target_cves:
+        for output_num in selected:
+            log.info(f"Producing output {output_num} for {cve_data['cve_id']}")
+            result = caller.produce(output_num, cve_data)
+            filepath = router.save(output_num, cve_data, result)
+            if post_to_discord:
                 notifier.post_output(output_num, cve_data, result)
-                produced.append({
-                    "cve_id": cve_data.get("cve_id", ""),
-                    "output_type": result.get("output_type", f"output_{output_num}"),
-                    "product": cve_data.get("product", ""),
-                    "tier": cve_data.get("tier_label", ""),
-                    "score": cve_data.get("composite_score", 0),
-                    "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
-                    # filename only — Output Type column already implies the subdirectory
-                    "file": filepath.name,
-                })
+            produced.append({
+                "cve_id": cve_data.get("cve_id", ""),
+                "output_type": result.get("output_type", f"output_{output_num}"),
+                "product": cve_data.get("product", ""),
+                "tier": cve_data.get("tier_label", ""),
+                "score": cve_data.get("composite_score", 0),
+                "kev_sources": cve_data.get("context", {}).get("kev_sources", []),
+                "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
+                # filename only — Output Type column already implies the subdirectory
+                "file": filepath.name,
+            })
 
-        notifier.post_outputs_complete(enriched_cves, selected)
-        print_summary_table(produced)
+    if post_to_discord:
+        notifier.post_outputs_complete(target_cves, selected)
+    print_summary_table(produced)
 
     log.info("ThreatForge run complete.")
 
