@@ -41,6 +41,11 @@ th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(
 .ok { color: var(--ok); }
 .warn { color: var(--warn); }
 
+.kev-alert { border-color: var(--warn); }
+.kev-alert h2 { color: var(--warn); }
+.kev-alert ul { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+.kev-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; background: var(--warn); color: #fff; border-radius: 4px; padding: 0.05rem 0.35rem; vertical-align: middle; }
+
 .run-form label { display: inline-flex; align-items: center; gap: 0.3rem; margin-right: 1rem; white-space: nowrap; }
 .run-form input[type="text"], .count-input { width: 7rem; }
 .run-form-actions {

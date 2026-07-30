@@ -178,6 +178,42 @@ def _kev_recency_days(r: dict) -> int | None:
     return min(candidates) if candidates else None
 
 
+# A CVE whose KEV listing itself (not just the underlying CVE record) was
+# added within this many days gets called out separately as a "just entered
+# KEV" alert, on top of whatever the normal candidate filters already
+# decided about it. First cut of KEV-on-entry re-alerting: checked once per
+# web-UI pipeline run (see web.py), not yet a standalone frequent poll.
+KEV_RECENT_ENTRY_DAYS = 7
+
+
+def _kev_added_days(kev_sources: list[dict]) -> int | None:
+    """Days since the most recent KEV 'added' date across all sources for a
+    candidate's already-enriched kev_sources (the same data the "KEV Source
+    (added)" column already displays) — deliberately independent of
+    _kev_recency_days's fallback to the CVE's updated-at timestamp, since
+    this is specifically about the KEV listing itself being new."""
+    added_dates = [s["added_date"] for s in (kev_sources or []) if s.get("added_date")]
+    return min((_days_since(d) for d in added_dates), default=None)
+
+
+def annotate_recent_kev_entries(enriched_cves: list[dict], days: int = KEV_RECENT_ENTRY_DAYS) -> list[dict]:
+    """Mutates each candidate in place with kev_added_days (int|None) and
+    recent_kev_entry (bool), then returns just the subset flagged True —
+    CVEs whose KEV listing was added within `days`. The web UI shows these
+    separately from (in addition to) the normal candidate list, since a
+    fresh KEV entry means CISA just confirmed active exploitation,
+    regardless of what the rest of scoring/filtering already decided."""
+    recent = []
+    for c in enriched_cves:
+        kev_sources = c.get("context", {}).get("kev_sources", [])
+        added_days = _kev_added_days(kev_sources)
+        c["kev_added_days"] = added_days
+        c["recent_kev_entry"] = added_days is not None and added_days <= days
+        if c["recent_kev_entry"]:
+            recent.append(c)
+    return recent
+
+
 def query_vulnx(product_name: str, test_mode: bool = False) -> list[dict]:
     if test_mode:
         # Test mode: search broadly for the CVEs that check the most boxes —

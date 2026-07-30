@@ -49,7 +49,11 @@ templates = Jinja2Templates(directory=APP_DIR / "templates")
 # "last_run" records what produced the currently-displayed candidates (mode,
 # params, when, how many) so the page never shows a candidate table with no
 # indication of where that data came from or whether a run is in progress.
-_state: dict = {"enriched_cves": [], "last_run": None}
+# "recent_kev_entries" is the KEV-on-entry callout: CVEs among the current
+# candidates whose KEV listing was itself added recently (see
+# orchestrate.annotate_recent_kev_entries), shown separately from the normal
+# results.
+_state: dict = {"enriched_cves": [], "last_run": None, "recent_kev_entries": []}
 
 # Guards writes to _state only — NOT held across the pipeline run itself
 # (which calls slow external APIs) so a page load during a run isn't blocked
@@ -85,6 +89,8 @@ def index(request: Request):
         "output_menu": _output_menu(),
         "last_run": last_run,
         "pipeline_running": bool(last_run and last_run.get("status") == "running"),
+        "recent_kev_entries": _state["recent_kev_entries"],
+        "kev_recent_days": orchestrate.KEV_RECENT_ENTRY_DAYS,
     })
 
 
@@ -101,6 +107,7 @@ def run_pipeline_route(
         # so a page load while this run is in progress never shows the
         # previous run's candidates looking current.
         _state["enriched_cves"] = []
+        _state["recent_kev_entries"] = []
         _state["last_run"] = {"description": description, "status": "running", "started_at": datetime.utcnow().isoformat() + "Z"}
 
     if mode == "product" and product.strip():
@@ -114,8 +121,14 @@ def run_pipeline_route(
     else:
         enriched = orchestrate.run_pipeline()
 
+    # KEV-on-entry check: every pipeline run, regardless of mode, flags any
+    # candidate whose KEV listing itself was added recently -- separate from
+    # (and in addition to) however the normal filters already scored it.
+    recent_kev = orchestrate.annotate_recent_kev_entries(enriched)
+
     with _state_lock:
         _state["enriched_cves"] = enriched
+        _state["recent_kev_entries"] = recent_kev
         _state["last_run"] = {
             "description": description,
             "status": "OK",

@@ -16,6 +16,18 @@
   </form>
 </section>
 
+{% if recent_kev_entries %}
+<section class="card kev-alert">
+  <h2>⚠ Recently added to CISA KEV</h2>
+  <p class="muted">Flagged as actively exploited within the last {{ kev_recent_days }} days — shown separately from the normal candidate list below, regardless of how the rest of scoring already treated them.</p>
+  <ul>
+    {% for c in recent_kev_entries %}
+    <li><strong>{{ c.cve_id }}</strong> — {{ c.product }} (added {{ c.kev_added_days }} day{{ 's' if c.kev_added_days != 1 else '' }} ago)</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section class="card">
   <h2>Candidates ({{ cves|length }})</h2>
   {% if last_run %}
@@ -49,7 +61,7 @@
         {% for c in cves %}
         <tr>
           <td><input type="checkbox" name="cve_ids" value="{{ c.cve_id }}"></td>
-          <td>{{ c.cve_id }}</td>
+          <td>{{ c.cve_id }} {% if c.recent_kev_entry %}<span class="kev-badge" title="Added to CISA KEV within the last {{ kev_recent_days }} days">NEW KEV</span>{% endif %}</td>
           <td>{{ c.product }}</td>
           <td>{{ c.composite_score }}</td>
           <td>{% for t in c.tags %}<span class="tag">{{ t }}</span>{% endfor %}</td>
