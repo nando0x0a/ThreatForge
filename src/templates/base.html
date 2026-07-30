@@ -29,11 +29,14 @@
   </main>
 
   <script>
-    // Plain (full-navigation) forms: show the banner immediately on submit.
-    // It naturally disappears when the next page loads.
+    // Plain (full-navigation) forms: show the banner immediately on submit,
+    // and disable the submit button so a second click can't fire another
+    // overlapping run/produce before the page navigates away.
     document.addEventListener('submit', function (e) {
       if (!e.target.hasAttribute('hx-post') && !e.target.hasAttribute('hx-get')) {
         document.getElementById('loading-banner').hidden = false;
+        var btn = e.target.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
       }
     });
 

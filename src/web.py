@@ -5,6 +5,8 @@ history. Auth (HTTP Basic) and TLS terminate at nginx in front of this — this
 app assumes it's already behind that gate and adds no auth of its own."""
 import json
 import logging
+import threading
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -44,11 +46,32 @@ templates = Jinja2Templates(directory=APP_DIR / "templates")
 
 # In-memory state for the current candidate list — single-operator tool, no
 # need for per-session complexity. Reset every time the pipeline runs.
-_state: dict = {"enriched_cves": []}
+# "last_run" records what produced the currently-displayed candidates (mode,
+# params, when, how many) so the page never shows a candidate table with no
+# indication of where that data came from or whether a run is in progress.
+_state: dict = {"enriched_cves": [], "last_run": None}
+
+# Guards writes to _state only — NOT held across the pipeline run itself
+# (which calls slow external APIs) so a page load during a run isn't blocked
+# waiting on it. See the "shared in-memory state needs a lock" lesson in the
+# cli-to-web-ui-deploy skill for why this exists at all.
+_state_lock = threading.Lock()
 
 
 def _output_menu() -> dict:
     return {int(k): v for k, v in load_config()["output_menu"].items()}
+
+
+def _describe_run(mode: str, product: str, cve: str, count: int) -> str:
+    if mode == "product" and product.strip():
+        return f"Single product: {product.strip()}"
+    if mode == "cve" and cve.strip():
+        return f"Single CVE: {cve.strip()}"
+    if mode == "test":
+        return f"Test mode ({count} candidates)"
+    if mode == "recent":
+        return f"Recent mode ({count} candidates)"
+    return "Daily (production filters)"
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -59,6 +82,7 @@ def index(request: Request):
     return templates.TemplateResponse(request, "index.html", {
         "cves": _state["enriched_cves"],
         "output_menu": _output_menu(),
+        "last_run": _state["last_run"],
     })
 
 
@@ -69,6 +93,14 @@ def run_pipeline_route(
     cve: str = Form(""),
     count: int = Form(5),
 ):
+    description = _describe_run(mode, product, cve, count)
+    with _state_lock:
+        # Clear immediately, before the (potentially slow) pipeline call —
+        # so a page load while this run is in progress never shows the
+        # previous run's candidates looking current.
+        _state["enriched_cves"] = []
+        _state["last_run"] = {"description": description, "status": "running", "started_at": datetime.utcnow().isoformat() + "Z"}
+
     if mode == "product" and product.strip():
         enriched = orchestrate.run_pipeline(products=[{"name": product.strip().lower(), "tier": 2}])
     elif mode == "cve" and cve.strip():
@@ -79,7 +111,15 @@ def run_pipeline_route(
         enriched = sorted(orchestrate.run_pipeline(test_mode=True), key=lambda c: c.get("age_in_days", 999))[:count]
     else:
         enriched = orchestrate.run_pipeline()
-    _state["enriched_cves"] = enriched
+
+    with _state_lock:
+        _state["enriched_cves"] = enriched
+        _state["last_run"] = {
+            "description": description,
+            "status": "OK",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "count": len(enriched),
+        }
     return RedirectResponse("/", status_code=303)
 
 
