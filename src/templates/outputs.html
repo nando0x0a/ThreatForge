@@ -3,7 +3,9 @@
 {% block content %}
 <section class="card">
   <h2>Generated outputs</h2>
-  <p class="muted">Links go straight to GitHub — no login needed to view them, the repo is public.</p>
+  {% if github_repo %}
+  <p class="muted">Links go to <code>{{ github_repo }}</code> on GitHub. Viewing them may require GitHub access, depending on that repo's visibility.</p>
+  {% endif %}
   {% if not github_configured %}
     <p class="muted">⚠ GitHub publishing isn't configured — links below fall back to this site (requires the site password).</p>
   {% endif %}

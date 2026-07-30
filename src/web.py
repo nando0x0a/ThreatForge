@@ -134,7 +134,11 @@ def outputs_route(request: Request):
                     "github_url": _github_url(subdir, f.name),
                 })
     github_configured = bool(github_publisher.GITHUB_REPO)
-    return templates.TemplateResponse(request, "outputs.html", {"by_dir": by_dir, "github_configured": github_configured})
+    return templates.TemplateResponse(request, "outputs.html", {
+        "by_dir": by_dir,
+        "github_configured": github_configured,
+        "github_repo": github_publisher.GITHUB_REPO,
+    })
 
 
 @app.get("/outputs/{subdir}/{filename}")
