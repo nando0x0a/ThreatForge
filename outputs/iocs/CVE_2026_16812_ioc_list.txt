@@ -1,0 +1,115 @@
+# ThreatForge Output — IOC_LIST
+# CVE:       CVE-2026-16812
+# Product:   velocloud_orchestrator
+# Tags:      [KEV] [RCE] [RCE-KEV] [CRIT] [NEW]
+# Score:     155
+# Tier:      CRITICAL — ACT NOW
+# Generated: 2026-07-30T02:02:58.186978Z
+# Status:    OK
+# ---
+
+# IoC List — CVE-2026-16812
+# Generated: 2026-07-28
+# Confidence: See per-indicator and Notes section
+# ⚠️ DRAFT — For analyst review and validation before operationalisation
+
+---
+
+## Network Indicators
+
+*No specific attacker IPs are available in the provided context. The vulnerability is network-exploitable with no authentication required (AV:N/PR:N/UI:N) [1][2], meaning scanning and exploitation activity may originate from diverse, distributed, or rapidly rotating infrastructure. Do not treat absence of IPs here as absence of threat — check your own perimeter and SIEM telemetry.*
+
+---
+
+## Domain Indicators
+
+*No specific attacker-controlled domains have been identified in the provided context. No public PoC is known at this time, which limits OSINT-derived domain indicators.*
+
+---
+
+## URL Indicators
+
+*No specific exploit URLs have been observed in the provided context. See URI Path Indicators section for observable endpoint patterns.*
+
+---
+
+## File Indicators
+
+*No payload hashes, dropper samples, or post-exploitation artefacts have been identified in the provided context. No public PoC is available [context: PoC Availability field]. Analyst should monitor VirusTotal, MalwareBazaar, and internal EDR telemetry for artefacts on VeloCloud Orchestrator hosts.*
+
+---
+
+## User-Agent Indicators
+
+*No specific attacker user-agents have been identified in the provided context. Exploitation is described as direct remote access to privileged internal functionality [2][5]; HTTP access logs on the VCO instance should be reviewed for anomalous or non-browser user-agents targeting internal API paths.*
+
+---
+
+## URI Path Indicators
+
+**Confidence: LOW — inferred from vulnerability class; not directly observed in provided context**
+
+URI: /internal/*          # Generic pattern — privileged internal functionality exposed externally [2][5]
+URI: /api/internal/*      # Candidate pattern — common VCO internal API namespace; analyst to validate
+URI: /admin/*             # Candidate pattern — administrative endpoint exposure; analyst to validate
+URI: /system/*            # Candidate pattern — system-level access paths; analyst to validate
+
+> ⚠️ These URI patterns are inferred from the vulnerability description (broken access control allowing remote access to privileged internal functionality [1][2][5]) and the vulnerability class (OS command injection [2]). They are **not** confirmed observed indicators from the provided sources. A VeloCloud Orchestrator administrator with access to the application's API documentation or source should validate and refine these paths before deploying as detection rules.
+
+---
+
+## Observable Behaviour Patterns
+
+Given the limited indicator availability (actively exploited [2][3] but no public PoC and no shared IoCs in provided context), analysts should focus on **behavioural detection** on the VCO host itself:
+
+| # | Observable | Confidence | Notes |
+|---|-----------|------------|-------|
+| 1 | Unexpected outbound connections from the VCO host (reverse shells, C2 beaconing) | MEDIUM | Post-exploitation behaviour following RCE [1][2] |
+| 2 | Anomalous process spawning from the VCO web application process (e.g., `sh`, `bash`, `wget`, `curl` as child processes of the app server) | HIGH | OS command injection exploitation pattern [2][5] |
+| 3 | New or modified user accounts on the VCO host | MEDIUM | Persistence mechanism post-compromise |
+| 4 | Unexpected cron jobs, systemd units, or startup scripts added | MEDIUM | Persistence mechanism post-compromise |
+| 5 | Requests to internal-only API endpoints originating from external (non-RFC1918) source IPs | HIGH | Core exploitation mechanism — broken access control to internal functionality [1][2][5] |
+| 6 | Large volumes of requests to VCO API endpoints from single source IPs | LOW | Possible exploitation scanning/probing |
+| 7 | Exfiltration of orchestrator-managed configuration or credential data | HIGH | CIA impact confirmed [1][2] — data managed by the orchestrator is explicitly at risk |
+| 8 | Lateral movement from VCO host toward managed VeloCloud Edge devices | MEDIUM | VCO manages edge infrastructure; compromise enables downstream pivoting |
+
+---
+
+## Notes
+
+**Coverage Gap — Active Exploitation Without Public IoCs:**
+This vulnerability is confirmed actively exploited in the wild per both CISA KEV [2] and VulnCheck KEV [3] (both added 2026-07-27). The vulnerability is only 1 day old at time of generation. The absence of specific IoCs in this output reflects the very early stage of public intelligence sharing, **not** a low threat level. This should be treated as a high-urgency collection requirement.
+
+**Forensics Triage Requirement:**
+CISA's required action [2] explicitly references "Forensics Triage Requirements" and BOD 26-04. Analysts and incident responders should initiate forensic triage of all VeloCloud Orchestrator on-prem instances immediately, regardless of whether specific IoCs are matched.
+
+**CVSS Context:**
+The vulnerability carries a CVSS score of 10.0 CRITICAL [1] with AV:N/PR:N/UI:N — unauthenticated, network-accessible, requiring no user interaction. This maximises the exposed population and exploitation ease.
+
+**No Public PoC:**
+No public proof-of-concept is known at time of generation. This may change rapidly given active exploitation status. Monitor Exploit-DB, GitHub, and threat actor forums.
+
+**Recommended Intelligence Sources to Monitor for Emerging IoCs:**
+- CISA advisories and KEV updates [2]
+- Arista Security Advisory 0144 [5]
+- KEVIntel enrichment for this CVE [4]
+- ISACs relevant to your sector
+- Internal honeypot/canary telemetry on VCO internal API paths
+
+---
+
+## Sources
+
+[1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-16812
+[2] CISA Known Exploited Vulnerabilities Catalog, added 2026-07-27 — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+[3] VulnCheck KEV, added 2026-07-27 — https://www.vulncheck.com/kev
+[4] kevintel.com — https://kevintel.com/CVE-2026-16812
+[5] www.arista.com — https://www.arista.com/en/support/advisories-notices/security-advisory/24364-security-advisory-0144
+[6] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-16812
+# --- Sources (ThreatForge-verified) ---
+# [1] NVD — https://nvd.nist.gov/vuln/detail/CVE-2026-16812
+# [2] CISA Known Exploited Vulnerabilities Catalog, added 2026-07-27 — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+# [3] VulnCheck KEV, added 2026-07-27 — https://www.vulncheck.com/kev
+# [4] kevintel.com — https://kevintel.com/CVE-2026-16812
+# [5] www.arista.com — https://www.arista.com/en/support/advisories-notices/security-advisory/24364-security-advisory-0144
+# [6] CVE.org (CNA-published record) — https://www.cve.org/CVERecord?id=CVE-2026-16812
