@@ -62,6 +62,11 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
   margin-bottom: 1rem;
   font-size: 0.9rem;
 }
+/* Author-stylesheet `display` beats the browser's default [hidden]{display:none}
+   rule, so it must be restated explicitly here or the banner never hides. */
+.loading-banner[hidden] {
+  display: none;
+}
 @media (prefers-color-scheme: dark) {
   .loading-banner { background: #3a2f0b; color: #ffe69c; border-color: #5c4a12; }
 }
