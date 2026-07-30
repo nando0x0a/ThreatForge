@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}ThreatForge — Outputs{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Generated outputs</h2>
+  {% if not by_dir %}
+    <p class="muted">Nothing produced yet.</p>
+  {% endif %}
+  {% for subdir, files in by_dir.items() %}
+    <h3>{{ subdir }}</h3>
+    <ul class="file-list">
+      {% for f in files %}
+      <li><a href="/outputs/{{ subdir }}/{{ f }}" download>{{ f }}</a></li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
+</section>
+{% endblock %}

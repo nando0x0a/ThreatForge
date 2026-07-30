@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}ThreatForge — Run history{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Run history <span class="muted">(last {{ runs|length }})</span></h2>
+  {% if not runs %}
+    <p class="muted">No runs logged yet.</p>
+  {% else %}
+  <table>
+    <thead><tr><th>Time</th><th>CVE</th><th>Product</th><th>Output</th><th>Score</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.timestamp }}</td>
+        <td>{{ r.cve_id }}</td>
+        <td>{{ r.product }}</td>
+        <td>{{ r.output_type }}</td>
+        <td>{{ r.composite_score }}</td>
+        <td class="{{ 'warn' if r.review_needed else 'ok' }}">{{ 'REVIEW_NEEDED' if r.review_needed else 'OK' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+{% endblock %}

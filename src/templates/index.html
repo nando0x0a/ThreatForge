@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}ThreatForge — Pipeline{% endblock %}
+{% block content %}
+
+<section class="card">
+  <h2>Run pipeline</h2>
+  <form method="post" action="/run" class="run-form">
+    <label><input type="radio" name="mode" value="daily" checked> Daily (production filters)</label>
+    <label><input type="radio" name="mode" value="test"> Test mode <input type="number" name="count" value="5" min="1" max="50" class="count-input"></label>
+    <label><input type="radio" name="mode" value="recent"> Recent mode</label>
+    <label><input type="radio" name="mode" value="product"> Single product <input type="text" name="product" placeholder="e.g. nginx"></label>
+    <label><input type="radio" name="mode" value="cve"> Single CVE <input type="text" name="cve" placeholder="CVE-2024-12345"></label>
+    <button type="submit">Run</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Candidates ({{ cves|length }})</h2>
+  {% if not cves %}
+    <p class="muted">No results yet — run the pipeline above.</p>
+  {% else %}
+  <form method="post" action="/produce" hx-post="/produce" hx-target="#produce-result" hx-swap="innerHTML">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>CVE</th>
+          <th>Product</th>
+          <th>Score</th>
+          <th>Tags</th>
+          <th>Tier</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cves %}
+        <tr>
+          <td><input type="checkbox" name="cve_ids" value="{{ c.cve_id }}"></td>
+          <td>{{ c.cve_id }}</td>
+          <td>{{ c.product }}</td>
+          <td>{{ c.composite_score }}</td>
+          <td>{% for t in c.tags %}<span class="tag">{{ t }}</span>{% endfor %}</td>
+          <td>{{ c.tier_label }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <fieldset>
+      <legend>Outputs to produce</legend>
+      {% for num, entry in output_menu.items() %}
+      <label><input type="checkbox" name="output_nums" value="{{ num }}"> {{ entry.label }}</label>
+      {% endfor %}
+    </fieldset>
+
+    <button type="submit">Produce selected</button>
+  </form>
+  <div id="produce-result"></div>
+  {% endif %}
+</section>
+
+{% endblock %}

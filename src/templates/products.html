@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}ThreatForge — Products{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Tracked products</h2>
+  <p class="muted">One per line: <code>product_name,tier</code> (tier 1 = internet-facing/auth/production, 2 = internal, 3 = dev/test). Comments (<code>#</code>) preserved as-is.</p>
+  <form method="post" action="/config/products">
+    <textarea name="content" rows="25" spellcheck="false">{{ content }}</textarea>
+    <button type="submit">Save</button>
+  </form>
+</section>
+{% endblock %}

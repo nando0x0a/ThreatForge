@@ -1,0 +1,18 @@
+{% if skipped %}
+<p class="muted">Nothing selected — pick at least one CVE and one output type.</p>
+{% else %}
+<table>
+  <thead><tr><th>CVE</th><th>Output</th><th>Status</th><th>File</th></tr></thead>
+  <tbody>
+    {% for p in produced %}
+    <tr>
+      <td>{{ p.cve_id }}</td>
+      <td>{{ p.output_type }}</td>
+      <td class="{{ 'ok' if p.status == 'OK' else 'warn' }}">{{ p.status }}</td>
+      <td>{{ p.file }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p><a href="/outputs">View in Outputs →</a></p>
+{% endif %}

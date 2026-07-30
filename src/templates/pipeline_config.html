@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}ThreatForge — Pipeline settings{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Pipeline &amp; scoring settings</h2>
+  <p class="muted">AI prompts and the output menu are not editable here — SSH in and edit <code>config/threatforge.yaml</code> directly for those.</p>
+  <form method="post" action="/config/pipeline">
+    <fieldset>
+      <legend>Pipeline</legend>
+      <label>CVE age window (days) <input type="number" name="cve_age_days" value="{{ pipeline.cve_age_days }}"></label>
+      <label>CVSS threshold <input type="number" step="0.1" name="cvss_threshold" value="{{ pipeline.cvss_threshold }}"></label>
+      <label>EPSS threshold <input type="number" step="0.01" name="epss_threshold" value="{{ pipeline.epss_threshold }}"></label>
+      <label>"New" threshold (days) <input type="number" name="new_threshold_days" value="{{ pipeline.new_threshold_days }}"></label>
+      <label>Query limit <input type="number" name="query_limit" value="{{ pipeline.query_limit }}"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Scoring</legend>
+      <label>CRIT threshold (CVSS) <input type="number" step="0.1" name="cvss_crit_threshold" value="{{ cvss_crit_threshold }}"></label>
+      <p class="muted">Weights: {% for tag, w in weights.items() %}{{ tag }}={{ w }} {% endfor %}(edit weights directly in <code>threatforge.yaml</code> — not exposed here yet)</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Scheduler</legend>
+      <label><input type="checkbox" name="scheduler_enabled" {% if scheduler.enabled %}checked{% endif %}> Enabled</label>
+      <label>Cron expression <input type="text" name="scheduler_cron" value="{{ scheduler.cron }}"></label>
+      <p class="muted">Scheduler changes require a container recreate to take effect (<code>docker compose up -d --force-recreate</code>).</p>
+    </fieldset>
+
+    <button type="submit">Save</button>
+  </form>
+</section>
+{% endblock %}
