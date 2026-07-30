@@ -53,6 +53,9 @@ def _output_menu() -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
+    for c in _state["enriched_cves"]:
+        kev_sources = c.get("context", {}).get("kev_sources", [])
+        c["kev_source_display"] = orchestrate._format_kev_sources(kev_sources)
     return templates.TemplateResponse(request, "index.html", {
         "cves": _state["enriched_cves"],
         "output_menu": _output_menu(),

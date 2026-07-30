@@ -36,6 +36,13 @@ th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(
 
 .run-form label { display: inline-flex; align-items: center; gap: 0.3rem; margin-right: 1rem; white-space: nowrap; }
 .run-form input[type="text"], .count-input { width: 7rem; }
+.run-form-actions {
+  display: block;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+.run-form-actions button { font-weight: 600; padding: 0.5rem 1.4rem; }
 
 fieldset { border: 1px solid var(--border); border-radius: 6px; margin: 0.75rem 0; }
 fieldset label { display: block; margin: 0.3rem 0; }

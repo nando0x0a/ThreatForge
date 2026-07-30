@@ -10,7 +10,9 @@
     <label><input type="radio" name="mode" value="recent"> Recent mode</label>
     <label><input type="radio" name="mode" value="product"> Single product <input type="text" name="product" placeholder="e.g. nginx"></label>
     <label><input type="radio" name="mode" value="cve"> Single CVE <input type="text" name="cve" placeholder="CVE-2024-12345"></label>
-    <button type="submit">Run</button>
+    <div class="run-form-actions">
+      <button type="submit">Run</button>
+    </div>
   </form>
 </section>
 
@@ -29,6 +31,7 @@
           <th>Score</th>
           <th>Tags</th>
           <th>Tier</th>
+          <th>KEV Source (added)</th>
         </tr>
       </thead>
       <tbody>
@@ -40,6 +43,7 @@
           <td>{{ c.composite_score }}</td>
           <td>{% for t in c.tags %}<span class="tag">{{ t }}</span>{% endfor %}</td>
           <td>{{ c.tier_label }}</td>
+          <td>{{ c.kev_source_display }}</td>
         </tr>
         {% endfor %}
       </tbody>
