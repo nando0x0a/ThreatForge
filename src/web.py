@@ -117,6 +117,7 @@ def produce_route(
                 "cve_id": cve_data.get("cve_id", ""),
                 "output_type": result.get("output_type", f"output_{output_num}"),
                 "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
+                "error": result.get("error") if result.get("review_needed") else None,
                 "file": filepath.name,
                 "github_url": _github_url(subdir, filepath.name),
             })

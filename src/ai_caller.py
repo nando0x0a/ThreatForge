@@ -8,6 +8,49 @@ from config_loader import load_config
 
 log = logging.getLogger("ai_caller")
 
+# USD per token, verified against docs.claude.com/en/docs/about-claude/pricing
+# on 2026-07-30. cache_write is the 5-minute rate (this app doesn't request
+# 1-hour caching). Models not listed here (e.g. a config change to a model
+# released after this was last checked) get cost=None rather than a guess —
+# re-verify and add a row before trusting a number for a new model.
+PRICING = {
+    "claude-opus-5":     {"input": 5.00, "cache_write": 6.25, "cache_read": 0.50, "output": 25.00},
+    "claude-sonnet-5":   {"input": 3.00, "cache_write": 3.75, "cache_read": 0.30, "output": 15.00},
+    "claude-sonnet-4-6": {"input": 3.00, "cache_write": 3.75, "cache_read": 0.30, "output": 15.00},
+    "claude-haiku-4-5":  {"input": 1.00, "cache_write": 1.25, "cache_read": 0.10, "output": 5.00},
+}
+
+
+def _extract_usage(model: str, usage) -> dict:
+    input_tokens = usage.input_tokens
+    output_tokens = usage.output_tokens
+    cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    rates = PRICING.get(model)
+    cost = None
+    if rates:
+        cost = (
+            input_tokens * rates["input"]
+            + cache_write * rates["cache_write"]
+            + cache_read * rates["cache_read"]
+            + output_tokens * rates["output"]
+        ) / 1_000_000
+    return {"input": input_tokens, "output": output_tokens, "cache_write": cache_write, "cache_read": cache_read, "cost": cost}
+
+
+def _sum_usage(a: dict | None, b: dict | None) -> dict | None:
+    """Combine usage across the initial call and a self-repair retry, if any
+    — either side may be None (a call that raised before any usage came
+    back)."""
+    if not a and not b:
+        return None
+    a = a or {}
+    b = b or {}
+    merged = {k: (a.get(k) or 0) + (b.get(k) or 0) for k in ("input", "output", "cache_write", "cache_read")}
+    cost_a, cost_b = a.get("cost"), b.get("cost")
+    merged["cost"] = (cost_a or 0) + (cost_b or 0) if (cost_a is not None or cost_b is not None) else None
+    return merged
+
 
 class AICaller:
     def __init__(self):
@@ -55,7 +98,9 @@ class AICaller:
         if not result["success"] and result.get("error"):
             log.info(f"Self-repair retry for {cve_data['cve_id']} output {output_num}")
             retry_msg = user_message + f"\n\nPrevious attempt failed:\n{result['error']}\nPlease fix and try again."
-            result = self._call(retry_msg)
+            retry_result = self._call(retry_msg)
+            retry_result["usage"] = _sum_usage(result.get("usage"), retry_result.get("usage"))
+            result = retry_result
             if not result["success"]:
                 result["review_needed"] = True
                 log.warning(f"Self-repair failed for {cve_data['cve_id']} output {output_num}")
@@ -74,6 +119,7 @@ class AICaller:
                     messages=[{"role": "user", "content": user_message}],
                 )
                 content = response.content[0].text
+                usage = _extract_usage(self.model, response.usage)
             else:
                 response = self.client.chat.completions.create(
                     model=self.model,
@@ -84,10 +130,14 @@ class AICaller:
                     ],
                 )
                 content = response.choices[0].message.content
+                # No verified per-token pricing for arbitrary openai_compatible
+                # endpoints — token counts only, no cost estimate.
+                u = getattr(response, "usage", None)
+                usage = {"input": u.prompt_tokens, "output": u.completion_tokens, "cache_write": 0, "cache_read": 0, "cost": None} if u else None
 
             content = re.sub(r"^```[a-z]*\n?", "", content, flags=re.MULTILINE)
             content = re.sub(r"\n?```$", "", content, flags=re.MULTILINE)
-            return {"success": True, "content": content.strip(), "error": None}
+            return {"success": True, "content": content.strip(), "error": None, "usage": usage}
         except Exception as e:
             log.error(f"AI API error ({self.provider}): {e}")
-            return {"success": False, "content": "", "error": str(e)}
+            return {"success": False, "content": "", "error": str(e), "usage": None}

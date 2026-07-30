@@ -8,7 +8,10 @@
     <tr>
       <td>{{ p.cve_id }}</td>
       <td>{{ p.output_type }}</td>
-      <td class="{{ 'ok' if p.status == 'OK' else 'warn' }}">{{ p.status }}</td>
+      <td class="{{ 'ok' if p.status == 'OK' else 'warn' }}">
+        {{ p.status }}
+        {% if p.error %}<div class="error-detail">{{ p.error }}</div>{% endif %}
+      </td>
       <td><a href="{{ p.github_url or '/outputs' }}" target="_blank" rel="noopener">{{ p.file }}</a></td>
     </tr>
     {% endfor %}

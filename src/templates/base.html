@@ -8,18 +8,20 @@
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
 </head>
 <body>
-  <header>
-    <h1>ThreatForge</h1>
-    <nav>
-      <a href="/">Pipeline</a>
-      <a href="/outputs">Outputs</a>
-      <a href="/runs">Run history</a>
-      <a href="/config/products">Products</a>
-      <a href="/config/pipeline">Pipeline settings</a>
-    </nav>
-  </header>
-  <div id="loading-banner" class="loading-banner" hidden>
-    <span class="spinner"></span> Working — this can take a minute or two for a full pipeline run or AI-generated output...
+  <div class="page-header-sticky">
+    <header>
+      <h1>ThreatForge</h1>
+      <nav>
+        <a href="/">Pipeline</a>
+        <a href="/outputs">Outputs</a>
+        <a href="/runs">Run history</a>
+        <a href="/config/products">Products</a>
+        <a href="/config/pipeline">Pipeline settings</a>
+      </nav>
+    </header>
+    <div id="loading-banner" class="loading-banner" hidden>
+      <span class="spinner"></span> Working — this can take a minute or two for a full pipeline run or AI-generated output...
+    </div>
   </div>
 
   <main>

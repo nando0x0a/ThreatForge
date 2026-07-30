@@ -116,6 +116,7 @@ class OutputRouter:
         return "\n".join(lines) + "\n"
 
     def _log_run(self, cve_data: dict, output_num: int, result: dict, filepath: Path) -> None:
+        usage = result.get("usage") or {}
         log_entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "cve_id": cve_data.get("cve_id"),
@@ -126,6 +127,12 @@ class OutputRouter:
             "tags": cve_data.get("tags"),
             "success": result.get("success"),
             "review_needed": result.get("review_needed", False),
+            "error": result.get("error") if result.get("review_needed") else None,
+            "input_tokens": usage.get("input"),
+            "output_tokens": usage.get("output"),
+            "cache_write_tokens": usage.get("cache_write"),
+            "cache_read_tokens": usage.get("cache_read"),
+            "cost": usage.get("cost"),
             "filepath": str(filepath),
         }
         log_path = Path("/opt/threatforge/logs/runs.jsonl")

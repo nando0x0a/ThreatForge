@@ -7,7 +7,7 @@
     <p class="muted">No runs logged yet.</p>
   {% else %}
   <table>
-    <thead><tr><th>Time</th><th>CVE</th><th>Product</th><th>Output</th><th>Score</th><th>Status</th></tr></thead>
+    <thead><tr><th>Time</th><th>CVE</th><th>Product</th><th>Output</th><th>Score</th><th>Status</th><th>Tokens (in/out)</th><th>Cost</th></tr></thead>
     <tbody>
       {% for r in runs %}
       <tr>
@@ -16,7 +16,9 @@
         <td>{{ r.product }}</td>
         <td>{{ r.output_type }}</td>
         <td>{{ r.composite_score }}</td>
-        <td class="{{ 'warn' if r.review_needed else 'ok' }}">{{ 'REVIEW_NEEDED' if r.review_needed else 'OK' }}</td>
+        <td class="{{ 'warn' if r.review_needed else 'ok' }}" title="{{ r.error or '' }}">{{ 'REVIEW_NEEDED' if r.review_needed else 'OK' }}</td>
+        <td>{{ r.input_tokens if r.input_tokens is defined and r.input_tokens is not none else '—' }} / {{ r.output_tokens if r.output_tokens is defined and r.output_tokens is not none else '—' }}</td>
+        <td>{{ '$%.4f'|format(r.cost) if r.cost is defined and r.cost is not none else '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
