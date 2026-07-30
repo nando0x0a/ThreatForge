@@ -5,11 +5,11 @@
 <section class="card">
   <h2>Run pipeline</h2>
   <form method="post" action="/run" class="run-form">
-    <label><input type="radio" name="mode" value="daily" checked> Daily (production filters)</label>
-    <label><input type="radio" name="mode" value="test"> Test mode <input type="number" name="count" value="5" min="1" max="50" class="count-input"></label>
-    <label><input type="radio" name="mode" value="recent"> Recent mode</label>
-    <label><input type="radio" name="mode" value="product"> Single product <input type="text" name="product" placeholder="e.g. nginx"></label>
-    <label><input type="radio" name="mode" value="cve"> Single CVE <input type="text" name="cve" placeholder="CVE-2024-12345"></label>
+    <label title="Full pipeline run using production CVSS/EPSS/age filters."><input type="radio" name="mode" value="daily" checked> Daily (production filters)</label>
+    <label title="Same candidate selection as Test mode, but sorted by most recently disclosed CVEs first."><input type="radio" name="mode" value="recent"> Recent mode</label>
+    <label title="Run the pipeline against one specific product name only, ignoring the usual candidate filters."><input type="radio" name="mode" value="product"> Single product <input type="text" name="product" placeholder="e.g. nginx"></label>
+    <label title="Run the pipeline against one specific CVE ID only."><input type="radio" name="mode" value="cve"> Single CVE <input type="text" name="cve" placeholder="CVE-2024-12345"></label>
+    <label title="Skips the production filters entirely and returns up to N candidates for testing/dev purposes."><input type="radio" name="mode" value="test"> Test mode <input type="number" name="count" value="5" min="1" max="50" class="count-input"></label>
     <div class="run-form-actions">
       <button type="submit">Run</button>
     </div>
@@ -26,7 +26,11 @@
     {% endif %}
   {% endif %}
   {% if not cves %}
+    {% if last_run and last_run.status == 'running' %}
+    <p class="muted">Pipeline run in progress — please wait, this page will update on its own once it finishes.</p>
+    {% else %}
     <p class="muted">No results yet — run the pipeline above.</p>
+    {% endif %}
   {% else %}
   <form method="post" action="/produce" hx-post="/produce" hx-target="#produce-result" hx-swap="innerHTML">
     <table>
@@ -68,5 +72,16 @@
   <div id="produce-result"></div>
   {% endif %}
 </section>
+
+{% if last_run and last_run.status == 'running' %}
+<script>
+  // The loading banner and this page's own JS state don't survive a tab
+  // switch/reload -- but the run itself is still genuinely in progress
+  // server-side. Auto-reload every few seconds while that's true, so the
+  // page catches up on its own instead of looking finished/idle with no
+  // way to tell a run is still going.
+  setTimeout(function () { window.location.reload(); }, 4000);
+</script>
+{% endif %}
 
 {% endblock %}

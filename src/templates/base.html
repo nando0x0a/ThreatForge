@@ -19,7 +19,7 @@
         <a href="/config/pipeline">Pipeline settings</a>
       </nav>
     </header>
-    <div id="loading-banner" class="loading-banner" hidden>
+    <div id="loading-banner" class="loading-banner" {% if not pipeline_running %}hidden{% endif %}>
       <span class="spinner"></span> Working — this can take a minute or two for a full pipeline run or AI-generated output...
     </div>
   </div>
