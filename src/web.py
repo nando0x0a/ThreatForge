@@ -17,6 +17,7 @@ from config_loader import load_config, CONFIG_PATH
 from context_assembler import ContextAssembler
 from ai_caller import AICaller
 from output_router import OutputRouter
+import github_publisher
 import orchestrate
 
 log = logging.getLogger("web")
@@ -24,6 +25,18 @@ log = logging.getLogger("web")
 APP_DIR = Path(__file__).parent
 PRODUCTS_FILE = Path(orchestrate.PRODUCTS_FILE)
 RUNS_LOG = Path("/opt/threatforge/logs/runs.jsonl")
+
+
+def _github_url(subdir: str, filename: str) -> str | None:
+    """Outputs are published to GitHub by OutputRouter.save() (via
+    github_publisher) whenever GITHUB_TOKEN/GITHUB_REPO are set — same repo
+    ThreatForge's own automation already commits to. Since that repo is
+    public, linking there lets anyone view a produced draft without needing
+    this site's Basic Auth password at all."""
+    if not github_publisher.GITHUB_REPO:
+        return None
+    branch = github_publisher.GITHUB_BRANCH
+    return f"https://github.com/{github_publisher.GITHUB_REPO}/blob/{branch}/outputs/{subdir}/{filename}"
 
 app = FastAPI(title="ThreatForge")
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
@@ -89,17 +102,20 @@ def produce_route(
         router.clean_remote()
 
     caller = AICaller()
+    menu = _output_menu()
     produced = []
     for cve_data in target_cves:
         for output_num in output_nums:
             log.info(f"[web] Producing output {output_num} for {cve_data['cve_id']}")
             result = caller.produce(output_num, cve_data)
             filepath = router.save(output_num, cve_data, result)
+            subdir = menu.get(output_num, {}).get("output_dir", "")
             produced.append({
                 "cve_id": cve_data.get("cve_id", ""),
                 "output_type": result.get("output_type", f"output_{output_num}"),
                 "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
                 "file": filepath.name,
+                "github_url": _github_url(subdir, filepath.name),
             })
 
     return templates.TemplateResponse(request, "produced.html", {"produced": produced, "skipped": False})
@@ -112,12 +128,20 @@ def outputs_route(request: Request):
     if base.exists():
         for f in sorted(base.rglob("*"), key=lambda p: p.stat().st_mtime, reverse=True):
             if f.is_file():
-                by_dir.setdefault(f.parent.name, []).append(f.name)
-    return templates.TemplateResponse(request, "outputs.html", {"by_dir": by_dir})
+                subdir = f.parent.name
+                by_dir.setdefault(subdir, []).append({
+                    "name": f.name,
+                    "github_url": _github_url(subdir, f.name),
+                })
+    github_configured = bool(github_publisher.GITHUB_REPO)
+    return templates.TemplateResponse(request, "outputs.html", {"by_dir": by_dir, "github_configured": github_configured})
 
 
 @app.get("/outputs/{subdir}/{filename}")
 def download_output(subdir: str, filename: str):
+    """Fallback only — outputs are normally viewed via their GitHub link
+    (no auth needed there, repo is public). This stays available in case
+    GitHub publishing is ever disabled or a push fails."""
     path = (orchestrate.OUTPUT_DIR / subdir / filename).resolve()
     if orchestrate.OUTPUT_DIR.resolve() not in path.parents or not path.is_file():
         return PlainTextResponse("Not found", status_code=404)

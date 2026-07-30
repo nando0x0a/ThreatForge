@@ -18,8 +18,31 @@
       <a href="/config/pipeline">Pipeline settings</a>
     </nav>
   </header>
+  <div id="loading-banner" class="loading-banner" hidden>
+    <span class="spinner"></span> Working — this can take a minute or two for a full pipeline run or AI-generated output...
+  </div>
+
   <main>
     {% block content %}{% endblock %}
   </main>
+
+  <script>
+    // Plain (full-navigation) forms: show the banner immediately on submit.
+    // It naturally disappears when the next page loads.
+    document.addEventListener('submit', function (e) {
+      if (!e.target.hasAttribute('hx-post') && !e.target.hasAttribute('hx-get')) {
+        document.getElementById('loading-banner').hidden = false;
+      }
+    });
+
+    // htmx-enhanced forms (e.g. Produce selected): show/hide around the
+    // actual AJAX request instead of a full navigation.
+    document.addEventListener('htmx:beforeRequest', function () {
+      document.getElementById('loading-banner').hidden = false;
+    });
+    document.addEventListener('htmx:afterRequest', function () {
+      document.getElementById('loading-banner').hidden = true;
+    });
+  </script>
 </body>
 </html>

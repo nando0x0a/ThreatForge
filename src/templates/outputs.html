@@ -3,6 +3,10 @@
 {% block content %}
 <section class="card">
   <h2>Generated outputs</h2>
+  <p class="muted">Links go straight to GitHub — no login needed to view them, the repo is public.</p>
+  {% if not github_configured %}
+    <p class="muted">⚠ GitHub publishing isn't configured — links below fall back to this site (requires the site password).</p>
+  {% endif %}
   {% if not by_dir %}
     <p class="muted">Nothing produced yet.</p>
   {% endif %}
@@ -10,7 +14,7 @@
     <h3>{{ subdir }}</h3>
     <ul class="file-list">
       {% for f in files %}
-      <li><a href="/outputs/{{ subdir }}/{{ f }}" download>{{ f }}</a></li>
+      <li><a href="{{ f.github_url or '/outputs/' ~ subdir ~ '/' ~ f.name }}" target="_blank" rel="noopener">{{ f.name }}</a></li>
       {% endfor %}
     </ul>
   {% endfor %}

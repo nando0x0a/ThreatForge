@@ -9,10 +9,10 @@
       <td>{{ p.cve_id }}</td>
       <td>{{ p.output_type }}</td>
       <td class="{{ 'ok' if p.status == 'OK' else 'warn' }}">{{ p.status }}</td>
-      <td>{{ p.file }}</td>
+      <td><a href="{{ p.github_url or '/outputs' }}" target="_blank" rel="noopener">{{ p.file }}</a></td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
-<p><a href="/outputs">View in Outputs →</a></p>
+<p><a href="/outputs">View all in Outputs →</a></p>
 {% endif %}

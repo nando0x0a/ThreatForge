@@ -46,3 +46,34 @@ button { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--borde
 button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 
 .file-list { columns: 2; }
+
+.loading-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff3cd;
+  color: #664d03;
+  border: 1px solid #ffe69c;
+  border-radius: 6px;
+  padding: 0.5rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+@media (prefers-color-scheme: dark) {
+  .loading-banner { background: #3a2f0b; color: #ffe69c; border-color: #5c4a12; }
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
