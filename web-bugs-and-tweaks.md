@@ -36,6 +36,13 @@ today it's only checked once per web-UI run, not continuously.
     select one or more by number, comma-separated (e.g. "1,3,5"), mapping
     directly to produce_output's own output_nums — then expand /demo's
     request text accordingly instead of hardcoding "a security advisory."
+21. **Working-bubble wording + "AI Assistant" pane rename** — the in-chat
+    working pill (`base.html`, `.chat-working`) should say "Vuln-Skill
+    working..." instead of "Assistant is working...". Separately, rename
+    the "AI Assistant" pane heading (and the matching "sent to the AI
+    Assistant" line in the About dialog's warning) to "Chatbox" — the
+    whole app is the assistant; the chat pane is just one interface into
+    it, not the assistant itself.
 
 ## Done
 
