@@ -761,7 +761,11 @@ CHAT_OPERATIONAL_ADDENDUM = """Operational note for this deployment (in addition
 
 For produce_output specifically: call the tool directly as soon as you've determined the CVE(s) and output type(s), in the same turn as any text you send. Do not withhold the tool call and ask in plain text first, and do not wait for the analyst's Yes/No before calling it -- this application intercepts every produce_output call itself and pauses for the analyst's confirmation automatically, regardless of what you do. If you ask in text without calling the tool, the confirmation will not actually happen and the analyst will have to confirm twice.
 
-Never post the full content of a produced output in the chat reply, per §6.3 of your instructions -- the complete draft lives in the Workspace Canvas and the Outputs page, not the conversation. After producing, state which output type(s) were produced for which CVE(s) and point to the relevant tab; do not paste, quote in full, or reproduce the document body itself."""
+Never lead that text with a present-progressive verb ("Producing X for Y:") -- nothing has been produced yet, and it directly contradicts the Yes/No question in the same reply (found via a live test: a reply reading "Producing advisory for CVE-2026-20316 ...: Produce Security advisory for CVE-2026-20316? Yes / No" reads as self-contradictory -- says it's already happening, then asks permission). Say "about to produce," "would produce," or "ready to produce" instead, per §7.1.
+
+Never post the full content of a produced output in the chat reply, per §6.3 of your instructions -- the complete draft lives in the Workspace Canvas and the Outputs page, not the conversation. After producing, state which output type(s) were produced for which CVE(s) and point to the relevant tab; do not paste, quote in full, or reproduce the document body itself.
+
+If the confirmation's tool_result comes back with "produced": false and a "not_found" list, nothing was actually generated for those CVE(s) -- do not tell the analyst it was produced. This happens when a CVE drops out of the current candidate list (e.g. a later pipeline run replaced it) before the confirmation was answered. Say plainly that it wasn't produced and why, then call lookup_cve for that exact CVE ID to reload it before offering to retry produce_output -- don't just repeat the same produce_output call against stale state."""
 
 
 def _call_chat_claude(messages: list) -> tuple["anthropic.types.Message", dict]:
@@ -866,15 +870,36 @@ def _handle_pending_answer(message: str) -> None:
     if is_yes:
         try:
             nums = _expand_output_nums(pending["input"].get("output_nums", []))
-            canvases = _execute_produce(pending["input"].get("cve_ids", []), nums)
-            _chat_state["_state_changed_this_request"] = True
+            requested_cve_ids = pending["input"].get("cve_ids", [])
+            canvases = _execute_produce(requested_cve_ids, nums)
+            # _execute_produce silently returns [] (no error) when a
+            # requested CVE isn't in _state["enriched_cves"] -- e.g. it
+            # dropped out of the candidate list because a later pipeline
+            # run replaced it before this confirmation was answered. Found
+            # via a live bug: the app reported "produced": True with an
+            # EMPTY canvases_summary, and the model then told the analyst
+            # "Produced: Advisory for CVE-2026-20316" when nothing was
+            # actually generated (no file, no canvas tab, no cost). Report
+            # success/failure based on what actually happened, not on
+            # whether the tool call merely completed without raising.
+            produced_ids = {c["cve_id"] for c in canvases}
+            missing_ids = [cid for cid in requested_cve_ids if cid not in produced_ids]
+            if canvases:
+                _chat_state["_state_changed_this_request"] = True
             result = {
-                "produced": True,
+                "produced": bool(canvases),
                 "canvases_summary": [
                     {"cve_id": c["cve_id"], "produced_types": [t["label"] for t in c["tabs"] if t["produced"]]}
                     for c in canvases
                 ],
             }
+            if missing_ids:
+                result["not_found"] = missing_ids
+                result["error"] = (
+                    f"{', '.join(missing_ids)} not found in the current candidate list -- it likely "
+                    "dropped out after a more recent pipeline run replaced the candidates. Nothing was "
+                    "produced for it. Run lookup_cve for it again to reload it, then retry produce_output."
+                )
         except Exception as e:
             log.error(f"Chat produce_output execution failed: {e}")
             result = {"produced": False, "error": str(e)}
