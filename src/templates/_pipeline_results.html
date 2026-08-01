@@ -10,20 +10,19 @@
 </section>
 {% endif %}
 
+{% if last_run %}
 <section class="card">
   <h2>Candidates ({{ cves|length }})</h2>
-  {% if last_run %}
-    {% if last_run.status == 'running' %}
-    <p class="muted">Running: {{ last_run.description }} (started {{ last_run.started_at }}) — candidates below will refresh once it finishes.</p>
-    {% else %}
-    <p class="muted">Last run: {{ last_run.description }} — {{ last_run.count }} candidate(s) at {{ last_run.timestamp }}</p>
-    {% endif %}
+  {% if last_run.status == 'running' %}
+  <p class="muted">Running: {{ last_run.description }} (started {{ last_run.started_at }}) — candidates below will refresh once it finishes.</p>
+  {% else %}
+  <p class="muted">Last run: {{ last_run.description }} — {{ last_run.count }} candidate(s) at {{ last_run.timestamp }}</p>
   {% endif %}
   {% if not cves %}
-    {% if last_run and last_run.status == 'running' %}
+    {% if last_run.status == 'running' %}
     <p class="muted">Pipeline run in progress — please wait, this page will update on its own once it finishes.</p>
     {% else %}
-    <p class="muted">No results yet — run the pipeline above, or ask the assistant.</p>
+    <p class="muted">No candidates from that run.</p>
     {% endif %}
   {% else %}
   <form method="post" action="/produce" hx-post="/produce" hx-target="#produce-result" hx-swap="innerHTML">
@@ -63,6 +62,8 @@
 
     <button type="submit" class="primary-btn">Produce selected</button>
   </form>
-  <div id="produce-result">{% include "produced.html" %}</div>
   {% endif %}
 </section>
+{% endif %}
+
+<div id="produce-result">{% include "produced.html" %}</div>
