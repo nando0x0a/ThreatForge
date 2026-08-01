@@ -92,6 +92,43 @@
       btns[clamped].focus();
     });
 
+    // CVE-level tab strip, one tier above the output-type tabs above --
+    // only present for a multi-CVE produce call (produced.html). A
+    // .cve-tab-btn also carries the base .tab-btn class for shared visual
+    // styling, but it sits outside any .canvas-tabs container, so it never
+    // matches the output-type handlers above (their tabsEl lookups return
+    // null and no-op) -- this needs its own independent handling instead
+    // of trying to fold it into setActiveTab.
+    function setActiveCveTab(container, index) {
+      var btns = container.querySelectorAll('.cve-tab-btn');
+      var panels = container.querySelectorAll('.cve-tab-panel');
+      var clamped = Math.max(0, Math.min(index, btns.length - 1));
+      btns.forEach(function (b, i) { b.classList.toggle('active', i === clamped); });
+      panels.forEach(function (p, i) { p.classList.toggle('active', i === clamped); });
+      container.dataset.cveTabIndex = clamped;
+    }
+
+    document.addEventListener('click', function (evt) {
+      var cveBtn = evt.target.closest('.cve-tab-btn');
+      if (!cveBtn) return;
+      var cveTabsEl = cveBtn.closest('.cve-tabs');
+      if (cveTabsEl) setActiveCveTab(cveTabsEl, parseInt(cveBtn.dataset.cveTab, 10));
+    });
+
+    document.addEventListener('keydown', function (evt) {
+      if (evt.key !== 'ArrowLeft' && evt.key !== 'ArrowRight') return;
+      var cveBtn = document.activeElement && document.activeElement.closest && document.activeElement.closest('.cve-tab-btn');
+      if (!cveBtn) return;
+      var cveTabsEl = cveBtn.closest('.cve-tabs');
+      if (!cveTabsEl) return;
+      evt.preventDefault();
+      var btns = cveTabsEl.querySelectorAll('.cve-tab-btn');
+      var current = Array.prototype.indexOf.call(btns, cveBtn);
+      var newIndex = Math.max(0, Math.min(current + (evt.key === 'ArrowLeft' ? -1 : 1), btns.length - 1));
+      setActiveCveTab(cveTabsEl, newIndex);
+      btns[newIndex].focus();
+    });
+
     function copyTabContent(btn) {
       var panel = btn.closest('.tab-panel');
       var textEl = panel && panel.querySelector('.tab-detail');

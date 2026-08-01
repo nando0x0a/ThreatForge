@@ -1,16 +1,8 @@
 {% if skipped %}
 <p class="muted">Nothing selected — pick at least one CVE and one output type.</p>
 {% else %}
-{% if canvases|length > 1 %}
-<nav class="canvas-index" aria-label="Jump to CVE">
-  <span class="muted">Jump to:</span>
-  {% for canvas in canvases %}
-  <a href="#canvas-{{ canvas.cve_id }}" class="canvas-index-link">{{ canvas.cve_id }}</a>
-  {% endfor %}
-</nav>
-{% endif %}
-{% for canvas in canvases %}
-<div class="canvas-block" id="canvas-{{ canvas.cve_id }}">
+{% macro render_canvas(canvas) %}
+<div class="canvas-block">
   <h2 class="pane-heading">{{ canvas.cve_id }} — Workspace Canvas</h2>
   <div class="card canvas-card">
   <div class="canvas-tabs" data-tab-index="{{ canvas.active_index }}">
@@ -48,6 +40,29 @@
   </div>
   </div>
 </div>
+{% endmacro %}
+
+{% if canvases|length > 1 %}
+<!-- One tier up from the output-type tabs inside each canvas -- lets the
+     analyst switch between CVEs without scrolling past every other one
+     stacked on the page. Only rendered for multi-CVE produce calls; a
+     single CVE just gets its canvas directly, no outer tab strip. -->
+<div class="cve-tabs" data-cve-tab-index="0">
+  <div class="tab-strip cve-tab-strip">
+    {% for canvas in canvases %}
+    <button type="button" class="tab-btn cve-tab-btn{% if loop.first %} active{% endif %}" data-cve-tab="{{ loop.index0 }}">{{ canvas.cve_id }}</button>
+    {% endfor %}
+  </div>
+  {% for canvas in canvases %}
+  <div class="cve-tab-panel{% if loop.first %} active{% endif %}" data-cve-tab="{{ loop.index0 }}">
+    {{ render_canvas(canvas) }}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+{% for canvas in canvases %}
+{{ render_canvas(canvas) }}
 {% endfor %}
+{% endif %}
 <p><a href="/outputs">View all in Outputs →</a></p>
 {% endif %}

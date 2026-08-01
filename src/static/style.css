@@ -129,15 +129,18 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
   border-radius: 8px;
 }
 
-/* Only rendered when more than one CVE was produced in the same call
-   (produced.html) -- lets the analyst jump straight to a CVE's canvas
-   instead of scrolling past every other one stacked above it. */
-.canvas-index { margin-bottom: 1rem; font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: baseline; }
-.canvas-index-link { color: var(--accent); text-decoration: none; }
-.canvas-index-link:hover { text-decoration: underline; }
-/* Scroll target offset so the sticky header doesn't cover the canvas's
-   own heading right after an anchor jump. */
-.canvas-block { scroll-margin-top: 5.5rem; }
+/* One tier above the output-type tabs inside each canvas -- only rendered
+   for a multi-CVE produce call (produced.html), so the analyst switches
+   between CVEs instead of scrolling past every other one stacked on the
+   page. Reuses .tab-strip/.tab-btn's base look (including the shared
+   .active underline rule) but bumped up in size/weight so the two tiers
+   read as a clear hierarchy rather than one flat row of tabs. */
+.cve-tabs { margin-bottom: 0.5rem; }
+.cve-tab-strip { border-bottom-width: 2px; margin-bottom: 1.25rem; }
+.cve-tab-btn { font-size: 0.95rem; font-weight: 600; padding: 0.65rem 1rem; }
+.cve-tab-panel { display: none; }
+.cve-tab-panel.active { display: block; }
+
 .canvas-card { margin-bottom: 1.25rem; }
 .canvas-tabs { display: flex; flex-direction: column; }
 .canvas-empty { color: var(--muted); font-size: 0.9rem; padding: 0.5rem 0; }
