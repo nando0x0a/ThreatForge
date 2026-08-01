@@ -3,6 +3,7 @@
 pipeline, pick outputs, produce, browse results) plus config editing and run
 history. Auth (HTTP Basic) and TLS terminate at nginx in front of this — this
 app assumes it's already behind that gate and adds no auth of its own."""
+import html
 import json
 import logging
 import os
@@ -12,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 import anthropic
+import markdown
 import yaml
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, PlainTextResponse
@@ -702,7 +704,9 @@ def _execute_chat_tool(name: str, tool_input: dict) -> dict:
 # is what generates the pause, not the model choosing to withhold the call.
 CHAT_OPERATIONAL_ADDENDUM = """Operational note for this deployment (in addition to all instructions above):
 
-For produce_output specifically: call the tool directly as soon as you've determined the CVE(s) and output type(s), in the same turn as any text you send. Do not withhold the tool call and ask in plain text first, and do not wait for the analyst's Yes/No before calling it -- this application intercepts every produce_output call itself and pauses for the analyst's confirmation automatically, regardless of what you do. If you ask in text without calling the tool, the confirmation will not actually happen and the analyst will have to confirm twice."""
+For produce_output specifically: call the tool directly as soon as you've determined the CVE(s) and output type(s), in the same turn as any text you send. Do not withhold the tool call and ask in plain text first, and do not wait for the analyst's Yes/No before calling it -- this application intercepts every produce_output call itself and pauses for the analyst's confirmation automatically, regardless of what you do. If you ask in text without calling the tool, the confirmation will not actually happen and the analyst will have to confirm twice.
+
+Never post the full content of a produced output in the chat reply, per §6.3 of your instructions -- the complete draft lives in the Workspace Canvas and the Outputs page, not the conversation. After producing, state which output type(s) were produced for which CVE(s) and point to the relevant tab; do not paste, quote in full, or reproduce the document body itself."""
 
 
 def _call_chat_claude(messages: list) -> tuple["anthropic.types.Message", dict]:
@@ -839,6 +843,18 @@ def _handle_pending_answer(message: str) -> None:
     _run_chat_turn(_empty_chat_totals())
 
 
+def _render_safe_markdown(text: str) -> str:
+    """Same pattern as soc-skill-cloud's _render_safe_markdown: HTML-escape
+    FIRST, then run markdown on the escaped text -- markdown syntax
+    characters (*, #, `, -, [, ]) aren't touched by html.escape(), so
+    formatting still renders, but any literal HTML in a fetched CVE
+    description/advisory the model might echo back becomes inert text
+    instead of executable markup. Never markdown-render unescaped model
+    output."""
+    escaped = html.escape(text)
+    return markdown.markdown(escaped, extensions=["extra", "nl2br"])
+
+
 def _chat_display_messages() -> list[dict]:
     """Only real conversational turns -- a tool_result-only user message
     (internal plumbing feeding a tool's output back to the model) and a
@@ -847,8 +863,12 @@ def _chat_display_messages() -> list[dict]:
     can be a plain string (a fresh question) or a list mixing tool_result
     blocks with a text block (an answer to a pending confirmation, see
     _handle_pending_answer) -- either way, only the human-readable text
-    actually gets shown."""
+    actually gets shown. Also tags whichever assistant message currently
+    holds the live confirmation question (its content contains the
+    tool_use matching _chat_state["pending_tool"]) as is_question, so the
+    template can color it distinctly from a normal completed reply."""
     display = []
+    pending_id = _chat_state["pending_tool"]["tool_use_id"] if _chat_state["pending_tool"] else None
     for i, m in enumerate(_chat_state["messages"]):
         if m["role"] == "user":
             if isinstance(m["content"], str):
@@ -856,11 +876,15 @@ def _chat_display_messages() -> list[dict]:
             else:
                 text = "\n".join(b.get("text", "") for b in m["content"] if isinstance(b, dict) and b.get("type") == "text").strip()
             if text:
-                display.append({"role": "user", "text": text})
+                display.append({"role": "user", "text": text, "html": False})
         elif m["role"] == "assistant":
             text = "\n".join(b.get("text", "") for b in m["content"] if isinstance(b, dict) and b.get("type") == "text").strip()
             if text:
-                display.append({"role": "assistant", "text": text, "usage": _chat_state["usage"][i]})
+                is_question = pending_id is not None and any(
+                    isinstance(b, dict) and b.get("type") == "tool_use" and b.get("id") == pending_id
+                    for b in m["content"]
+                )
+                display.append({"role": "assistant", "text": _render_safe_markdown(text), "usage": _chat_state["usage"][i], "html": True, "is_question": is_question})
     return display
 
 

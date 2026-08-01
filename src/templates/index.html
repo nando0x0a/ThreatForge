@@ -4,6 +4,7 @@
 {% block content %}
 
 <section class="canvas-pane">
+  {% if chat_available %}<h2 class="pane-heading">Pipeline Workspace</h2>{% endif %}
   <section class="card">
     <h2>Run pipeline</h2>
     <form method="post" action="/run" class="run-form">
@@ -115,6 +116,17 @@
       if (evt.target === chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
     });
   })();
+
+  function copyChatText(btn) {
+    var msg = btn.closest('.chat-msg');
+    var textEl = msg.querySelector('.chat-text');
+    var text = textEl ? textEl.innerText : '';
+    navigator.clipboard.writeText(text).then(function () {
+      var original = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(function () { btn.textContent = original; }, 1500);
+    });
+  }
 </script>
 {% endif %}
 

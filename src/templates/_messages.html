@@ -2,9 +2,19 @@
 <p class="canvas-empty muted">Ask the assistant to run the pipeline, look up a CVE, or produce an output.</p>
 {% endif %}
 {% for m in messages %}
-<div class="chat-msg chat-msg-{{ m.role }}">
-  <div class="chat-role">{{ 'You' if m.role == 'user' else 'Assistant' }}</div>
-  <div class="chat-text">{{ m.text }}</div>
+<div class="chat-msg chat-msg-{{ m.role }}{% if m.is_question %} chat-msg-question{% endif %}">
+  <div class="chat-role">
+    {{ 'You' if m.role == 'user' else 'Assistant' }}
+    <button type="button" class="copy-btn" onclick="copyChatText(this)">Copy</button>
+  </div>
+  {% if m.html %}
+  <div class="chat-text">{{ m.text | safe }}</div>
+  {% else %}
+  <div class="chat-text chat-text-plain">{{ m.text }}</div>
+  {% endif %}
   {% if m.usage %}<div class="chat-usage">{{ m.usage.input }} in / {{ m.usage.output }} out — ${{ "%.4f"|format(m.usage.cost) }}</div>{% endif %}
 </div>
+{% if loop.last and m.role == 'assistant' and not m.is_question %}
+<div class="chat-done">✓ Reply complete</div>
+{% endif %}
 {% endfor %}

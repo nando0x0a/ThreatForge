@@ -224,10 +224,22 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 }
 
 /* --- Chat assistant two-pane layout (index.html only -- other pages keep
-   the narrower single-column body width) --- */
-body:has(main.app-shell) { max-width: 1600px; }
-main.app-shell { display: flex; gap: 1.5rem; align-items: flex-start; }
-.canvas-pane { flex: 1; min-width: 0; }
+   the narrower single-column body width). Matches soc-skill-cloud's actual
+   pattern: body itself never scrolls (bounded to the viewport), so both
+   panes scroll independently within a fixed-height row -- sticky
+   positioning alone (the earlier approach) didn't actually keep the chat
+   pane in place while the page around it scrolled, since there was no
+   bounded scroll container for it to stick within. */
+body:has(main.app-shell) {
+  max-width: 1600px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
+.canvas-pane { flex: 1; min-width: 0; overflow-y: auto; padding-right: 0.25rem; }
 .chat-pane {
   width: 420px;
   min-width: 320px;
@@ -235,21 +247,19 @@ main.app-shell { display: flex; gap: 1.5rem; align-items: flex-start; }
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-left: 1px solid var(--border);
   padding-left: 1.5rem;
-  /* Pinned alongside the (potentially much longer) dashboard content in
-     .canvas-pane, internally scrollable rather than growing with the page. */
-  position: sticky;
-  top: 5.5rem;
-  max-height: calc(100vh - 6.5rem);
 }
 .chat-pane .pane-heading { margin-bottom: 0.75rem; }
 
 @media (max-width: 900px) {
+  /* Two independently-scrolling panes stop making sense on a screen this
+     narrow -- revert to the page just scrolling normally, panes stacked. */
+  body:has(main.app-shell) { height: auto; overflow: visible; }
   main.app-shell { flex-direction: column; gap: 1rem; }
+  .canvas-pane { overflow-y: visible; padding-right: 0; }
   .chat-pane {
-    position: static;
-    max-height: none;
     width: 100%;
     max-width: none;
     min-width: 0;
@@ -267,10 +277,43 @@ main.app-shell { display: flex; gap: 1.5rem; align-items: flex-start; }
 .chat-msg-user { background: var(--user-bg); }
 .chat-msg-assistant { background: var(--assistant-bg); }
 .chat-msg-pending { opacity: 0.6; }
-.chat-role { font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
-.chat-text { font-size: 0.92rem; overflow-wrap: anywhere; word-break: break-word; white-space: pre-wrap; }
+/* A pending produce_output confirmation gets the same amber "pay
+   attention" treatment as .loading-banner (reused literally, not a named
+   token, to match that established convention) -- distinct from a normal
+   completed reply so the analyst can tell at a glance which bubble is
+   actually asking something. */
+.chat-msg-question { background: #fff3cd; color: #664d03; }
+.chat-msg-question .chat-role { color: inherit; }
+/* .copy-btn's own color: var(--muted) is only verified against
+   --user-bg/--assistant-bg -- inherit the bubble's own amber text color
+   here instead of assuming muted-on-amber also clears AA contrast. */
+.chat-msg-question .copy-btn { color: inherit; }
+@media (prefers-color-scheme: dark) { .chat-msg-question { background: #3a2f0b; color: #ffe69c; } }
+
+.chat-role { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
+.chat-text { font-size: 0.92rem; overflow-wrap: anywhere; word-break: break-word; }
+/* Only the plain (non-markdown-rendered) user-message variant needs
+   manual newline preservation -- the assistant's rendered HTML already
+   gets its line breaks from markdown's nl2br/paragraph output. */
+.chat-text-plain { white-space: pre-wrap; }
+.chat-text p { margin: 0 0 0.6em; }
+.chat-text p:last-child { margin-bottom: 0; }
+.chat-text ul, .chat-text ol { margin: 0.3em 0 0.6em 1.3em; }
+.chat-text li { margin-bottom: 0.2em; }
+.chat-text code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.88em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0.05em 0.3em; }
+.chat-text pre { background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 6px; padding: 0.6rem 0.75rem; overflow-x: auto; }
+.chat-text pre code { background: none; padding: 0; }
+.chat-text a { color: var(--accent); }
 .chat-usage { margin-top: 0.35rem; font-size: 0.7rem; color: var(--muted); }
 .chat-error { background: var(--danger-bg); color: var(--danger-text); border-radius: 6px; padding: 0.5rem 0.8rem; font-size: 0.9rem; }
+
+/* Shown after the last message when it's a genuinely finished reply (not
+   a pending question) -- this app has no token-by-token streaming, so a
+   reply's mere presence already implies completion, but an explicit
+   restatement removes any ambiguity when a reply happens to end abruptly
+   or the page was reloaded mid-conversation. */
+.chat-done { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: #664d03; background: #fff3cd; border: 1px solid #ffe69c; border-radius: 999px; padding: 0.2rem 0.65rem; }
+@media (prefers-color-scheme: dark) { .chat-done { color: #ffe69c; background: #3a2f0b; border-color: #5c4a12; } }
 
 #chat-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 #chat-message-input { width: 100%; font-family: inherit; font-size: 0.92rem; resize: none; max-height: 220px; overflow-y: auto; box-sizing: border-box; }
