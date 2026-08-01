@@ -132,12 +132,29 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 /* One tier above the output-type tabs inside each canvas -- only rendered
    for a multi-CVE produce call (produced.html), so the analyst switches
    between CVEs instead of scrolling past every other one stacked on the
-   page. Reuses .tab-strip/.tab-btn's base look (including the shared
-   .active underline rule) but bumped up in size/weight so the two tiers
-   read as a clear hierarchy rather than one flat row of tabs. */
+   page. A plain underlined tab row here read as easy to miss sitting
+   right above the bold, uppercase pane-heading banner below it -- a
+   filled pill/segmented-control treatment on its own tinted shelf gives
+   it more visual weight than the banner, instead of less. */
 .cve-tabs { margin-bottom: 0.5rem; }
-.cve-tab-strip { border-bottom-width: 2px; margin-bottom: 1.25rem; }
-.cve-tab-btn { font-size: 0.95rem; font-weight: 600; padding: 0.65rem 1rem; }
+.cve-tab-strip {
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+}
+.cve-tab-btn {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.6rem 1.1rem;
+  border-radius: 6px;
+  border-bottom-color: transparent;
+}
+.cve-tab-btn:hover:not(.active):not(:disabled) { background: color-mix(in srgb, currentColor 8%, transparent); }
+.cve-tab-btn.active { background: var(--accent); color: #fff; border-bottom-color: transparent; }
 .cve-tab-panel { display: none; }
 .cve-tab-panel.active { display: block; }
 
