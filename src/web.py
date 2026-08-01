@@ -148,7 +148,7 @@ def produce_route(
     target_cves = [by_id[cid] for cid in cve_ids if cid in by_id]
 
     if not target_cves or not output_nums:
-        return templates.TemplateResponse(request, "produced.html", {"produced": [], "skipped": True})
+        return templates.TemplateResponse(request, "produced.html", {"canvases": [], "skipped": True})
 
     assembler = ContextAssembler()
     for c in target_cves:
@@ -161,23 +161,38 @@ def produce_route(
 
     caller = AICaller()
     menu = _output_menu()
-    produced = []
+    # One Workspace Canvas per CVE, one tab per output type in menu order —
+    # a type not in this call's output_nums still gets a tab (dimmed
+    # placeholder) so the analyst sees everything available to produce,
+    # not just what was just generated.
+    canvases = []
     for cve_data in target_cves:
-        for output_num in output_nums:
-            log.info(f"[web] Producing output {output_num} for {cve_data['cve_id']}")
-            result = caller.produce(output_num, cve_data)
-            filepath = router.save(output_num, cve_data, result)
-            subdir = menu.get(output_num, {}).get("output_dir", "")
-            produced.append({
-                "cve_id": cve_data.get("cve_id", ""),
-                "output_type": result.get("output_type", f"output_{output_num}"),
+        tabs = []
+        for num, entry in sorted(menu.items()):
+            if num not in output_nums:
+                tabs.append({"num": num, "label": entry["label"], "produced": False})
+                continue
+            log.info(f"[web] Producing output {num} for {cve_data['cve_id']}")
+            result = caller.produce(num, cve_data)
+            filepath = router.save(num, cve_data, result)
+            subdir = entry.get("output_dir", "")
+            tabs.append({
+                "num": num,
+                "label": entry["label"],
+                "produced": True,
                 "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
                 "error": result.get("error") if result.get("review_needed") else None,
+                "content": result.get("content", ""),
                 "file": filepath.name,
-                "github_url": _github_url(subdir, filepath.name),
+                "file_url": _github_url(subdir, filepath.name) or f"/outputs/{subdir}/{filepath.name}",
             })
+        # Default to the first actually-produced tab, not always index 0 —
+        # a request for e.g. only output type 3 shouldn't land the analyst
+        # on an empty placeholder tab by default.
+        active_index = next((i for i, t in enumerate(tabs) if t["produced"]), 0)
+        canvases.append({"cve_id": cve_data.get("cve_id", ""), "tabs": tabs, "active_index": active_index})
 
-    return templates.TemplateResponse(request, "produced.html", {"produced": produced, "skipped": False})
+    return templates.TemplateResponse(request, "produced.html", {"canvases": canvases, "skipped": False})
 
 
 @app.get("/outputs", response_class=HTMLResponse)

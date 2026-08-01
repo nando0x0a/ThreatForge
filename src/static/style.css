@@ -1,7 +1,11 @@
 :root {
   color-scheme: light dark;
   --border: #d9d9d9;
-  --muted: #767676;
+  /* #767676 measured below WCAG AA's 4.5:1 at the small font sizes --muted
+     is used at (tab labels, position counter) -- #636363 clears it. See
+     ../references/web-design-system.md §1, same fix already applied in
+     soc-skill-cloud. */
+  --muted: #636363;
   --ok: #1a7f37;
   --warn: #b35900;
   --accent: #2563eb;
@@ -100,3 +104,50 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
   flex-shrink: 0;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Workspace Canvas — one tab strip per produced CVE (produced.html).
+   Ported from soc-skill-cloud's canvas pattern, see
+   ../references/web-design-system.md §6. */
+.canvas-card { margin-bottom: 1.25rem; }
+.canvas-tabs { display: flex; flex-direction: column; }
+.canvas-empty { color: var(--muted); font-size: 0.9rem; padding: 0.5rem 0; }
+
+.tab-strip { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 0.9rem; }
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  box-sizing: border-box;
+  font-size: 0.78rem;
+  padding: 0.55rem 0.85rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.1s, border-color 0.1s;
+}
+.tab-btn:hover:not(.active):not(:disabled) { color: inherit; }
+.tab-btn.active { color: inherit; font-weight: 700; border-bottom-color: var(--accent); }
+.tab-btn:not(.tab-btn-row-start) { border-left: 1px solid var(--border); }
+.tab-btn:disabled { cursor: default; opacity: 0.55; }
+.tab-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; }
+.tab-dot-filled { background: var(--muted); }
+.tab-dot-empty { border: 1px solid var(--muted); }
+.tab-btn-empty { color: var(--muted); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.tab-detail { font-size: 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; background: color-mix(in srgb, currentColor 4%, transparent); border-radius: 6px; padding: 0.75rem 0.9rem; margin-top: 0.5rem; }
+
+.tab-nav { display: flex; justify-content: center; align-items: center; gap: 0.75rem; margin-top: 0.75rem; }
+.tab-nav-btn { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 4px; border: none; background: transparent; color: var(--muted); cursor: pointer; }
+.tab-nav-btn:hover { color: inherit; background: color-mix(in srgb, currentColor 8%, transparent); }
+.tab-position { font-size: 0.72rem; color: var(--muted); }
+
+.copy-btn { display: inline-flex; align-items: center; font-size: 0.7rem; padding: 0.15rem 0.55rem; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
+.copy-btn:hover { color: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-btn { transition: none; }
+}

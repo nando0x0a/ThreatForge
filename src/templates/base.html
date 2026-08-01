@@ -48,6 +48,86 @@
     document.addEventListener('htmx:afterRequest', function () {
       document.getElementById('loading-banner').hidden = true;
     });
+
+    // Workspace Canvas tab strips (produced.html, swapped into #produce-result
+    // by /produce) — ported from soc-skill-cloud's canvas pattern. Event
+    // delegation on document rather than binding per-element, since this
+    // markup only exists after an htmx swap.
+    function setActiveTab(container, index) {
+      var btns = container.querySelectorAll('.tab-btn');
+      var panels = container.querySelectorAll('.tab-panel');
+      var clamped = Math.max(0, Math.min(index, btns.length - 1));
+      btns.forEach(function (b, i) { b.classList.toggle('active', i === clamped); });
+      panels.forEach(function (p, i) { p.classList.toggle('active', i === clamped); });
+      container.dataset.tabIndex = clamped;
+      var pos = container.querySelector('.tab-position');
+      if (pos) pos.textContent = (clamped + 1) + ' / ' + btns.length;
+    }
+
+    document.addEventListener('click', function (evt) {
+      var tabsEl = evt.target.closest('.canvas-tabs');
+      if (!tabsEl) return;
+      var tabBtn = evt.target.closest('.tab-btn');
+      if (tabBtn) { setActiveTab(tabsEl, parseInt(tabBtn.dataset.tab, 10)); return; }
+      if (evt.target.closest('.tab-prev')) setActiveTab(tabsEl, parseInt(tabsEl.dataset.tabIndex, 10) - 1);
+      else if (evt.target.closest('.tab-next')) setActiveTab(tabsEl, parseInt(tabsEl.dataset.tabIndex, 10) + 1);
+    });
+
+    // Left/Right arrow keys move between tabs -- only when a tab button
+    // itself already has keyboard focus (standard ARIA tabs pattern), so
+    // this never hijacks arrow keys used elsewhere on the page.
+    document.addEventListener('keydown', function (evt) {
+      if (evt.key !== 'ArrowLeft' && evt.key !== 'ArrowRight') return;
+      var active = document.activeElement;
+      var tabBtn = active && active.closest && active.closest('.tab-btn');
+      if (!tabBtn) return;
+      var tabsEl = tabBtn.closest('.canvas-tabs');
+      if (!tabsEl) return;
+      evt.preventDefault();
+      var delta = evt.key === 'ArrowLeft' ? -1 : 1;
+      var newIndex = parseInt(tabsEl.dataset.tabIndex, 10) + delta;
+      setActiveTab(tabsEl, newIndex);
+      var btns = tabsEl.querySelectorAll('.tab-btn');
+      var clamped = Math.max(0, Math.min(newIndex, btns.length - 1));
+      btns[clamped].focus();
+    });
+
+    // Marks each tab button that's first-on-its-row so CSS can put a divider
+    // between same-row tabs without one leaking onto the start of a wrapped
+    // row -- flex-wrap has no CSS-only way to select "first item on a
+    // wrapped line", so this is measured in JS. Handles every canvas on the
+    // page (one per produced CVE), re-run after each /produce swap and on
+    // resize since wrapping depends on width.
+    function updateTabDividers() {
+      document.querySelectorAll('.canvas-tabs').forEach(function (tabsEl) {
+        var lastTop = null;
+        tabsEl.querySelectorAll('.tab-btn').forEach(function (btn) {
+          var top = btn.offsetTop;
+          btn.classList.toggle('tab-btn-row-start', top !== lastTop);
+          lastTop = top;
+        });
+      });
+    }
+    updateTabDividers();
+    var tabDividerResizeTimer;
+    window.addEventListener('resize', function () {
+      clearTimeout(tabDividerResizeTimer);
+      tabDividerResizeTimer = setTimeout(updateTabDividers, 150);
+    });
+    document.addEventListener('htmx:afterSwap', function (evt) {
+      if (evt.target && evt.target.id === 'produce-result') updateTabDividers();
+    });
+
+    function copyTabContent(btn) {
+      var panel = btn.closest('.tab-panel');
+      var textEl = panel && panel.querySelector('.tab-detail');
+      var text = textEl ? textEl.innerText : '';
+      navigator.clipboard.writeText(text).then(function () {
+        var original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      });
+    }
   </script>
 </body>
 </html>

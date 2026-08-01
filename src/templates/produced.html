@@ -1,21 +1,45 @@
 {% if skipped %}
 <p class="muted">Nothing selected — pick at least one CVE and one output type.</p>
 {% else %}
-<table>
-  <thead><tr><th>CVE</th><th>Output</th><th>Status</th><th>File</th></tr></thead>
-  <tbody>
-    {% for p in produced %}
-    <tr>
-      <td>{{ p.cve_id }}</td>
-      <td>{{ p.output_type }}</td>
-      <td class="{{ 'ok' if p.status == 'OK' else 'warn' }}">
-        {{ p.status }}
-        {% if p.error %}<div class="error-detail">{{ p.error }}</div>{% endif %}
-      </td>
-      <td><a href="{{ p.github_url or '/outputs' }}" target="_blank" rel="noopener">{{ p.file }}</a></td>
-    </tr>
+{% for canvas in canvases %}
+<div class="card canvas-card">
+  <div class="card-header-row">
+    <h2>{{ canvas.cve_id }} — Workspace Canvas</h2>
+  </div>
+  <div class="canvas-tabs" data-tab-index="{{ canvas.active_index }}">
+    <div class="tab-strip">
+      {% for tab in canvas.tabs %}
+      <button type="button" class="tab-btn{% if loop.index0 == canvas.active_index %} active{% endif %}{% if not tab.produced %} tab-btn-empty{% endif %}" data-tab="{{ loop.index0 }}" {% if not tab.produced %}disabled title="Not yet produced"{% endif %}>
+        <span class="tab-dot{% if tab.produced %} tab-dot-filled{% else %} tab-dot-empty{% endif %}" aria-hidden="true"></span>{{ tab.label }}
+      </button>
+      {% endfor %}
+    </div>
+    {% for tab in canvas.tabs %}
+    <div class="tab-panel{% if loop.index0 == canvas.active_index %} active{% endif %}" data-tab="{{ loop.index0 }}">
+      {% if tab.produced %}
+      <div class="card-header-row">
+        <span class="{{ 'ok' if tab.status == 'OK' else 'warn' }}">
+          {{ tab.status }}
+          {% if tab.error %}<div class="error-detail">{{ tab.error }}</div>{% endif %}
+        </span>
+        <div>
+          <button type="button" class="copy-btn" onclick="copyTabContent(this)">Copy</button>
+          <a href="{{ tab.file_url }}" target="_blank" rel="noopener">{{ tab.file }}</a>
+        </div>
+      </div>
+      <pre class="tab-detail">{{ tab.content }}</pre>
+      {% else %}
+      <p class="canvas-empty muted">Not yet produced — select "{{ tab.label }}" and Produce to generate.</p>
+      {% endif %}
+    </div>
     {% endfor %}
-  </tbody>
-</table>
+    <div class="tab-nav">
+      <button type="button" class="tab-nav-btn tab-prev" aria-label="Previous output">‹ Back</button>
+      <span class="tab-position">{{ canvas.active_index + 1 }} / {{ canvas.tabs|length }}</span>
+      <button type="button" class="tab-nav-btn tab-next" aria-label="Next output">Next ›</button>
+    </div>
+  </div>
+</div>
+{% endfor %}
 <p><a href="/outputs">View all in Outputs →</a></p>
 {% endif %}
