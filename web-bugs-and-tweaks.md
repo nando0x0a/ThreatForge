@@ -46,6 +46,22 @@ today it's only checked once per web-UI run, not continuously.
 22. **Tagline: "Vulnerability Intelligence Assistant" → "AI Vulnerability
     Intelligence Assistant"** — the header tagline (`base.html`, next to
     the "Vuln-Skill" h1).
+23. **Rename "Code" → "Raw" in the Preview/Raw toggle; Preview always
+    renders** — "Raw" always shows the untouched raw content (current
+    "Code" behavior, unchanged). "Preview" should show rendered/formatted
+    content for every output type, not just markdown -- currently
+    non-markdown types (Suricata rules, IoC lists, hunting queries, patch
+    YAML) only get entity highlighting in Preview via
+    `_render_plain_preview`, not real rendering. Scope what "rendered"
+    means for each non-md format before implementing.
+24. **Workspace Canvas: Outputs tab only, not Pipeline tab** — after a
+    web-form "Produce selected" on the Pipeline page, the Workspace Canvas
+    result currently renders inline there (`#produce-result` in
+    `_pipeline_results.html`). Should only ever show on the Outputs page —
+    Pipeline should just confirm the produce happened and point to
+    Outputs, matching how a chat-driven produce already behaves ("Produced:
+    ... See the Advisory tab" pointing at Outputs, not showing the canvas
+    in the chat pane's own page).
 
 ## Done
 
