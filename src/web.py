@@ -155,7 +155,14 @@ def _pipeline_results_context() -> dict:
 def index(request: Request):
     return templates.TemplateResponse(request, "index.html", {
         **_pipeline_results_context(),
-        "chat_messages": _chat_display_messages(),
+        # "messages", not "chat_messages" -- _messages.html (included by
+        # index.html) reads a variable literally named "messages", matching
+        # what _chat_swap.html already passes it after a /chat POST. Named
+        # differently here for a long time without being caught, since
+        # Jinja's default Undefined just silently renders as "no messages"
+        # rather than erroring -- every interactive test went through the
+        # /chat response path (correct key), never a plain page reload.
+        "messages": _chat_display_messages(),
         "chat_totals": _chat_state["totals"],
         "chat_pending_tool": _chat_state["pending_tool"],
         "chat_available": CHAT_SYSTEM_PROMPT is not None,
