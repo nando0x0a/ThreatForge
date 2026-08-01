@@ -281,7 +281,7 @@ def _execute_produce(cve_ids: list[str], output_nums: list[int]) -> list[dict]:
                 "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
                 "error": result.get("error") if result.get("review_needed") else None,
                 "content": content,
-                "content_html": _render_safe_markdown(content) if is_markdown else None,
+                "content_html": _render_safe_markdown(content) if is_markdown else _render_plain_preview(content),
                 "is_markdown": is_markdown,
                 "file": filepath.name,
                 "file_url": _github_url(subdir, filepath.name) or f"/outputs/{subdir}/{filepath.name}",
@@ -363,10 +363,11 @@ def outputs_route(request: Request):
             found = produced_by_num.get(num)
             if found:
                 is_markdown = entry.get("extension") == ".md"
+                content = found["content"]
                 tabs.append({
                     "num": num, "label": entry["label"], "icon": icon, "produced": True,
-                    "status": "OK", "error": None, "content": found["content"],
-                    "content_html": _render_safe_markdown(found["content"]) if is_markdown else None,
+                    "status": "OK", "error": None, "content": content,
+                    "content_html": _render_safe_markdown(content) if is_markdown else _render_plain_preview(content),
                     "is_markdown": is_markdown,
                     "file": found["name"],
                     "file_url": found["github_url"] or f"/outputs/{entry['output_dir']}/{found['name']}",
@@ -1037,6 +1038,19 @@ def _render_safe_markdown(text: str) -> str:
     escaped = html.escape(text)
     highlighted = _highlight_entities(escaped)
     return markdown.markdown(highlighted, extensions=["extra", "nl2br"])
+
+
+def _render_plain_preview(text: str) -> str:
+    """Preview for non-markdown output types (Suricata rules, IoC lists,
+    hunting queries, patch YAML) -- these still get a Preview/Code toggle
+    for UI consistency, but full markdown rendering would reflow YAML/
+    rule syntax into paragraphs and mangle indentation that actually
+    matters. Preview here instead keeps the exact raw layout (rendered in
+    a <pre>, same as Code) and only adds inline entity highlighting
+    (CVE IDs, KEV status, IPs, hashes/IoCs, domains) -- same
+    _highlight_entities pass _render_safe_markdown uses, without the
+    markdown-to-HTML step that would restructure the text."""
+    return _highlight_entities(html.escape(text))
 
 
 def _chat_display_messages(messages: list[dict] | None = None, usage: list[dict | None] | None = None, pending_tool: dict | None = None) -> list[dict]:

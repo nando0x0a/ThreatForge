@@ -31,16 +31,16 @@
           <a href="{{ tab.file_url }}" target="_blank" rel="noopener">{{ tab.file }}</a>
         </div>
       </div>
-      {% if tab.is_markdown %}
       <div class="content-toggle">
         <button type="button" class="content-toggle-btn active" data-view="preview" onclick="setContentView(this, 'preview')">Preview</button>
         <button type="button" class="content-toggle-btn" data-view="code" onclick="setContentView(this, 'code')">Code</button>
       </div>
+      {% if tab.is_markdown %}
       <div class="content-view content-view-preview chat-text active">{{ tab.content_html | safe }}</div>
-      <pre class="tab-detail content-view content-view-code">{{ tab.content }}</pre>
       {% else %}
-      <pre class="tab-detail">{{ tab.content }}</pre>
+      <pre class="tab-detail content-view content-view-preview active">{{ tab.content_html | safe }}</pre>
       {% endif %}
+      <pre class="tab-detail content-view content-view-code">{{ tab.content }}</pre>
       {% else %}
       <p class="canvas-empty muted">Not yet produced — select "{{ tab.label }}" and Produce to generate.</p>
       {% endif %}
