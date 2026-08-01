@@ -43,6 +43,9 @@ today it's only checked once per web-UI run, not continuously.
     Assistant" line in the About dialog's warning) to "Chatbox" — the
     whole app is the assistant; the chat pane is just one interface into
     it, not the assistant itself.
+22. **Tagline: "Vulnerability Intelligence Assistant" → "AI Vulnerability
+    Intelligence Assistant"** — the header tagline (`base.html`, next to
+    the "Vuln-Skill" h1).
 
 ## Done
 
