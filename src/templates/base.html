@@ -205,6 +205,10 @@
     });
 
     function copyTabContent(btn) {
+      // Always copies the raw/Code text (.tab-detail stays on that element
+      // regardless of which view is currently toggled visible) -- copying
+      // the document verbatim is the useful behavior here, not whatever
+      // happens to be on screen.
       var panel = btn.closest('.tab-panel');
       var textEl = panel && panel.querySelector('.tab-detail');
       var text = textEl ? textEl.innerText : '';
@@ -212,6 +216,21 @@
         var original = btn.textContent;
         btn.textContent = 'Copied';
         setTimeout(function () { btn.textContent = original; }, 1500);
+      });
+    }
+
+    // GitHub-style Preview/Code toggle for markdown output tabs (advisory,
+    // technical findings). Scoped to the closest .tab-panel so multiple
+    // canvases/tabs on one page (a multi-CVE produce, or the Outputs page)
+    // don't interfere with each other.
+    function setContentView(btn, mode) {
+      var panel = btn.closest('.tab-panel');
+      if (!panel) return;
+      panel.querySelectorAll('.content-toggle-btn').forEach(function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+      panel.querySelectorAll('.content-view').forEach(function (v) {
+        v.classList.toggle('active', v.classList.contains('content-view-' + mode));
       });
     }
   </script>

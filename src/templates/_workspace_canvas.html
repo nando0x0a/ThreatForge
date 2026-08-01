@@ -18,16 +18,29 @@
     <div class="tab-panel{% if loop.index0 == canvas.active_index %} active{% endif %}" data-tab="{{ loop.index0 }}">
       {% if tab.produced %}
       <div class="card-header-row">
-        <span class="{{ 'ok' if tab.status == 'OK' else 'warn' }}">
+        {% if tab.status != 'OK' %}
+        <span class="warn">
           {{ tab.status }}
           {% if tab.error %}<div class="error-detail">{{ tab.error }}</div>{% endif %}
         </span>
+        {% else %}
+        <span></span>
+        {% endif %}
         <div>
           <button type="button" class="copy-btn" onclick="copyTabContent(this)">Copy</button>
           <a href="{{ tab.file_url }}" target="_blank" rel="noopener">{{ tab.file }}</a>
         </div>
       </div>
+      {% if tab.is_markdown %}
+      <div class="content-toggle">
+        <button type="button" class="content-toggle-btn active" data-view="preview" onclick="setContentView(this, 'preview')">Preview</button>
+        <button type="button" class="content-toggle-btn" data-view="code" onclick="setContentView(this, 'code')">Code</button>
+      </div>
+      <div class="content-view content-view-preview chat-text active">{{ tab.content_html | safe }}</div>
+      <pre class="tab-detail content-view content-view-code">{{ tab.content }}</pre>
+      {% else %}
       <pre class="tab-detail">{{ tab.content }}</pre>
+      {% endif %}
       {% else %}
       <p class="canvas-empty muted">Not yet produced — select "{{ tab.label }}" and Produce to generate.</p>
       {% endif %}

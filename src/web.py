@@ -271,6 +271,8 @@ def _execute_produce(cve_ids: list[str], output_nums: list[int]) -> list[dict]:
             result = caller.produce(num, cve_data)
             filepath = router.save(num, cve_data, result)
             subdir = entry.get("output_dir", "")
+            content = result.get("content", "")
+            is_markdown = entry.get("extension") == ".md"
             tabs.append({
                 "num": num,
                 "label": entry["label"],
@@ -278,7 +280,9 @@ def _execute_produce(cve_ids: list[str], output_nums: list[int]) -> list[dict]:
                 "produced": True,
                 "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
                 "error": result.get("error") if result.get("review_needed") else None,
-                "content": result.get("content", ""),
+                "content": content,
+                "content_html": _render_safe_markdown(content) if is_markdown else None,
+                "is_markdown": is_markdown,
                 "file": filepath.name,
                 "file_url": _github_url(subdir, filepath.name) or f"/outputs/{subdir}/{filepath.name}",
             })
@@ -358,9 +362,13 @@ def outputs_route(request: Request):
             icon = _OUTPUT_ICONS.get(num, "")
             found = produced_by_num.get(num)
             if found:
+                is_markdown = entry.get("extension") == ".md"
                 tabs.append({
                     "num": num, "label": entry["label"], "icon": icon, "produced": True,
-                    "status": "OK", "error": None, "content": found["content"], "file": found["name"],
+                    "status": "OK", "error": None, "content": found["content"],
+                    "content_html": _render_safe_markdown(found["content"]) if is_markdown else None,
+                    "is_markdown": is_markdown,
+                    "file": found["name"],
                     "file_url": found["github_url"] or f"/outputs/{entry['output_dir']}/{found['name']}",
                 })
             else:
@@ -369,11 +377,9 @@ def outputs_route(request: Request):
         canvases_ranked.append((cve_mtime[cve_id], {"cve_id": cve_id, "tabs": tabs, "active_index": active_index}))
     canvases = [c for _, c in sorted(canvases_ranked, key=lambda x: x[0], reverse=True)]
 
-    github_configured = bool(github_publisher.GITHUB_REPO)
     return templates.TemplateResponse(request, "outputs.html", {
         "canvases": canvases,
         "unmatched": unmatched,
-        "github_configured": github_configured,
         "github_repo": github_publisher.GITHUB_REPO,
         **_chat_context(),
     })

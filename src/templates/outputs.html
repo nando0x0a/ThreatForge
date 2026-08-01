@@ -10,9 +10,6 @@
     {% if github_repo %}
     <p class="muted">Also mirrored to <code>{{ github_repo }}</code> on GitHub — links below open this site's own copy.</p>
     {% endif %}
-    {% if not github_configured %}
-      <p class="muted">⚠ GitHub publishing isn't configured — content below is served from this app directly.</p>
-    {% endif %}
     {% if not canvases and not unmatched %}
       <p class="muted">Nothing produced yet.</p>
     {% endif %}
