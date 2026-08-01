@@ -55,6 +55,14 @@ services:
       # NOT :ro, unlike the threatforge service above — the web UI's config
       # editors (products.txt, pipeline/scoring settings) write here.
       - /opt/docker/threatforge/config:/opt/threatforge/config
+      # Chat assistant (plan steps 3-4): the system prompt intentionally
+      # lives in the separate threatforge-cloud repo, not this one -- see
+      # that file's own header note and Cloud/index.md for why. Mounted
+      # read-only since this container never writes to it. Only needed by
+      # threatforge-web (which imports web.py); the threatforge service
+      # runs the CLI/cron entrypoint and never touches this code path.
+      - /home/ubuntu/threatforge-cloud-prompt-repo/prompt:/opt/threatforge-cloud-prompt:ro
+      - /opt/docker/threatforge/chat_data:/opt/threatforge/chat_data
 
     environment:
       - PYTHONUNBUFFERED=1

@@ -1,0 +1,10 @@
+{% if not messages %}
+<p class="canvas-empty muted">Ask the assistant to run the pipeline, look up a CVE, or produce an output.</p>
+{% endif %}
+{% for m in messages %}
+<div class="chat-msg chat-msg-{{ m.role }}">
+  <div class="chat-role">{{ 'You' if m.role == 'user' else 'Assistant' }}</div>
+  <div class="chat-text">{{ m.text }}</div>
+  {% if m.usage %}<div class="chat-usage">{{ m.usage.input }} in / {{ m.usage.output }} out — ${{ "%.4f"|format(m.usage.cost) }}</div>{% endif %}
+</div>
+{% endfor %}

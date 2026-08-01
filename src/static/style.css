@@ -10,9 +10,26 @@
   --warn: #b35900;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
+  /* Chat bubble backgrounds -- same values as soc-skill-cloud's, only
+     needed now that the Assistant chat pane exists (web-design-system.md
+     §1). */
+  --user-bg: #e7f0ff;
+  --assistant-bg: #f4f4f4;
+  --danger-bg: #fde2e1;
+  --danger-text: #7a1e1a;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --border: #3a3a3a; --muted: #9a9a9a; --accent: #3b82f6; --accent-hover: #60a5fa; }
+  /* --accent/--accent-hover are NOT overridden here (see
+     web-design-system.md §1): the lighter #3b82f6 this block used to set
+     measures only ~3.68:1 white-on-accent (fails WCAG AA's 4.5:1) on the
+     Send button being added now -- the unchanged #2563eb/#1d4ed8 already
+     clear ~5.17:1 in both themes. Fixed now rather than building a new
+     button on a known-bad color. */
+  :root {
+    --border: #3a3a3a; --muted: #9a9a9a;
+    --user-bg: #1c2b42; --assistant-bg: #262626;
+    --danger-bg: #4a1e1c; --danger-text: #ffb4ae;
+  }
 }
 
 body {
@@ -205,3 +222,71 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 @media (prefers-reduced-motion: reduce) {
   .tab-btn { transition: none; }
 }
+
+/* --- Chat assistant two-pane layout (index.html only -- other pages keep
+   the narrower single-column body width) --- */
+body:has(main.app-shell) { max-width: 1600px; }
+main.app-shell { display: flex; gap: 1.5rem; align-items: flex-start; }
+.canvas-pane { flex: 1; min-width: 0; }
+.chat-pane {
+  width: 420px;
+  min-width: 320px;
+  max-width: 480px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  padding-left: 1.5rem;
+  /* Pinned alongside the (potentially much longer) dashboard content in
+     .canvas-pane, internally scrollable rather than growing with the page. */
+  position: sticky;
+  top: 5.5rem;
+  max-height: calc(100vh - 6.5rem);
+}
+.chat-pane .pane-heading { margin-bottom: 0.75rem; }
+
+@media (max-width: 900px) {
+  main.app-shell { flex-direction: column; gap: 1rem; }
+  .chat-pane {
+    position: static;
+    max-height: none;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: 1rem;
+  }
+  #chat-history { max-height: 50vh; }
+}
+
+#chat-history { flex: 1; min-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.9rem; padding: 0.5rem 0; }
+
+.chat-msg { width: 100%; box-sizing: border-box; border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+.chat-msg-user { background: var(--user-bg); }
+.chat-msg-assistant { background: var(--assistant-bg); }
+.chat-msg-pending { opacity: 0.6; }
+.chat-role { font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
+.chat-text { font-size: 0.92rem; overflow-wrap: anywhere; word-break: break-word; white-space: pre-wrap; }
+.chat-usage { margin-top: 0.35rem; font-size: 0.7rem; color: var(--muted); }
+.chat-error { background: var(--danger-bg); color: var(--danger-text); border-radius: 6px; padding: 0.5rem 0.8rem; font-size: 0.9rem; }
+
+#chat-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+#chat-message-input { width: 100%; font-family: inherit; font-size: 0.92rem; resize: none; max-height: 220px; overflow-y: auto; box-sizing: border-box; }
+.input-toolbar { display: flex; align-items: center; gap: 0.5rem; }
+.char-count { font-size: 0.72rem; color: var(--muted); }
+.input-toolbar > button[type="submit"] { margin-left: auto; min-height: 44px; min-width: 44px; border-radius: 6px; cursor: pointer; padding: 0.5rem 1.6rem; font-size: 0.95rem; font-weight: 700; border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+.input-toolbar > button[type="submit"]:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.input-toolbar > button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* display:inline-flex + font:inherit + box-sizing:border-box neutralize the
+   browser's UA differences between <button> and <a> sharing this class --
+   see web-design-system.md §4, the exact same gotcha soc-skill-cloud found
+   (a mis-measured ~4px height difference between the two tags). Only
+   .reset-btn is ever an <a> elsewhere in that app; here it's always a
+   <button>, but the same reset keeps it consistent with the shared class. */
+.reset-btn { display: inline-flex; align-items: center; font: inherit; font-size: 0.8rem; box-sizing: border-box; padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: inherit; cursor: pointer; text-decoration: none; }
+.reset-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.token-totals { font-size: 0.68rem; color: var(--muted); text-align: left; margin-top: 0.4rem; white-space: nowrap; overflow-x: auto; }

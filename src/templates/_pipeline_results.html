@@ -1,0 +1,68 @@
+{% if recent_kev_entries %}
+<section class="card kev-alert">
+  <h2>⚠ Recently added to CISA KEV</h2>
+  <p class="muted">Flagged as actively exploited within the last {{ kev_recent_days }} days — shown separately from the normal candidate list below, regardless of how the rest of scoring already treated them.</p>
+  <ul>
+    {% for c in recent_kev_entries %}
+    <li><strong>{{ c.cve_id }}</strong> — {{ c.product }} (added {{ c.kev_added_days }} day{{ 's' if c.kev_added_days != 1 else '' }} ago)</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Candidates ({{ cves|length }})</h2>
+  {% if last_run %}
+    {% if last_run.status == 'running' %}
+    <p class="muted">Running: {{ last_run.description }} (started {{ last_run.started_at }}) — candidates below will refresh once it finishes.</p>
+    {% else %}
+    <p class="muted">Last run: {{ last_run.description }} — {{ last_run.count }} candidate(s) at {{ last_run.timestamp }}</p>
+    {% endif %}
+  {% endif %}
+  {% if not cves %}
+    {% if last_run and last_run.status == 'running' %}
+    <p class="muted">Pipeline run in progress — please wait, this page will update on its own once it finishes.</p>
+    {% else %}
+    <p class="muted">No results yet — run the pipeline above, or ask the assistant.</p>
+    {% endif %}
+  {% else %}
+  <form method="post" action="/produce" hx-post="/produce" hx-target="#produce-result" hx-swap="innerHTML">
+    <table>
+      <thead>
+        <tr>
+          <th><span class="sr-only">Select</span></th>
+          <th>CVE</th>
+          <th>Product</th>
+          <th>Score</th>
+          <th>Tags</th>
+          <th>Tier</th>
+          <th>KEV Source (added)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cves %}
+        <tr>
+          <td><input type="checkbox" name="cve_ids" value="{{ c.cve_id }}" aria-label="Select {{ c.cve_id }}"></td>
+          <td>{{ c.cve_id }} {% if c.recent_kev_entry %}<span class="kev-badge" title="Added to CISA KEV within the last {{ kev_recent_days }} days">NEW KEV</span>{% endif %}</td>
+          <td>{{ c.product }}</td>
+          <td>{{ c.composite_score }}</td>
+          <td>{% for t in c.tags %}<span class="tag">{{ t }}</span>{% endfor %}</td>
+          <td>{{ c.tier_label }}</td>
+          <td>{{ c.kev_source_display }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <fieldset>
+      <legend>Outputs to produce</legend>
+      {% for num, entry in output_menu.items() %}
+      <label><input type="checkbox" name="output_nums" value="{{ num }}"> {{ entry.label }}</label>
+      {% endfor %}
+    </fieldset>
+
+    <button type="submit" class="primary-btn">Produce selected</button>
+  </form>
+  <div id="produce-result">{% include "produced.html" %}</div>
+  {% endif %}
+</section>
