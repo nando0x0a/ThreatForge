@@ -1,0 +1,66 @@
+{# Shared by produced.html (freshly-generated results) and outputs.html
+   (already-produced files read back from disk) -- one canvas/tab
+   rendering path for both, so they can't visually drift apart. Expects
+   a `canvases` list in context: [{"cve_id", "tabs": [...], "active_index"}]. #}
+{% macro render_canvas(canvas) %}
+<div class="canvas-block">
+  <h2 class="pane-heading">{{ canvas.cve_id }} — Workspace Canvas</h2>
+  <div class="card canvas-card">
+  <div class="canvas-tabs" data-tab-index="{{ canvas.active_index }}">
+    <div class="tab-strip">
+      {% for tab in canvas.tabs %}
+      <button type="button" class="tab-btn{% if loop.index0 == canvas.active_index %} active{% endif %}{% if not tab.produced %} tab-btn-empty{% endif %}" data-tab="{{ loop.index0 }}" {% if not tab.produced %}disabled title="Not yet produced"{% endif %}>
+        <span class="tab-dot{% if tab.produced %} tab-dot-filled{% else %} tab-dot-empty{% endif %}" aria-hidden="true"></span>{{ tab.icon }} {{ tab.label }}
+      </button>
+      {% endfor %}
+    </div>
+    {% for tab in canvas.tabs %}
+    <div class="tab-panel{% if loop.index0 == canvas.active_index %} active{% endif %}" data-tab="{{ loop.index0 }}">
+      {% if tab.produced %}
+      <div class="card-header-row">
+        <span class="{{ 'ok' if tab.status == 'OK' else 'warn' }}">
+          {{ tab.status }}
+          {% if tab.error %}<div class="error-detail">{{ tab.error }}</div>{% endif %}
+        </span>
+        <div>
+          <button type="button" class="copy-btn" onclick="copyTabContent(this)">Copy</button>
+          <a href="{{ tab.file_url }}" target="_blank" rel="noopener">{{ tab.file }}</a>
+        </div>
+      </div>
+      <pre class="tab-detail">{{ tab.content }}</pre>
+      {% else %}
+      <p class="canvas-empty muted">Not yet produced — select "{{ tab.label }}" and Produce to generate.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <div class="tab-nav">
+      <button type="button" class="tab-nav-btn tab-prev" aria-label="Previous output">‹ Back</button>
+      <span class="tab-position">{{ canvas.active_index + 1 }} / {{ canvas.tabs|length }}</span>
+      <button type="button" class="tab-nav-btn tab-next" aria-label="Next output">Next ›</button>
+    </div>
+  </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% if canvases|length > 1 %}
+<!-- One tier up from the output-type tabs inside each canvas -- lets the
+     analyst switch between CVEs without scrolling past every other one
+     stacked on the page. Only rendered when there's more than one. -->
+<div class="cve-tabs" data-cve-tab-index="0">
+  <div class="tab-strip cve-tab-strip">
+    {% for canvas in canvases %}
+    <button type="button" class="tab-btn cve-tab-btn{% if loop.first %} active{% endif %}" data-cve-tab="{{ loop.index0 }}">{{ canvas.cve_id }}</button>
+    {% endfor %}
+  </div>
+  {% for canvas in canvases %}
+  <div class="cve-tab-panel{% if loop.first %} active{% endif %}" data-cve-tab="{{ loop.index0 }}">
+    {{ render_canvas(canvas) }}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+{% for canvas in canvases %}
+{{ render_canvas(canvas) }}
+{% endfor %}
+{% endif %}

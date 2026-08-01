@@ -306,21 +306,73 @@ def produce_route(
     return templates.TemplateResponse(request, "produced.html", {"canvases": canvases, "skipped": not canvases})
 
 
+def _parse_output_filename(filename: str, menu: dict) -> tuple[str, int] | None:
+    """Reverses the naming convention _execute_produce/_tool_already_produced
+    use to write files ({cve_key}_{entry.key}{entry.extension}) so /outputs
+    can group already-produced files back into the same CVE/output-type
+    Workspace Canvas layout produce.html renders fresh -- instead of a flat
+    filename list the analyst has to click out of the app to read. Returns
+    None for a file that doesn't match any known output type (e.g. something
+    dropped into outputs/ by hand), which the caller falls back to listing
+    plainly."""
+    for num, entry in menu.items():
+        suffix = f"_{entry['key']}{entry['extension']}"
+        if filename.endswith(suffix):
+            cve_key = filename[: -len(suffix)]
+            if re.match(r"^CVE_\d{4}_\d+$", cve_key):
+                return cve_key.replace("_", "-"), num
+    return None
+
+
 @app.get("/outputs", response_class=HTMLResponse)
 def outputs_route(request: Request):
+    menu = _output_menu()
     base = orchestrate.OUTPUT_DIR
-    by_dir = {}
+    by_cve: dict[str, dict[int, dict]] = {}
+    cve_mtime: dict[str, float] = {}
+    unmatched: dict[str, list[dict]] = {}
     if base.exists():
         for f in sorted(base.rglob("*"), key=lambda p: p.stat().st_mtime, reverse=True):
-            if f.is_file():
-                subdir = f.parent.name
-                by_dir.setdefault(subdir, []).append({
-                    "name": f.name,
-                    "github_url": _github_url(subdir, f.name),
+            if not f.is_file():
+                continue
+            subdir = f.parent.name
+            parsed = _parse_output_filename(f.name, menu)
+            if parsed is None:
+                unmatched.setdefault(subdir, []).append({"name": f.name, "github_url": _github_url(subdir, f.name)})
+                continue
+            cve_id, num = parsed
+            by_cve.setdefault(cve_id, {})[num] = {
+                "name": f.name,
+                "github_url": _github_url(subdir, f.name),
+                # Read back so the Outputs page can render the actual
+                # content inline (the same canvas/tab layout produce.html
+                # uses), not just a link out to the raw file.
+                "content": f.read_text(errors="replace"),
+            }
+            cve_mtime[cve_id] = max(cve_mtime.get(cve_id, 0.0), f.stat().st_mtime)
+
+    canvases_ranked = []
+    for cve_id, produced_by_num in by_cve.items():
+        tabs = []
+        for num, entry in sorted(menu.items()):
+            icon = _OUTPUT_ICONS.get(num, "")
+            found = produced_by_num.get(num)
+            if found:
+                tabs.append({
+                    "num": num, "label": entry["label"], "icon": icon, "produced": True,
+                    "status": "OK", "error": None, "content": found["content"], "file": found["name"],
+                    "file_url": found["github_url"] or f"/outputs/{entry['output_dir']}/{found['name']}",
                 })
+            else:
+                tabs.append({"num": num, "label": entry["label"], "icon": icon, "produced": False})
+        active_index = next((i for i, t in enumerate(tabs) if t["produced"]), 0)
+        canvases_ranked.append((cve_mtime[cve_id], {"cve_id": cve_id, "tabs": tabs, "active_index": active_index}))
+    canvases = [c for _, c in sorted(canvases_ranked, key=lambda x: x[0], reverse=True)]
+
     github_configured = bool(github_publisher.GITHUB_REPO)
     return templates.TemplateResponse(request, "outputs.html", {
-        "by_dir": by_dir,
+        "canvases": canvases,
+        "unmatched": unmatched,
         "github_configured": github_configured,
         "github_repo": github_publisher.GITHUB_REPO,
         **_chat_context(),

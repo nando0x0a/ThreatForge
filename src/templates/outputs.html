@@ -8,22 +8,29 @@
   </div>
   <div id="outputs-content">
     {% if github_repo %}
-    <p class="muted">Links go to <code>{{ github_repo }}</code> on GitHub. Viewing them may require GitHub access, depending on that repo's visibility.</p>
+    <p class="muted">Also mirrored to <code>{{ github_repo }}</code> on GitHub — links below open this site's own copy.</p>
     {% endif %}
     {% if not github_configured %}
-      <p class="muted">⚠ GitHub publishing isn't configured — links below fall back to this site (requires the site password).</p>
+      <p class="muted">⚠ GitHub publishing isn't configured — content below is served from this app directly.</p>
     {% endif %}
-    {% if not by_dir %}
+    {% if not canvases and not unmatched %}
       <p class="muted">Nothing produced yet.</p>
     {% endif %}
-    {% for subdir, files in by_dir.items() %}
-      <h3>{{ subdir }}</h3>
+
+    {% include "_workspace_canvas.html" %}
+
+    {% if unmatched %}
+    <h3>Other files</h3>
+    <p class="muted">Doesn't match a known CVE/output-type naming pattern — shown as a plain link.</p>
+    {% for subdir, files in unmatched.items() %}
+      <h4>{{ subdir }}</h4>
       <ul class="file-list">
         {% for f in files %}
         <li><a href="{{ f.github_url or '/outputs/' ~ subdir ~ '/' ~ f.name }}" target="_blank" rel="noopener">{{ f.name }}</a></li>
         {% endfor %}
       </ul>
     {% endfor %}
+    {% endif %}
   </div>
 </section>
 {% endblock %}
