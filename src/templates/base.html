@@ -92,32 +92,6 @@
       btns[clamped].focus();
     });
 
-    // Marks each tab button that's first-on-its-row so CSS can put a divider
-    // between same-row tabs without one leaking onto the start of a wrapped
-    // row -- flex-wrap has no CSS-only way to select "first item on a
-    // wrapped line", so this is measured in JS. Handles every canvas on the
-    // page (one per produced CVE), re-run after each /produce swap and on
-    // resize since wrapping depends on width.
-    function updateTabDividers() {
-      document.querySelectorAll('.canvas-tabs').forEach(function (tabsEl) {
-        var lastTop = null;
-        tabsEl.querySelectorAll('.tab-btn').forEach(function (btn) {
-          var top = btn.offsetTop;
-          btn.classList.toggle('tab-btn-row-start', top !== lastTop);
-          lastTop = top;
-        });
-      });
-    }
-    updateTabDividers();
-    var tabDividerResizeTimer;
-    window.addEventListener('resize', function () {
-      clearTimeout(tabDividerResizeTimer);
-      tabDividerResizeTimer = setTimeout(updateTabDividers, 150);
-    });
-    document.addEventListener('htmx:afterSwap', function (evt) {
-      if (evt.target && evt.target.id === 'produce-result') updateTabDividers();
-    });
-
     function copyTabContent(btn) {
       var panel = btn.closest('.tab-panel');
       var textEl = panel && panel.querySelector('.tab-detail');

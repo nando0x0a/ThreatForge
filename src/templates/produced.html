@@ -1,8 +1,16 @@
 {% if skipped %}
 <p class="muted">Nothing selected — pick at least one CVE and one output type.</p>
 {% else %}
+{% if canvases|length > 1 %}
+<nav class="canvas-index" aria-label="Jump to CVE">
+  <span class="muted">Jump to:</span>
+  {% for canvas in canvases %}
+  <a href="#canvas-{{ canvas.cve_id }}" class="canvas-index-link">{{ canvas.cve_id }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
 {% for canvas in canvases %}
-<div class="card canvas-card">
+<div class="card canvas-card" id="canvas-{{ canvas.cve_id }}">
   <div class="card-header-row">
     <h2>{{ canvas.cve_id }} — Workspace Canvas</h2>
   </div>

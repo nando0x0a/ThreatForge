@@ -108,18 +108,33 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 /* Workspace Canvas — one tab strip per produced CVE (produced.html).
    Ported from soc-skill-cloud's canvas pattern, see
    ../references/web-design-system.md §6. */
-.canvas-card { margin-bottom: 1.25rem; }
+/* #produce-result sits directly under the "Produce selected" button with
+   no gap of its own until htmx fills it -- margin only once it actually
+   has content, so the empty state doesn't leave a permanent dead zone. */
+#produce-result:not(:empty) { margin-top: 1.25rem; }
+/* Only rendered when more than one CVE was produced in the same call
+   (produced.html) -- lets the analyst jump straight to a CVE's canvas
+   instead of scrolling past every other one stacked above it. */
+.canvas-index { margin-bottom: 1rem; font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: baseline; }
+.canvas-index-link { color: var(--accent); text-decoration: none; }
+.canvas-index-link:hover { text-decoration: underline; }
+/* Scroll target offset so the sticky header doesn't cover the canvas's
+   own heading right after an anchor jump. */
+.canvas-card { scroll-margin-top: 5.5rem; margin-bottom: 1.25rem; }
 .canvas-tabs { display: flex; flex-direction: column; }
 .canvas-empty { color: var(--muted); font-size: 0.9rem; padding: 0.5rem 0; }
 
-.tab-strip { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 0.9rem; }
+/* gap (not vertical divider borders) separates tabs -- plain divider
+   lines between short text labels read as visual clutter rather than
+   structure at this size; spacing alone is clearer. */
+.tab-strip { display: flex; flex-wrap: wrap; gap: 0.15rem 0.6rem; border-bottom: 1px solid var(--border); margin-bottom: 0.9rem; }
 .tab-btn {
   display: inline-flex;
   align-items: center;
   font: inherit;
   box-sizing: border-box;
-  font-size: 0.78rem;
-  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  padding: 0.6rem 0.3rem;
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
@@ -130,7 +145,6 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 }
 .tab-btn:hover:not(.active):not(:disabled) { color: inherit; }
 .tab-btn.active { color: inherit; font-weight: 700; border-bottom-color: var(--accent); }
-.tab-btn:not(.tab-btn-row-start) { border-left: 1px solid var(--border); }
 .tab-btn:disabled { cursor: default; opacity: 0.55; }
 .tab-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; }
 .tab-dot-filled { background: var(--muted); }
@@ -147,6 +161,8 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 
 .copy-btn { display: inline-flex; align-items: center; font-size: 0.7rem; padding: 0.15rem 0.55rem; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
 .copy-btn:hover { color: inherit; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .tab-btn { transition: none; }
