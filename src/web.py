@@ -97,7 +97,7 @@ templates = Jinja2Templates(directory=APP_DIR / "templates")
 # candidates whose KEV listing was itself added recently (see
 # orchestrate.annotate_recent_kev_entries), shown separately from the normal
 # results.
-_state: dict = {"enriched_cves": [], "last_run": None, "recent_kev_entries": [], "last_produced_canvases": []}
+_state: dict = {"enriched_cves": [], "last_run": None, "recent_kev_entries": []}
 
 # Guards writes to _state only — NOT held across the pipeline run itself
 # (which calls slow external APIs) so a page load during a run isn't blocked
@@ -151,8 +151,6 @@ def _pipeline_results_context() -> dict:
         "pipeline_running": bool(last_run and last_run.get("status") == "running"),
         "recent_kev_entries": _state["recent_kev_entries"],
         "kev_recent_days": orchestrate.KEV_RECENT_ENTRY_DAYS,
-        "canvases": _state["last_produced_canvases"],
-        "skipped": not _state["last_produced_canvases"],
     }
 
 
@@ -272,7 +270,7 @@ def _execute_produce(cve_ids: list[str], output_nums: list[int]) -> list[dict]:
             filepath = router.save(num, cve_data, result)
             subdir = entry.get("output_dir", "")
             content = result.get("content", "")
-            is_markdown = entry.get("extension") == ".md"
+            is_markdown = entry.get("preview") == "markdown"
             tabs.append({
                 "num": num,
                 "label": entry["label"],
@@ -292,11 +290,6 @@ def _execute_produce(cve_ids: list[str], output_nums: list[int]) -> list[dict]:
         active_index = next((i for i, t in enumerate(tabs) if t["produced"]), 0)
         canvases.append({"cve_id": cve_data.get("cve_id", ""), "tabs": tabs, "active_index": active_index})
 
-    # Persisted (not just returned) so a plain page reload -- or the chat
-    # pane's OOB refresh of #pipeline-content after a chat-driven produce --
-    # can redisplay the same result instead of it only ever existing inside
-    # one transient htmx swap response.
-    _state["last_produced_canvases"] = canvases
     return canvases
 
 
@@ -362,7 +355,7 @@ def outputs_route(request: Request):
             icon = _OUTPUT_ICONS.get(num, "")
             found = produced_by_num.get(num)
             if found:
-                is_markdown = entry.get("extension") == ".md"
+                is_markdown = entry.get("preview") == "markdown"
                 content = found["content"]
                 tabs.append({
                     "num": num, "label": entry["label"], "icon": icon, "produced": True,
@@ -990,9 +983,16 @@ _HASH_RE = r"\b[a-fA-F0-9]{64}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{32}\b"
 # same "not a real parser, just a heuristic" tradeoff web-design-system.md
 # §8 documents for telemetry/log token highlighting.
 _DOMAIN_RE = r"\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|io|gov|edu|mil|info|biz|co|dev|app|ai|to|xyz|ru|cn|de|uk|us)\b"
+# web-bugs-and-tweaks.md #19: every timestamp surfaced anywhere should
+# render in the viewer's own local time, labeled as such -- this catches
+# the "Generated: ..." line baked into a produced doc's own header text
+# at generation time, which (unlike a templated field) can't be wrapped
+# in a data-utc span at the Jinja level. Only matches full UTC ISO-8601
+# ("Z" suffix) -- the one format this app ever actually writes.
+_TIMESTAMP_RE = r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b"
 
 _ENTITY_RE = re.compile(
-    rf"(?P<cve>{_CVE_ID_RE})|(?P<kev>{_KEV_PHRASE_RE})|(?P<hash>{_HASH_RE})|(?P<ip>{_IPV4_RE})|(?P<domain>{_DOMAIN_RE})",
+    rf"(?P<cve>{_CVE_ID_RE})|(?P<kev>{_KEV_PHRASE_RE})|(?P<hash>{_HASH_RE})|(?P<ip>{_IPV4_RE})|(?P<domain>{_DOMAIN_RE})|(?P<timestamp>{_TIMESTAMP_RE})",
     re.IGNORECASE,
 )
 _ENTITY_CLASSES = {"cve": "entity-cve", "kev": "entity-kev", "hash": "entity-hash", "ip": "entity-ip", "domain": "entity-domain"}
@@ -1009,7 +1009,10 @@ def _highlight_entities(escaped_text: str) -> str:
     passed through html.escape() -- inserting literal <span> tags here is
     safe, markdown's default HTML handling passes them through unchanged.
     Code spans are masked out first so a hash/IP inside inline code isn't
-    double-styled."""
+    double-styled. A UTC timestamp match gets a data-utc span instead of a
+    colored one -- base.html's renderLocalTimestamps() converts it to the
+    viewer's own local time client-side on load, same mechanism already
+    used for Chat History's archived-at column."""
     spans: list[str] = []
 
     def _mask(m: re.Match) -> str:
@@ -1019,6 +1022,8 @@ def _highlight_entities(escaped_text: str) -> str:
     masked = _CODE_SPAN_RE.sub(_mask, escaped_text)
 
     def _wrap(m: re.Match) -> str:
+        if m.lastgroup == "timestamp":
+            return f'<span class="local-time" data-utc="{m.group()}">{m.group()}</span>'
         cls = _ENTITY_CLASSES[m.lastgroup]
         return f'<span class="{cls}">{m.group()}</span>'
 

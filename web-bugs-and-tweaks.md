@@ -14,55 +14,6 @@ Future work on KEV-on-entry (see #12 below): a standalone, more frequent
 poll against CISA's KEV feed, independent of when a pipeline run happens —
 today it's only checked once per web-UI run, not continuously.
 
-18. **Unify "produce"/"generate" wording** — "Produce outputs" (button),
-    "Generated outputs" (Outputs page heading), and other variants should
-    converge on one consistent term. Also: "Pipeline" (nav link, "Pipeline
-    Workspace" heading, "Run pipeline" section) no longer fits how the app
-    is positioned — needs a replacement term, not just a wording tweak in
-    isolated spots. Scope out a full pass across nav/headings/buttons
-    before touching any of it.
-19. **Local time everywhere a timestamp shows** — produced-doc "Generated:"
-    timestamps, Chat History's archived-at column, and anywhere else a
-    timestamp is surfaced are currently server-side UTC shown as-is (or, for
-    History, already converted client-side via `toLocaleString()` — audit
-    which is which). Make all of them render in the viewer's own local time
-    consistently, and label it as local time so it's unambiguous (not just
-    an unlabeled local-looking timestamp).
-20. **`/demo` should let the user pick which output type(s)** — right now
-    typing `/demo` always expands to a fixed request for a Security
-    advisory. Instead, show the six output types as an enumerated list (1
-    Security advisory, 2 Technical findings, 3 Suricata signature, 4 IoC
-    list, 5 Hunting queries, 6 Patch recommendations) and let the user
-    select one or more by number, comma-separated (e.g. "1,3,5"), mapping
-    directly to produce_output's own output_nums — then expand /demo's
-    request text accordingly instead of hardcoding "a security advisory."
-21. **Working-bubble wording + "AI Assistant" pane rename** — the in-chat
-    working pill (`base.html`, `.chat-working`) should say "Vuln-Skill
-    working..." instead of "Assistant is working...". Separately, rename
-    the "AI Assistant" pane heading (and the matching "sent to the AI
-    Assistant" line in the About dialog's warning) to "Chatbox" — the
-    whole app is the assistant; the chat pane is just one interface into
-    it, not the assistant itself.
-22. **Tagline: "Vulnerability Intelligence Assistant" → "AI Vulnerability
-    Intelligence Assistant"** — the header tagline (`base.html`, next to
-    the "Vuln-Skill" h1).
-23. **Rename "Code" → "Raw" in the Preview/Raw toggle; Preview always
-    renders** — "Raw" always shows the untouched raw content (current
-    "Code" behavior, unchanged). "Preview" should show rendered/formatted
-    content for every output type, not just markdown -- currently
-    non-markdown types (Suricata rules, IoC lists, hunting queries, patch
-    YAML) only get entity highlighting in Preview via
-    `_render_plain_preview`, not real rendering. Scope what "rendered"
-    means for each non-md format before implementing.
-24. **Workspace Canvas: Outputs tab only, not Pipeline tab** — after a
-    web-form "Produce selected" on the Pipeline page, the Workspace Canvas
-    result currently renders inline there (`#produce-result` in
-    `_pipeline_results.html`). Should only ever show on the Outputs page —
-    Pipeline should just confirm the produce happened and point to
-    Outputs, matching how a chat-driven produce already behaves ("Produced:
-    ... See the Advisory tab" pointing at Outputs, not showing the canvas
-    in the chat pane's own page).
-
 ## Done
 
 1. **Run button hard to notice** — moved to its own line with a top border and bolder styling, visually separated from the mode radios. Deployed 2026-07-30.
@@ -82,3 +33,13 @@ today it's only checked once per web-UI run, not continuously.
 15. **Replicate soc-skill-cloud's header buttons/look and feel** — theme toggle (manual light/dark override, persisted via `localStorage`) + About icon dialog (shows the live chat model) as small icon-only buttons, divider-aligned nav group (New session / History / Account / Logout), `/logout` via the 401 + `WWW-Authenticate` challenge trick. History and Account got real Vuln-Skill features rather than stubs: chat sessions now archive on "New session" (mirrors soc-skill-cloud), with a `/chat/history` browser, read-only session view, and resume; `/account` is a real page (not a JS-dialog stub) explaining the shared-login model and the now-split credential (#17). Verified live via Playwright against an isolated test container. Deployed 2026-08-01.
 16. **Chat syntax highlighting** — CVE IDs, KEV status, IPs, hashes/IoCs, and domains highlighted inline within chat prose (`web.py`'s `_highlight_entities`), reusing the design system's syntax-highlight color vocabulary. Verified against a real chat reply (CVE-2021-44228 lookup). Deployed 2026-08-01.
 17. **Split login credentials from soc-skill-cloud** — both apps used to share one `/etc/nginx/.htpasswd` on the EC2 instance; copied it into a Vuln-Skill-only file and repointed `vulnskill.conf`, so each app's login can be changed independently going forward. The actual credential value is unchanged for now (copied, not reset) — changing it is a separate future step once you actually want a new password. Deployed 2026-08-01.
+25. **Long output-type tab labels overflowed the viewport at mobile widths** — `.tab-btn` (`style.css`) had `white-space: nowrap` with no override for narrow screens, so a single long label (e.g. "Threat hunting queries (CrowdStrike + Netflow)") pushed its button past a 375px viewport even though `.tab-strip` itself already wrapped buttons onto new lines. Added a `@media (max-width: 480px)` override letting the label itself wrap onto multiple lines. Pre-existing bug in the shared `_workspace_canvas.html` partial (Pipeline produce results and Outputs page both affected). Verified headlessly at 375px against the exact tab markup (`document.body.scrollWidth` now matches `clientWidth`, was 394px vs 375px before) and confirmed no change to the `nowrap` behavior above the 480px breakpoint.
+26. **Unify "produce"/"generate" wording; retire "Pipeline"** — "Generated outputs" → "Produced outputs" (matches the "Produce selected" button and the confirmation-gate wording). "Pipeline" replaced with "Scan" everywhere user-facing: nav link, "Pipeline Workspace" → "Scan Workspace", "Run pipeline" → "Run scan", "Pipeline settings" → "Scan settings", tooltips, the loading banner, chat placeholder text, "Back to Pipeline" links. The internal `produce_output` tool name and Python identifiers are unchanged (not user-facing). Not touched: the AI system prompt's own wording (`vuln_skill_cloud_assistant.md`) — the model may still say "pipeline" in a chat reply since its instructions weren't rewritten, only the static UI text was.
+27. **Local time everywhere a timestamp shows, labeled as such** — extended `_highlight_entities` with a `timestamp` entity (matches the app's one actual format, UTC ISO-8601) that wraps matches in a `.local-time[data-utc]` span instead of a colored one; a shared `renderLocalTimestamps()` (base.html, hooked to `DOMContentLoaded` and `htmx:afterSwap`) converts every one of them client-side to `toLocaleString() + ' (local time)'`. Covers a produced doc's own embedded "Generated: ..." line (Preview view only — Raw stays byte-exact, verified: Preview showed "8/1/2026, 4:20:20 PM (local time)", Raw showed the original "2026-08-01T20:20:20.235972Z"), `_pipeline_results.html`'s "Last run ... at" and "started" timestamps, `runs.html`'s Time column, and Chat History's Archived column (unified with the same `.local-time` convention, was already client-side-converted but unlabeled).
+28. **`/demo` lets the user pick output type(s)** — two-step, client-side only (no API cost for the menu itself): typing `/demo` shows the six output types as an enumerated list and sets a wait-for-reply flag; the next message is parsed as comma-separated numbers (invalid input re-prompts) and expanded into the real instruction naming the selected output type labels, then proceeds through the normal chat/confirmation flow. Verified live: "/demo" → menu shown, 0 tokens spent; "1,3" → expanded to "...produce Security advisory (management), Suricata signature drafts for it."
+29. **Working-bubble wording + "AI Assistant" → "Chatbox"** — `.chat-working` pill now reads "Vuln-Skill working...". Pane heading renamed "AI Assistant" → "Chatbox"; matching About-dialog warning line reworded ("content sent through the Chatbox is sent to the LLM provider").
+30. **Tagline → "AI Vulnerability Intelligence Assistant"**.
+31. **"Code" → "Raw"; Preview renders meaningfully for every output type** — renamed the toggle button and `content-view-code` → `content-view-raw` (matching `data-view`/JS, no JS change needed since `setContentView` already builds the class name generically). Preview's rendering mode is now config-driven (`config/vuln-skill.yaml`'s `output_menu.*.preview: markdown|highlight`) instead of keyed off file extension — checked each output type's actual AI prompt template before deciding: `advisory`, `technical_findings`, `hunting_queries`, and `patch_recs` (despite its `.yml` extension) are genuinely markdown-structured (headers, bold, fenced code blocks) and now get full `_render_safe_markdown` rendering; `signatures` and `ioc_list` explicitly mandate literal `#`-comment/rule syntax ("no markdown fencing") that full markdown rendering would misparse (a `#` comment read as an H1, a Suricata rule body reflowed into one paragraph) — these keep the existing entity-highlighted `_render_plain_preview`. Verified live: a real Suricata `.rules` file's Preview showed entity highlighting with `#` lines intact as plain text, not H1s.
+32. **Workspace Canvas: Outputs page only, not the Scan page** — removed `canvases`/`skipped` from `_pipeline_results_context()` (and the now-dead `_state["last_produced_canvases"]` write/key entirely) so a plain page load or chat-driven OOB refresh no longer threads canvas data into the Scan page at all. `produced.html` (the `/produce` POST's own direct response) now renders a lightweight one-line confirmation + CVE/output-type summary + "View in Outputs →" link instead of the full tabbed canvas. Verified live: `#produce-result` stayed empty after a chat-driven produce; the full canvas only ever appears on `/outputs`.
+
+Deployed 2026-08-01.

@@ -31,12 +31,14 @@
       btn.setAttribute('title', label);
     }
     // Server sends UTC ISO timestamps (data-utc) -- rendered in whoever's
-    // actually looking at this page's own local timezone.
+    // actually looking at this page's own local timezone, labeled as such
+    // (web-bugs-and-tweaks.md #19) so it's unambiguous. Same .local-time
+    // convention as base.html's copy of this function.
     function renderLocalTimestamps() {
-      document.querySelectorAll('.archived-cell[data-utc]').forEach(function (td) {
-        if (!td.dataset.utc) return;
-        var d = new Date(td.dataset.utc);
-        if (!isNaN(d.getTime())) td.textContent = d.toLocaleString();
+      document.querySelectorAll('.local-time[data-utc]').forEach(function (el) {
+        if (!el.dataset.utc) return;
+        var d = new Date(el.dataset.utc);
+        if (!isNaN(d.getTime())) el.textContent = d.toLocaleString() + ' (local time)';
       });
     }
     document.addEventListener('DOMContentLoaded', function () {
@@ -54,7 +56,7 @@
       <div class="header-actions">
         <button type="button" id="theme-toggle" class="icon-btn" onclick="toggleTheme()">🌙</button>
         <div class="header-nav-group">
-          <a class="reset-btn" href="/">Back to Pipeline</a>
+          <a class="reset-btn" href="/">Back to Scan</a>
           <a class="reset-btn" href="/logout">Logout</a>
         </div>
       </div>
@@ -70,7 +72,7 @@
         <tbody>
         {% for s in sessions %}
           <tr>
-            <td class="archived-cell" data-utc="{{ s.archived_at_iso or '' }}">{{ s.archived_at_iso or 'unknown' }}</td>
+            <td><span class="local-time" data-utc="{{ s.archived_at_iso or '' }}">{{ s.archived_at_iso or 'unknown' }}</span></td>
             <td>{{ s.title }}</td>
             <td>{{ s.message_count }}</td>
             <td>${{ "%.4f"|format(s.cost) }}</td>

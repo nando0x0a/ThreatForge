@@ -11,7 +11,7 @@
     <tbody>
       {% for r in runs %}
       <tr>
-        <td>{{ r.timestamp }}</td>
+        <td><span class="local-time" data-utc="{{ r.timestamp }}">{{ r.timestamp }}</span></td>
         <td>{{ r.cve_id }}</td>
         <td>{{ r.product }}</td>
         <td>{{ r.output_type }}</td>

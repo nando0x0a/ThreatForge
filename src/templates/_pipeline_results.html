@@ -14,13 +14,13 @@
 <section class="card">
   <h2>Candidates ({{ cves|length }})</h2>
   {% if last_run.status == 'running' %}
-  <p class="muted">Running: {{ last_run.description }} (started {{ last_run.started_at }}) — candidates below will refresh once it finishes.</p>
+  <p class="muted">Running: {{ last_run.description }} (started <span class="local-time" data-utc="{{ last_run.started_at }}">{{ last_run.started_at }}</span>) — candidates below will refresh once it finishes.</p>
   {% else %}
-  <p class="muted">Last run: {{ last_run.description }} — {{ last_run.count }} candidate(s) at {{ last_run.timestamp }}</p>
+  <p class="muted">Last run: {{ last_run.description }} — {{ last_run.count }} candidate(s) at <span class="local-time" data-utc="{{ last_run.timestamp }}">{{ last_run.timestamp }}</span></p>
   {% endif %}
   {% if not cves %}
     {% if last_run.status == 'running' %}
-    <p class="muted">Pipeline run in progress — please wait, this page will update on its own once it finishes.</p>
+    <p class="muted">Scan in progress — please wait, this page will update on its own once it finishes.</p>
     {% else %}
     <p class="muted">No candidates from that run.</p>
     {% endif %}
@@ -68,4 +68,4 @@
 </section>
 {% endif %}
 
-<div id="produce-result">{% if canvases %}{% include "produced.html" %}{% endif %}</div>
+<div id="produce-result"></div>

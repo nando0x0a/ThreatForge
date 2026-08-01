@@ -33,14 +33,14 @@
       </div>
       <div class="content-toggle">
         <button type="button" class="content-toggle-btn active" data-view="preview" onclick="setContentView(this, 'preview')">Preview</button>
-        <button type="button" class="content-toggle-btn" data-view="code" onclick="setContentView(this, 'code')">Code</button>
+        <button type="button" class="content-toggle-btn" data-view="raw" onclick="setContentView(this, 'raw')">Raw</button>
       </div>
       {% if tab.is_markdown %}
       <div class="content-view content-view-preview chat-text active">{{ tab.content_html | safe }}</div>
       {% else %}
       <pre class="tab-detail content-view content-view-preview active">{{ tab.content_html | safe }}</pre>
       {% endif %}
-      <pre class="tab-detail content-view content-view-code">{{ tab.content }}</pre>
+      <pre class="tab-detail content-view content-view-raw">{{ tab.content }}</pre>
       {% else %}
       <p class="canvas-empty muted">Not yet produced — select "{{ tab.label }}" and Produce to generate.</p>
       {% endif %}

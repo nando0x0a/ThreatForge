@@ -133,36 +133,53 @@ output_menu:
     description: "Non-technical risk summary for CISO/management. Covers business impact, affected systems, and recommended action with a time-bound remediation timeline."
     output_dir: advisories
     extension: ".md"
+    # "preview" governs the Preview/Raw toggle (web-bugs-and-tweaks.md #23):
+    # markdown = full HTML rendering via _render_safe_markdown (headers,
+    # lists, tables); highlight = raw text with entity highlighting only
+    # (_render_plain_preview), for formats whose own template mandates
+    # literal syntax that full markdown rendering would misparse (a `#`
+    # comment line read as an H1, a Suricata rule body reflowed into one
+    # paragraph). Decided per-type from each one's actual prompts.yaml
+    # template, not by file extension -- patch_recs is ".yml" but its
+    # template is genuinely markdown (headers, bold, fenced code blocks);
+    # signatures/ioc_list use bare "#" comment lines as literal syntax,
+    # not markdown headers, so full rendering would misrender them.
+    preview: markdown
   2:
     key: technical_findings
     label: "Technical findings (SOC analyst)"
     description: "Deep-dive for SOC analysts. Attack vector breakdown, CVSS analysis, observable behaviour on the wire, detection coverage gaps, and immediate response steps."
     output_dir: advisories
     extension: ".md"
+    preview: markdown
   3:
     key: signatures
     label: "Suricata signature drafts"
     description: "Draft Suricata IDS/IPS rule targeting network-observable behaviour. Includes MITRE ATT&CK tag, KEV status, classtype, and sid. Marked experimental — review before deploying."
     output_dir: rules
     extension: ".rules"
+    preview: highlight
   4:
     key: ioc_list
     label: "IoC list"
     description: "Structured list of IPs, domains, URLs, file hashes, user-agents, and URI paths extracted from KEV entry, vendor advisory, and OSINT. Confidence-rated per indicator."
     output_dir: iocs
     extension: ".txt"
+    preview: highlight
   5:
     key: hunting_queries
     label: "Threat hunting queries (CrowdStrike + Netflow)"
     description: "Ready-to-run CrowdStrike Event Search queries and nfdump Netflow queries. Targets C2 connections, post-exploitation process chains, and protocol anomalies."
     output_dir: hunting
     extension: ".txt"
+    preview: markdown
   6:
     key: patch_recs
     label: "Patch recommendations"
     description: "Upgrade path, rollback risk assessment, and an Ansible playbook (apt module) to patch the affected package across your inventory. Includes dry-run command."
     output_dir: patches
     extension: ".yml"
+    preview: markdown
 
 prompts:
   system_prompt: |

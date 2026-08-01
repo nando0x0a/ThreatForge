@@ -1,6 +1,18 @@
 {% if skipped %}
 <p class="muted">Nothing selected — pick at least one CVE and one output type.</p>
 {% else %}
-{% include "_workspace_canvas.html" %}
-<p><a href="/outputs">View all in Outputs →</a></p>
+{# web-bugs-and-tweaks.md #24: the Workspace Canvas itself only ever
+   renders on the Outputs page -- this is a lightweight confirmation only,
+   shown transiently in #produce-result right after a "Produce selected"
+   click (never persisted across a page reload, since this route's own
+   response is the only thing that ever populates that div). #}
+<div class="card produce-confirm">
+  <p class="ok">✓ Produced output{{ 's' if canvases|length != 1 else '' }} for {{ canvases|length }} CVE{{ 's' if canvases|length != 1 else '' }}.</p>
+  <ul>
+    {% for canvas in canvases %}
+    <li><strong>{{ canvas.cve_id }}</strong> — {% for tab in canvas.tabs if tab.produced %}{{ tab.label }}{% if not loop.last %}, {% endif %}{% endfor %}</li>
+    {% endfor %}
+  </ul>
+  <p><a href="/outputs">View in Outputs →</a></p>
+</div>
 {% endif %}

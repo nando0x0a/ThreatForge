@@ -37,6 +37,32 @@
       btn.setAttribute('title', label);
     }
     document.addEventListener('DOMContentLoaded', updateThemeToggleLabel);
+
+    // web-bugs-and-tweaks.md #19: every timestamp anywhere in the app
+    // renders in the viewer's own local time, labeled as such -- server
+    // side only ever knows/stores UTC. Covers .local-time spans wherever
+    // they show up: _pipeline_results.html's "Last run ... at", a
+    // produced doc's own "Generated: ..." line (wrapped server-side by
+    // _highlight_entities), Chat History's archived-at column, etc. Runs
+    // on initial load and again after any htmx swap, since new .local-time
+    // spans can arrive either way (a chat-driven produce OOB-refreshes
+    // #pipeline-content, the Outputs page's Refresh button re-fetches its
+    // own content).
+    function renderLocalTimestamps() {
+      document.querySelectorAll('.local-time[data-utc]').forEach(function (el) {
+        if (el.dataset.localized) return;
+        var d = new Date(el.dataset.utc);
+        if (isNaN(d.getTime())) return;
+        el.textContent = d.toLocaleString() + ' (local time)';
+        el.dataset.localized = 'true';
+      });
+    }
+    document.addEventListener('DOMContentLoaded', renderLocalTimestamps);
+    // document, not document.body -- this script runs in <head>, before
+    // <body> exists yet; the event still bubbles up through body to
+    // document either way, so listening here is equally correct and safe
+    // to register immediately.
+    document.addEventListener('htmx:afterSwap', renderLocalTimestamps);
   </script>
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
 </head>
@@ -44,13 +70,13 @@
   <div class="page-header-sticky">
     <header>
       <h1>Vuln-Skill</h1>
-      <span class="muted">Vulnerability Intelligence Assistant</span>
+      <span class="muted">AI Vulnerability Intelligence Assistant</span>
       <nav>
-        <a href="/">Pipeline</a>
+        <a href="/">Scan</a>
         <a href="/outputs">Outputs</a>
         <a href="/runs">Run history</a>
         <a href="/config/products">Products</a>
-        <a href="/config/pipeline">Pipeline settings</a>
+        <a href="/config/pipeline">Scan settings</a>
       </nav>
       <div class="header-actions">
         <button type="button" id="theme-toggle" class="icon-btn" onclick="toggleTheme()">🌙</button>
@@ -66,13 +92,13 @@
       </div>
     </header>
     <div id="loading-banner" class="loading-banner" {% if not pipeline_running %}hidden{% endif %}>
-      <span class="spinner"></span> Working — this can take a minute or two for a full pipeline run or AI-generated output...
+      <span class="spinner"></span> Working — this can take a minute or two for a full scan or AI-generated output...
     </div>
   </div>
 
   <dialog id="about-dialog">
     <h2>About Vuln-Skill</h2>
-    <div class="about-warning">⚠ Don't submit sensitive data — content sent to the AI Assistant is sent to the LLM provider.</div>
+    <div class="about-warning">⚠ Don't submit sensitive data — content sent through the Chatbox is sent to the LLM provider.</div>
     <p>Vulnerability Intelligence Assistant — runs CVE (Common Vulnerabilities and Exposures) scoring, security advisories, detection rules, and IoC (indicator of compromise) generation over public vulnerability intelligence feeds.</p>
     <p class="muted">Chat Model: {{ chat_model or "unavailable" }}</p>
     <form method="dialog"><button class="reset-btn">Close</button></form>
@@ -80,19 +106,19 @@
 
   <main class="{{ 'app-shell' if chat_available else '' }}">
     <section class="canvas-pane">
-      {% if chat_available %}<h2 class="pane-heading">Pipeline Workspace</h2>{% endif %}
+      {% if chat_available %}<h2 class="pane-heading">Scan Workspace</h2>{% endif %}
       {% block content %}{% endblock %}
     </section>
 
     {% if chat_available %}
     <section class="chat-pane">
-      <h2 class="pane-heading">AI Assistant</h2>
+      <h2 class="pane-heading">Chatbox</h2>
       <div id="chat-history" role="log" aria-live="polite" aria-label="Conversation">
         {% include "_messages.html" %}
       </div>
 
       <form id="chat-form" method="post" action="/chat" hx-post="/chat" hx-target="#chat-history" hx-swap="innerHTML">
-        <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask the assistant to run the pipeline, look up a CVE, or produce an output... (try /demo)" required></textarea>
+        <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask the assistant to run a scan, look up a CVE, or produce an output... (try /demo)" required></textarea>
         <div class="input-toolbar">
           <span class="char-count">Tip: type /demo to try a guided example · Chars: <span id="chat-char-count">0</span></span>
           <button type="submit" disabled>Send</button>
@@ -219,8 +245,8 @@
       });
     }
 
-    // GitHub-style Preview/Code toggle for markdown output tabs (advisory,
-    // technical findings). Scoped to the closest .tab-panel so multiple
+    // GitHub-style Preview/Raw toggle, on every output type (web-bugs-and-
+    // tweaks.md #23). Scoped to the closest .tab-panel so multiple
     // canvases/tabs on one page (a multi-CVE produce, or the Outputs page)
     // don't interfere with each other.
     function setContentView(btn, mode) {
@@ -251,16 +277,73 @@
 
       // /demo: a real, non-fictional guided example (see ai-skill-webapp
       // skill §4 -- a real CVE search actually returns genuine OSINT-style
-      // context, unlike a made-up CVE number). Rewrites the textarea's own
-      // value in a 'submit' listener attached directly to the form itself,
-      // which (by normal DOM bubble-order) always runs before htmx's own
-      // delegated document-level submit handler sees the same event -- so
-      // this works whether the message was sent via Enter (requestSubmit())
-      // or a click on the Send button (native submit), with no dependency
-      // on htmx's internal request-building order.
-      function expandSlashCommand() {
-        if (input.value.trim().toLowerCase() === '/demo') {
-          input.value = 'Find a critical, recently disclosed CVE (KEV-listed or high CVSS/EPSS) and produce a security advisory for it.';
+      // context, unlike a made-up CVE number). Two-step (web-bugs-and-
+      // tweaks.md #20): typing /demo shows an enumerated output-type menu
+      // as a purely client-side message (no real API call -- cheap, and
+      // the menu never needs a model to generate it), then the next
+      // message is parsed as comma-separated numbers and expanded into
+      // the real instruction. Rewrites/intercepts in a 'submit' listener
+      // attached directly to the form itself, which (by normal DOM
+      // bubble-order) always runs before htmx's own delegated document-
+      // level submit handler sees the same event -- so this works whether
+      // the message was sent via Enter (requestSubmit()) or a click on
+      // the Send button (native submit), with no dependency on htmx's
+      // internal request-building order.
+      var DEMO_OUTPUT_TYPES = [
+        {num: 1, label: 'Security advisory (management)'},
+        {num: 2, label: 'Technical findings (SOC analyst)'},
+        {num: 3, label: 'Suricata signature drafts'},
+        {num: 4, label: 'IoC list'},
+        {num: 5, label: 'Threat hunting queries (CrowdStrike + Netflow)'},
+        {num: 6, label: 'Patch recommendations'},
+      ];
+      var awaitingDemoSelection = false;
+
+      function appendLocalAssistantMessage(text) {
+        var div = document.createElement('div');
+        div.className = 'chat-msg chat-msg-assistant';
+        var role = document.createElement('div');
+        role.className = 'chat-role';
+        role.textContent = 'Assistant';
+        var body = document.createElement('div');
+        body.className = 'chat-text chat-text-plain';
+        body.textContent = text;
+        div.appendChild(role);
+        div.appendChild(body);
+        chatHistory.appendChild(div);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+
+      function expandSlashCommand(evt) {
+        var raw = input.value.trim();
+        if (awaitingDemoSelection) {
+          var nums = raw.split(',')
+            .map(function (s) { return parseInt(s.trim(), 10); })
+            .filter(function (n) { return !isNaN(n) && n >= 1 && n <= DEMO_OUTPUT_TYPES.length; });
+          if (!nums.length) {
+            evt.preventDefault();
+            appendOptimisticUserMessage(raw);
+            appendLocalAssistantMessage('Please reply with at least one number 1-' + DEMO_OUTPUT_TYPES.length + ', comma-separated (e.g. "1,3").');
+            input.value = '';
+            updateCharCount();
+            autoResize();
+            return;
+          }
+          awaitingDemoSelection = false;
+          var labels = nums.map(function (n) { return DEMO_OUTPUT_TYPES[n - 1].label; }).join(', ');
+          input.value = 'Find a critical, recently disclosed CVE (KEV-listed or high CVSS/EPSS) and produce ' + labels + ' for it.';
+          return;
+        }
+        if (raw.toLowerCase() === '/demo') {
+          evt.preventDefault();
+          appendOptimisticUserMessage(raw);
+          var menu = 'Which output type(s) would you like? Reply with the number(s), comma-separated (e.g. "1,3"):\n' +
+            DEMO_OUTPUT_TYPES.map(function (t) { return t.num + '. ' + t.label; }).join('\n');
+          appendLocalAssistantMessage(menu);
+          awaitingDemoSelection = true;
+          input.value = '';
+          updateCharCount();
+          autoResize();
         }
       }
       form.addEventListener('submit', expandSlashCommand);
@@ -306,7 +389,7 @@
         // spinner already used by the top loading banner.
         var div = document.createElement('div');
         div.className = 'chat-working';
-        div.innerHTML = '<span class="spinner"></span> Assistant is working...';
+        div.innerHTML = '<span class="spinner"></span> Vuln-Skill working...';
         chatHistory.appendChild(div);
         chatHistory.scrollTop = chatHistory.scrollHeight;
       }

@@ -301,6 +301,16 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
   .tab-btn { transition: none; }
 }
 
+/* .tab-strip already wraps buttons onto new lines (flex-wrap above), but a
+   single long output-type label (e.g. "Threat hunting queries (CrowdStrike
+   + Netflow)") still forces its own button wider than a narrow viewport
+   since nowrap keeps the label on one line -- let it wrap internally
+   instead once there's no room to grow sideways. 480px, not 375px exactly,
+   so this also catches viewports a bit above the narrowest phones. */
+@media (max-width: 480px) {
+  .tab-btn { white-space: normal; text-align: left; max-width: 100%; }
+}
+
 /* --- Chat assistant two-pane layout (index.html only -- other pages keep
    the narrower single-column body width). Matches soc-skill-cloud's actual
    pattern: body itself never scrolls (bounded to the viewport), so both

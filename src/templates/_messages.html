@@ -1,5 +1,5 @@
 {% if not messages %}
-<p class="canvas-empty muted">Ask the assistant to run the pipeline, look up a CVE, or produce an output.</p>
+<p class="canvas-empty muted">Ask the assistant to run a scan, look up a CVE, or produce an output.</p>
 {% endif %}
 {% for m in messages %}
 <div class="chat-msg chat-msg-{{ m.role }}{% if m.is_question %} chat-msg-question{% endif %}">
