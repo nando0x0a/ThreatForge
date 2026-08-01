@@ -768,11 +768,21 @@ def _run_chat_turn(prior_usage: dict) -> None:
 
     tool_results, pending = _process_tool_uses(response)
 
-    if pending and not any(b.get("type") == "text" and b.get("text", "").strip() for b in content):
-        # Model called produce_output without stating the required
-        # confirmation question in text -- inject it so the analyst still
-        # sees a clear Yes/No prompt rather than an apparently-empty turn.
-        content.append({"type": "text", "text": _chat_synthesize_confirmation_text(pending)})
+    if pending:
+        # Belt-and-suspenders backstop, found via a live test: the model can
+        # call produce_output and write OTHER text ("Now producing the IoC
+        # list...") without the required explicit "Yes / No" question --
+        # the app-side gate still holds either way (nothing executes until
+        # confirmed), but the analyst needs to actually SEE a clear prompt,
+        # not a sentence that reads as if it already happened. Append
+        # (never replace) whenever the exact required phrasing is missing,
+        # regardless of whether other text is already present.
+        has_yes_no = any(
+            b.get("type") == "text" and re.search(r"\byes\s*/\s*no\b", b.get("text", ""), re.IGNORECASE)
+            for b in content
+        )
+        if not has_yes_no:
+            content.append({"type": "text", "text": _chat_synthesize_confirmation_text(pending)})
 
     _chat_state["messages"].append({"role": "assistant", "content": content})
     _chat_state["usage"].append(usage)
