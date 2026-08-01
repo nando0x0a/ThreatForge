@@ -72,13 +72,13 @@ nav a:hover { text-decoration: underline; }
    375px-width regression caught via Playwright, not present in
    soc-skill-cloud's copy of this rule either (same latent bug, just
    never surfaced there). */
-.header-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.header-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 44px; min-width: 44px; padding: 0.3rem; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; }
 /* Same width/border-left/padding-left as .chat-pane (both 420px
    box-sizing:border-box) -- not a coincidence, this is what lines this
    divider up with the canvas/chat pane boundary below it. See
    web-design-system.md §3's alignment trick. */
-.header-nav-group { width: 420px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-shrink: 0; border-left: 1px solid var(--border); padding-left: 1.5rem; }
+.header-nav-group { width: 420px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-shrink: 0; border-left: 1px solid var(--border); padding-left: 2rem; }
 
 dialog { max-width: 500px; border-radius: 10px; border: 1px solid var(--border); color: inherit; background: Canvas; padding: 1.25rem 1.5rem; }
 dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
@@ -329,6 +329,15 @@ body:has(main.app-shell) {
 main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 .canvas-pane { flex: 1; min-width: 0; overflow-y: auto; padding-right: 0.25rem; }
 .chat-pane {
+  /* box-sizing: border-box is what actually makes the header-nav-group
+     divider line up with this pane's own left edge below it (both 420px
+     total) -- without it, this element's 1px border + 1.5rem padding-left
+     ADD to the 420px content width (content-box is the default), rendering
+     at 445px total. .header-nav-group already sets border-box; this one
+     didn't, so the two "same width" boxes silently weren't -- a real,
+     measured 25px divider misalignment caught via getBoundingClientRect(),
+     not a rendering guess. */
+  box-sizing: border-box;
   width: 420px;
   min-width: 320px;
   max-width: 480px;
