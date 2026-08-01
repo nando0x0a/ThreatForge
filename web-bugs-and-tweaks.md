@@ -14,6 +14,21 @@ Future work on KEV-on-entry (see #12 below): a standalone, more frequent
 poll against CISA's KEV feed, independent of when a pipeline run happens —
 today it's only checked once per web-UI run, not continuously.
 
+18. **Unify "produce"/"generate" wording** — "Produce outputs" (button),
+    "Generated outputs" (Outputs page heading), and other variants should
+    converge on one consistent term. Also: "Pipeline" (nav link, "Pipeline
+    Workspace" heading, "Run pipeline" section) no longer fits how the app
+    is positioned — needs a replacement term, not just a wording tweak in
+    isolated spots. Scope out a full pass across nav/headings/buttons
+    before touching any of it.
+19. **Local time everywhere a timestamp shows** — produced-doc "Generated:"
+    timestamps, Chat History's archived-at column, and anywhere else a
+    timestamp is surfaced are currently server-side UTC shown as-is (or, for
+    History, already converted client-side via `toLocaleString()` — audit
+    which is which). Make all of them render in the viewer's own local time
+    consistently, and label it as local time so it's unambiguous (not just
+    an unlabeled local-looking timestamp).
+
 ## Done
 
 1. **Run button hard to notice** — moved to its own line with a top border and bolder styling, visually separated from the mode radios. Deployed 2026-07-30.
