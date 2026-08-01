@@ -76,7 +76,7 @@ def clean_outputs(prefix: str = "outputs/") -> int:
         resp = requests.post(
             f"{_API}/repos/{GITHUB_REPO}/git/commits", headers=_headers(),
             json={
-                "message": f"ThreatForge: clean {len(to_delete)} file(s) under {prefix}",
+                "message": f"Vuln-Skill: clean {len(to_delete)} file(s) under {prefix}",
                 "tree": new_tree_sha,
                 "parents": [base_commit_sha],
             },

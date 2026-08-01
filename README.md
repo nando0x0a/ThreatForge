@@ -1,12 +1,12 @@
-# ThreatForge
+# Vuln-Skill
 
-**CVE intelligence automation platform.** ThreatForge ingests vulnerability data, scores and prioritises it against real-world exploitation signals, and produces analyst-ready drafts — advisories, detection rules, IoC lists, hunting queries, patch playbooks — only when an analyst asks for them. Every output is a proposed draft, cited back to its sources. Nothing is deployed automatically.
+**CVE intelligence automation platform.** Vuln-Skill ingests vulnerability data, scores and prioritises it against real-world exploitation signals, and produces analyst-ready drafts — advisories, detection rules, IoC lists, hunting queries, patch playbooks — only when an analyst asks for them. Every output is a proposed draft, cited back to its sources. Nothing is deployed automatically.
 
 ---
 
 ## The problem
 
-When a high-severity CVE lands, a detection engineer has to read the advisory, check CISA KEV for active exploitation, find PoC traffic patterns, and hand-write a Suricata rule, an advisory, a patch recommendation, and hunting queries — per CVE, per product, every day. ThreatForge automates the research and first-draft work so the analyst wakes up to a prioritised briefing and picks what to produce.
+When a high-severity CVE lands, a detection engineer has to read the advisory, check CISA KEV for active exploitation, find PoC traffic patterns, and hand-write a Suricata rule, an advisory, a patch recommendation, and hunting queries — per CVE, per product, every day. Vuln-Skill automates the research and first-draft work so the analyst wakes up to a prioritised briefing and picks what to produce.
 
 ## How it works
 
@@ -19,7 +19,7 @@ When a high-severity CVE lands, a detection engineer has to read the advisory, c
 ## Features
 
 - **CISA KEV-aware prioritisation** — confirmed in-the-wild exploitation overrides CVSS severity
-- **Composite scoring** with a fully config-driven tag/weight system (`threatforge.yaml`, no code changes to retune)
+- **Composite scoring** with a fully config-driven tag/weight system (`vuln-skill.yaml`, no code changes to retune)
 - **Cross-source severity verification** — NVD vs. CVE.org/CNA, discrepancies flagged inline
 - **Source-cited outputs** — every draft ends with a verified `## Sources` section, independent of model compliance
 - **Pluggable AI backend** — Claude by default, or any OpenAI-compatible endpoint (local Ollama/LM Studio with no API key, OpenRouter, Groq, OpenAI cloud, ...)
@@ -63,31 +63,31 @@ When a high-severity CVE lands, a detection engineer has to read the advisory, c
 ## Quickstart
 
 ```bash
-git clone git@github.com:nando0x0a/ThreatForge.git
-cd ThreatForge
+git clone git@github.com:nando0x0a/Vuln-Skill.git
+cd Vuln-Skill
 ./setup.sh
 ```
 
-`setup.sh` walks you through the required secrets (Anthropic API key, ProjectDiscovery API key, Discord webhook URL), builds the image, and starts the container. Everything else — pipeline filters, scoring weights, AI provider, prompts — lives in `config/threatforge.yaml` and is editable without a rebuild.
+`setup.sh` walks you through the required secrets (Anthropic API key, ProjectDiscovery API key, Discord webhook URL), builds the image, and starts the container. Everything else — pipeline filters, scoring weights, AI provider, prompts — lives in `config/vuln-skill.yaml` and is editable without a rebuild.
 
 ```bash
 # Interactive wizard
-docker exec -it threatforge python3 src/cli.py
+docker exec -it vuln-skill python3 src/cli.py
 
 # Or drive it directly
-docker exec threatforge python3 src/orchestrate.py --dry-run
-docker exec threatforge python3 src/orchestrate.py --produce 1,3,6
+docker exec vuln-skill python3 src/orchestrate.py --dry-run
+docker exec vuln-skill python3 src/orchestrate.py --produce 1,3,6
 ```
 
 ## Project layout
 
 ```
-ThreatForge/
+Vuln-Skill/
 ├── setup.sh
 ├── docker/                # Dockerfile, docker-compose.yml, entrypoint.sh
 ├── src/                   # pipeline, scoring, AI caller, notifier, GitHub publisher, CLI wizard
 ├── config/
-│   ├── threatforge.yaml   # single source of truth: filters, scoring, prompts, output menu
+│   ├── vuln-skill.yaml   # single source of truth: filters, scoring, prompts, output menu
 │   └── products.txt       # tracked product/asset inventory
 └── outputs/                # generated drafts (gitignored locally; published to GitHub separately)
 ```

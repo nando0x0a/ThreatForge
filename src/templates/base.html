@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}ThreatForge{% endblock %}</title>
+  <title>{% block title %}Vuln-Skill{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
 </head>
 <body>
   <div class="page-header-sticky">
     <header>
-      <h1>ThreatForge</h1>
+      <h1>Vuln-Skill</h1>
+      <span class="muted">Vulnerability Intelligence Assistant</span>
       <nav>
         <a href="/">Pipeline</a>
         <a href="/outputs">Outputs</a>
@@ -24,8 +25,30 @@
     </div>
   </div>
 
-  <main class="{% block main_class %}{% endblock %}">
-    {% block content %}{% endblock %}
+  <main class="{{ 'app-shell' if chat_available else '' }}">
+    <section class="canvas-pane">
+      {% if chat_available %}<h2 class="pane-heading">Pipeline Workspace</h2>{% endif %}
+      {% block content %}{% endblock %}
+    </section>
+
+    {% if chat_available %}
+    <section class="chat-pane">
+      <h2 class="pane-heading">AI Assistant</h2>
+      <div id="chat-history" role="log" aria-live="polite" aria-label="Conversation">
+        {% include "_messages.html" %}
+      </div>
+
+      <form id="chat-form" method="post" action="/chat" hx-post="/chat" hx-target="#chat-history" hx-swap="innerHTML">
+        <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask the assistant to run the pipeline, look up a CVE, or produce an output..." required></textarea>
+        <div class="input-toolbar">
+          <button type="button" id="chat-reset-btn" class="reset-btn" hx-post="/chat/reset" hx-target="#chat-history" hx-swap="innerHTML" hx-confirm="Start a new conversation? The current one will be cleared.">New conversation</button>
+          <span class="char-count">Chars: <span id="chat-char-count">0</span></span>
+          <button type="submit" disabled>Send</button>
+        </div>
+      </form>
+      <footer id="chat-token-totals" class="token-totals">Session tokens: {{ chat_totals.input }} in / {{ chat_totals.output }} out / {{ chat_totals.input + chat_totals.output }} total — ${{ "%.4f"|format(chat_totals.cost) }}</footer>
+    </section>
+    {% endif %}
   </main>
 
   <script>
@@ -140,5 +163,81 @@
       });
     }
   </script>
+
+  {% if chat_available %}
+  <script>
+    (function () {
+      var chatHistory = document.getElementById('chat-history');
+      var form = document.getElementById('chat-form');
+      var input = document.getElementById('chat-message-input');
+      var charCount = document.getElementById('chat-char-count');
+      var sendBtn = form.querySelector('button[type="submit"]');
+      var resetBtn = document.getElementById('chat-reset-btn');
+
+      function updateSendState() { sendBtn.disabled = !input.value.trim(); }
+      function updateCharCount() { charCount.textContent = input.value.length.toLocaleString(); }
+      function autoResize() { input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; }
+
+      input.addEventListener('input', function () { updateCharCount(); updateSendState(); autoResize(); });
+      updateSendState();
+      autoResize();
+
+      input.addEventListener('keydown', function (evt) {
+        if (evt.key === 'Enter' && !evt.shiftKey) {
+          evt.preventDefault();
+          if (input.value.trim()) form.requestSubmit();
+        }
+      });
+
+      function appendOptimisticUserMessage(text) {
+        var div = document.createElement('div');
+        div.className = 'chat-msg chat-msg-user chat-msg-pending';
+        var role = document.createElement('div');
+        role.className = 'chat-role';
+        role.textContent = 'You';
+        var body = document.createElement('div');
+        body.className = 'chat-text';
+        body.textContent = text;
+        div.appendChild(role);
+        div.appendChild(body);
+        chatHistory.appendChild(div);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+
+      document.body.addEventListener('htmx:beforeRequest', function (evt) {
+        if (evt.target === form) {
+          if (input.value.trim()) appendOptimisticUserMessage(input.value);
+          input.value = '';
+          updateCharCount();
+          autoResize();
+          input.disabled = true;
+          sendBtn.disabled = true;
+          resetBtn.disabled = true;
+        }
+      });
+      document.body.addEventListener('htmx:afterRequest', function (evt) {
+        if (evt.target === form) {
+          input.disabled = false;
+          updateSendState();
+          resetBtn.disabled = false;
+        }
+      });
+      document.body.addEventListener('htmx:afterSwap', function (evt) {
+        if (evt.target === chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
+      });
+    })();
+
+    function copyChatText(btn) {
+      var msg = btn.closest('.chat-msg');
+      var textEl = msg.querySelector('.chat-text');
+      var text = textEl ? textEl.innerText : '';
+      navigator.clipboard.writeText(text).then(function () {
+        var original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      });
+    }
+  </script>
+  {% endif %}
 </body>
 </html>

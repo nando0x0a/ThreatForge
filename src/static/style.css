@@ -130,7 +130,7 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
    has content, so the empty state doesn't leave a permanent dead zone. */
 #produce-result:not(:empty) { margin-top: 1.25rem; }
 /* Banner-strip heading above the canvas card, matching soc-skill-cloud's
-   .pane-heading convention (web-design-system.md §3) -- ThreatForge has
+   .pane-heading convention (web-design-system.md §3) -- Vuln-Skill has
    no --assistant-bg token (chat-app-specific), so a neutral tint via
    color-mix substitutes for it. */
 .pane-heading {

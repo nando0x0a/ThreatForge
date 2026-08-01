@@ -28,7 +28,7 @@ def fetch_cna_metrics(cve_id: str) -> dict:
     score, which is what vulnx surfaces elsewhere in the pipeline."""
     url = CVE_ORG_API.format(cve_id=cve_id)
     try:
-        resp = requests.get(url, timeout=10, headers={"User-Agent": "ThreatForge/1.0"})
+        resp = requests.get(url, timeout=10, headers={"User-Agent": "Vuln-Skill/1.0"})
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:

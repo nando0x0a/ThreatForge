@@ -1,4 +1,4 @@
-# ThreatForge — single source of truth for pipeline filters, scoring, the
+# Vuln-Skill — single source of truth for pipeline filters, scoring, the
 # Discord output menu text, and every Claude prompt.
 #
 # Secrets (API keys, webhook URLs) stay in config/.env — never put them here.
@@ -12,7 +12,7 @@ pipeline:
   new_threshold_days: 3    # CVE age below which the [NEW] tag applies
   query_limit: 15          # candidates to pull per product per query (KEV, and CVSS-sorted), before filtering — same shape as test_mode.query_limit
 
-# Daily automated run — disabled by default. When disabled, ThreatForge only
+# Daily automated run — disabled by default. When disabled, Vuln-Skill only
 # runs when triggered manually (via `docker exec ... src/cli.py` or
 # `orchestrate.py` directly); the container stays up and healthy either way,
 # since manual runs need it alive regardless.
@@ -166,7 +166,7 @@ output_menu:
 
 prompts:
   system_prompt: |
-    You are ThreatForge, a cybersecurity automation assistant.
+    You are Vuln-Skill, a cybersecurity automation assistant.
     Your role is to produce structured security outputs for analyst review.
 
     Rules:
@@ -196,14 +196,14 @@ prompts:
     # These are structural examples — do not copy match logic verbatim
 
     alert http $EXTERNAL_NET any -> $HOME_NET any (
-      msg:"THREATFORGE CVE-2021-44228 Log4j JNDI injection attempt";
+      msg:"VULN-SKILL CVE-2021-44228 Log4j JNDI injection attempt";
       flow:established,to_server; http.header; content:"${jndi:";
       nocase; reference:cve,2021-44228;
       metadata:mitre_technique_id T1190, is_kev true, status experimental;
       classtype:attempted-admin; sid:9000001; rev:1; )
 
     alert tcp $EXTERNAL_NET any -> $HOME_NET 22 (
-      msg:"THREATFORGE CVE-2024-6387 OpenSSH regreSSHion exploit attempt";
+      msg:"VULN-SKILL CVE-2024-6387 OpenSSH regreSSHion exploit attempt";
       flow:established,to_server; dsize:>1400;
       threshold:type both, track by_src, count 5, seconds 10;
       reference:cve,2024-6387;
@@ -211,7 +211,7 @@ prompts:
       classtype:attempted-admin; sid:9000002; rev:1; )
 
     alert dns $HOME_NET any -> any 53 (
-      msg:"THREATFORGE CVE-2020-1350 SIGRed DNS exploit attempt";
+      msg:"VULN-SKILL CVE-2020-1350 SIGRed DNS exploit attempt";
       flow:established; dns.query; content:"|00 ff|"; offset:2;
       reference:cve,2020-1350;
       metadata:mitre_technique_id T1190, is_kev true, status experimental;
@@ -313,7 +313,7 @@ prompts:
       # inferred from PoC + advisory description, not verified against captured
       # exploit traffic.
       alert http $EXTERNAL_NET any -> $HOME_NET any (
-        msg:"THREATFORGE CVE-XXXX-XXXX product exploit attempt";
+        msg:"VULN-SKILL CVE-XXXX-XXXX product exploit attempt";
         flow:established,to_server; http.uri; content:"/exploit/path";
         pcre:"/exploit_pattern/i";
         reference:cve,XXXX-XXXX;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FastAPI web app for ThreatForge — mirrors the CLI wizard's flow (run
+"""FastAPI web app for Vuln-Skill — mirrors the CLI wizard's flow (run
 pipeline, pick outputs, produce, browse results) plus config editing and run
 history. Auth (HTTP Basic) and TLS terminate at nginx in front of this — this
 app assumes it's already behind that gate and adds no auth of its own."""
@@ -31,20 +31,20 @@ log = logging.getLogger("web")
 
 APP_DIR = Path(__file__).parent
 PRODUCTS_FILE = Path(orchestrate.PRODUCTS_FILE)
-RUNS_LOG = Path("/opt/threatforge/logs/runs.jsonl")
+RUNS_LOG = Path("/opt/vuln-skill/logs/runs.jsonl")
 
-# --- Chat assistant (threatforge_cloud_assistant.md, plan steps 3-4) ---
-# The system prompt intentionally lives in the separate threatforge-cloud
+# --- Chat assistant (vuln_skill_cloud_assistant.md, plan steps 3-4) ---
+# The system prompt intentionally lives in the separate vuln-skill-cloud
 # repo (Terraform-only otherwise), mounted read-only into this container --
 # see that file's own header note and Cloud/index.md for why the split
 # exists. This app fails to start loudly in its logs but NOT by crashing if
 # the mount is missing -- the chat feature just reports itself unavailable
 # rather than taking down the whole pipeline dashboard.
-CHAT_PROMPT_PATH = Path(os.getenv("CHAT_PROMPT_PATH", "/opt/threatforge-cloud-prompt/threatforge_cloud_assistant.md"))
-CHAT_DATA_DIR = Path(os.getenv("CHAT_DATA_DIR", "/opt/threatforge/chat_data"))
+CHAT_PROMPT_PATH = Path(os.getenv("CHAT_PROMPT_PATH", "/opt/vuln-skill-cloud-prompt/vuln_skill_cloud_assistant.md"))
+CHAT_DATA_DIR = Path(os.getenv("CHAT_DATA_DIR", "/opt/vuln-skill/chat_data"))
 CHAT_DATA_DIR.mkdir(parents=True, exist_ok=True)
 CHAT_CURRENT_FILE = CHAT_DATA_DIR / "current.json"
-# Same cost-conscious default as the produce pipeline (config/threatforge.yaml's
+# Same cost-conscious default as the produce pipeline (config/vuln-skill.yaml's
 # ai_provider.model) -- overridable via env without a code change once this
 # is stable enough to justify a stronger model for tool-selection reasoning.
 CHAT_MODEL = os.getenv("CHAT_MODEL", "claude-haiku-4-5-20251001")
@@ -62,7 +62,7 @@ anthropic_client = anthropic.Anthropic()
 try:
     _raw_chat_prompt = CHAT_PROMPT_PATH.read_text()
     CHAT_SYSTEM_PROMPT = re.sub(r"^---\n.*?\n---\n", "", _raw_chat_prompt, count=1, flags=re.DOTALL).strip()
-    log.info(f"Loaded ThreatForge Cloud Assistant prompt: {len(CHAT_SYSTEM_PROMPT)} chars")
+    log.info(f"Loaded Vuln-Skill Cloud Assistant prompt: {len(CHAT_SYSTEM_PROMPT)} chars")
 except Exception as e:
     CHAT_SYSTEM_PROMPT = None
     log.error(f"Chat assistant prompt not available ({e}) -- /chat will report itself disabled")
@@ -71,7 +71,7 @@ except Exception as e:
 def _github_url(subdir: str, filename: str) -> str | None:
     """Outputs are published to GitHub by OutputRouter.save() (via
     github_publisher) whenever GITHUB_TOKEN/GITHUB_REPO are set — same repo
-    ThreatForge's own automation already commits to. Since that repo is
+    Vuln-Skill's own automation already commits to. Since that repo is
     public, linking there lets anyone view a produced draft without needing
     this site's Basic Auth password at all."""
     if not github_publisher.GITHUB_REPO:
@@ -79,7 +79,7 @@ def _github_url(subdir: str, filename: str) -> str | None:
     branch = github_publisher.GITHUB_BRANCH
     return f"https://github.com/{github_publisher.GITHUB_REPO}/blob/{branch}/outputs/{subdir}/{filename}"
 
-app = FastAPI(title="ThreatForge")
+app = FastAPI(title="Vuln-Skill")
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=APP_DIR / "templates")
 
@@ -108,7 +108,7 @@ def _output_menu() -> dict:
 # Per-output-type icon for the Workspace Canvas tab strip (produced.html),
 # matching soc-skill-cloud's canvas convention of an icon alongside each
 # tab's text label. Keyed by output_menu number, not by key/label text, so
-# a wording change to threatforge.yaml's labels doesn't silently drop the icon.
+# a wording change to vuln-skill.yaml's labels doesn't silently drop the icon.
 _OUTPUT_ICONS = {
     1: "📋",  # Security advisory (management)
     2: "🔍",  # Technical findings (SOC analyst)
@@ -151,21 +151,28 @@ def _pipeline_results_context() -> dict:
     }
 
 
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {
-        **_pipeline_results_context(),
-        # "messages", not "chat_messages" -- _messages.html (included by
-        # index.html) reads a variable literally named "messages", matching
-        # what _chat_swap.html already passes it after a /chat POST. Named
-        # differently here for a long time without being caught, since
-        # Jinja's default Undefined just silently renders as "no messages"
-        # rather than erroring -- every interactive test went through the
-        # /chat response path (correct key), never a plain page reload.
+def _chat_context() -> dict:
+    """Shared by every page route (base.html now renders the AI Assistant
+    chat pane on ALL pages, not just Pipeline) -- one place defining the
+    context keys base.html/_messages.html need. "messages", not
+    "chat_messages": _messages.html reads a variable literally named
+    "messages", matching what _chat_swap.html already passes after a /chat
+    POST -- named differently here once, for a long time, without being
+    caught, since Jinja's default Undefined just silently renders as "no
+    messages" rather than erroring."""
+    return {
         "messages": _chat_display_messages(),
         "chat_totals": _chat_state["totals"],
         "chat_pending_tool": _chat_state["pending_tool"],
         "chat_available": CHAT_SYSTEM_PROMPT is not None,
+    }
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    return templates.TemplateResponse(request, "index.html", {
+        **_pipeline_results_context(),
+        **_chat_context(),
     })
 
 
@@ -310,6 +317,7 @@ def outputs_route(request: Request):
         "by_dir": by_dir,
         "github_configured": github_configured,
         "github_repo": github_publisher.GITHUB_REPO,
+        **_chat_context(),
     })
 
 
@@ -337,13 +345,13 @@ def runs_route(request: Request):
                     except json.JSONDecodeError:
                         continue
     runs.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
-    return templates.TemplateResponse(request, "runs.html", {"runs": runs[:200]})
+    return templates.TemplateResponse(request, "runs.html", {"runs": runs[:200], **_chat_context()})
 
 
 @app.get("/config/products", response_class=HTMLResponse)
 def products_get(request: Request):
     content = PRODUCTS_FILE.read_text() if PRODUCTS_FILE.exists() else ""
-    return templates.TemplateResponse(request, "products.html", {"content": content})
+    return templates.TemplateResponse(request, "products.html", {"content": content, **_chat_context()})
 
 
 @app.post("/config/products")
@@ -382,6 +390,7 @@ def pipeline_config_get(request: Request):
         "weights": cfg["scoring"]["weights"],
         "cvss_crit_threshold": cfg["scoring"]["cvss_crit_threshold"],
         "scheduler": cfg["scheduler"],
+        **_chat_context(),
     })
 
 
@@ -420,7 +429,7 @@ def pipeline_config_post(
 
 
 # --- Chat assistant: tool contract, confirmation gate, injection screen ---
-# See threatforge_cloud_assistant.md §4 for the full contract this mirrors.
+# See vuln_skill_cloud_assistant.md §4 for the full contract this mirrors.
 # Every tool here maps to an existing pipeline capability already used above
 # (_execute_run/_execute_produce/orchestrate/RUNS_LOG) -- no new pipeline
 # logic, purely a tool-call wrapper, per the build plan.
@@ -490,9 +499,9 @@ CHAT_TOOLS = [
     },
 ]
 
-CHAT_REFUSAL_MESSAGE = "I can't help with that. This assistant runs the ThreatForge CVE intelligence pipeline on your behalf, not its own configuration. Please submit a pipeline request instead."
+CHAT_REFUSAL_MESSAGE = "I can't help with that. This assistant runs the Vuln-Skill CVE intelligence pipeline on your behalf, not its own configuration. Please submit a pipeline request instead."
 
-CHAT_SCREEN_PROMPT_TEMPLATE = """A user submitted this message to a chat assistant that runs a CVE (Common Vulnerabilities and Exposures) intelligence pipeline (ThreatForge) on their behalf:
+CHAT_SCREEN_PROMPT_TEMPLATE = """A user submitted this message to a chat assistant that runs a CVE (Common Vulnerabilities and Exposures) intelligence pipeline (Vuln-Skill) on their behalf:
 <message>
 {message}
 </message>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive menu for ThreatForge — wraps orchestrate.py's CLI so an analyst
+"""Interactive menu for Vuln-Skill — wraps orchestrate.py's CLI so an analyst
 can pick a run mode without memorizing flags. Every action here maps directly
 to an `orchestrate.py` invocation; run `python3 src/orchestrate.py --help`
 for the flag-level reference."""
@@ -85,13 +85,13 @@ def show_scheduler_status():
     cron = sched.get("cron", "?")
     print(f"\nScheduler: {'ENABLED' if enabled else 'DISABLED'}")
     print(f"Cron expression: {cron}")
-    print("To change: edit scheduler.enabled / scheduler.cron in config/threatforge.yaml,")
+    print("To change: edit scheduler.enabled / scheduler.cron in config/vuln-skill.yaml,")
     print("then: docker compose -f docker/docker-compose.yml up -d --force-recreate\n")
 
 
 MAIN_MENU = """
 ================================
- ThreatForge — Interactive CLI
+ Vuln-Skill — Interactive CLI
 ================================
  1) Daily pipeline   (production filters: KEV or CVSS>=threshold, age<cve_age_days)
  2) Test mode        (broad search, top N by score, any age)

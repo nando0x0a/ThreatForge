@@ -19,19 +19,19 @@ from output_router import OutputRouter
 from ai_caller import AICaller
 from config_loader import load_config
 
-load_dotenv("/opt/threatforge/config/.env")
+load_dotenv("/opt/vuln-skill/config/.env")
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
-        logging.FileHandler("/opt/threatforge/logs/threatforge.log"),
+        logging.FileHandler("/opt/vuln-skill/logs/vuln-skill.log"),
         logging.StreamHandler(sys.stdout),
     ],
 )
 log = logging.getLogger("orchestrate")
 
 _cfg = load_config()
-PRODUCTS_FILE = "/opt/threatforge/config/products.txt"
+PRODUCTS_FILE = "/opt/vuln-skill/config/products.txt"
 CVE_AGE_DAYS = _cfg["pipeline"]["cve_age_days"]
 CVSS_THRESHOLD = _cfg["pipeline"]["cvss_threshold"]
 QUERY_LIMIT = _cfg["pipeline"]["query_limit"]
@@ -39,7 +39,7 @@ TEST_DEFAULT_COUNT = _cfg["test_mode"]["default_count"]
 TEST_QUERY_LIMIT = _cfg["test_mode"]["query_limit"]
 TEST_GLOBAL_LIMIT = _cfg["test_mode"]["global_limit"]
 CLEAN_BEFORE_RUN = _cfg["output_management"]["clean_before_run"]
-OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/opt/threatforge/outputs"))
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/opt/vuln-skill/outputs"))
 
 
 def print_summary_table(produced: list[dict]) -> None:
@@ -50,7 +50,7 @@ def print_summary_table(produced: list[dict]) -> None:
     columns and wrap every row across multiple lines."""
     if not produced:
         return
-    table = Table(title="ThreatForge — Outputs Produced")
+    table = Table(title="Vuln-Skill — Outputs Produced")
     table.add_column("#", justify="right", no_wrap=True)
     table.add_column("CVE", style="cyan", no_wrap=True)
     table.add_column("Output Type", no_wrap=True)
@@ -83,7 +83,7 @@ def print_candidate_table(enriched_cves: list[dict]) -> None:
     """Same numbered-table format as print_summary_table, shown before any
     produce decision — the CVE-selection prompt refers to CVEs by this same
     '#' position, so an analyst can answer it directly from what's on screen."""
-    table = Table(title="ThreatForge — CVEs Found")
+    table = Table(title="Vuln-Skill — CVEs Found")
     table.add_column("#", justify="right", no_wrap=True)
     table.add_column("CVE", style="cyan", no_wrap=True)
     table.add_column("Product", no_wrap=True)
@@ -424,7 +424,7 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
     if test_count is not None and recent_count is not None:
         raise click.UsageError("--test and --recent are mutually exclusive — pick one.")
 
-    log.info(f"ThreatForge starting — mode: {'scheduled' if scheduled else 'manual'}")
+    log.info(f"Vuln-Skill starting — mode: {'scheduled' if scheduled else 'manual'}")
     broad_search = test_count is not None or recent_count is not None
 
     products = None
@@ -469,7 +469,7 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
         for c in enriched_cves:
             assembler.enrich_advisory(c["context"], c)
         notifier.post_brief_report(enriched_cves)
-        log.info("ThreatForge run complete.")
+        log.info("Vuln-Skill run complete.")
         return
 
     # Scheduled/cron runs and non-interactive invocations must never block on
@@ -564,7 +564,7 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
         notifier.post_outputs_complete(target_cves, selected)
     print_summary_table(produced)
 
-    log.info("ThreatForge run complete.")
+    log.info("Vuln-Skill run complete.")
 
 
 if __name__ == "__main__":

@@ -29,14 +29,14 @@ RUN pdtm -install vulnx
 
 # vulnx auth is handled at runtime via PDCP_API_KEY env var
 
-WORKDIR /opt/threatforge
+WORKDIR /opt/vuln-skill
 
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
 COPY config/products.txt ./config/products.txt
-COPY config/threatforge.yaml ./config/threatforge.yaml
+COPY config/vuln-skill.yaml ./config/vuln-skill.yaml
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
@@ -45,6 +45,6 @@ RUN mkdir -p outputs/{rules,advisories,iocs,hunting,patches} logs
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python3 -c "import anthropic, openai; print('ok')" || exit 1
 
-# entrypoint.sh reads config/threatforge.yaml's scheduler section at startup —
+# entrypoint.sh reads config/vuln-skill.yaml's scheduler section at startup —
 # it decides between running supercronic or idling. See that file for details.
 CMD ["/usr/local/bin/entrypoint.sh"]

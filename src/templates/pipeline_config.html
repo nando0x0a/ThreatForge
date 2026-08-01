@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}ThreatForge — Pipeline settings{% endblock %}
+{% block title %}Vuln-Skill — Pipeline settings{% endblock %}
 {% block content %}
 <section class="card">
   <h2>Pipeline &amp; scoring settings</h2>
-  <p class="muted">AI prompts and the output menu are not editable here — SSH in and edit <code>config/threatforge.yaml</code> directly for those.</p>
+  <p class="muted">AI prompts and the output menu are not editable here — SSH in and edit <code>config/vuln-skill.yaml</code> directly for those.</p>
   <form method="post" action="/config/pipeline">
     <fieldset>
       <legend>Pipeline</legend>
@@ -17,7 +17,7 @@
     <fieldset>
       <legend>Scoring</legend>
       <label>CRIT threshold (CVSS) <input type="number" step="0.1" name="cvss_crit_threshold" value="{{ cvss_crit_threshold }}"></label>
-      <p class="muted">Weights: {% for tag, w in weights.items() %}{{ tag }}={{ w }} {% endfor %}(edit weights directly in <code>threatforge.yaml</code> — not exposed here yet)</p>
+      <p class="muted">Weights: {% for tag, w in weights.items() %}{{ tag }}={{ w }} {% endfor %}(edit weights directly in <code>vuln-skill.yaml</code> — not exposed here yet)</p>
     </fieldset>
 
     <fieldset>

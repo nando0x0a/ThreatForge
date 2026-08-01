@@ -52,7 +52,7 @@ def load_kev_catalogue() -> dict:
 
 def fetch_advisory_summary(url: str) -> str:
     try:
-        resp = requests.get(url, timeout=10, headers={"User-Agent": "ThreatForge/1.0"})
+        resp = requests.get(url, timeout=10, headers={"User-Agent": "Vuln-Skill/1.0"})
         resp.raise_for_status()
         plain = re.sub(r"<[^>]+>", " ", resp.text)
         plain = re.sub(r"\s+", " ", plain).strip()
@@ -113,7 +113,7 @@ class ContextAssembler:
                 {"source": e.get("source", "unknown"), "added_date": e.get("added_date", "")}
                 for e in (cve_data.get("kev") or [])
             ]
-            # Cross-check against ThreatForge's own live CISA fetch: vulnx
+            # Cross-check against Vuln-Skill's own live CISA fetch: vulnx
             # doesn't always tag "cisa" as a kev[] source even when the CVE is
             # genuinely CISA-listed, so add it if our independent check confirms it
             # and vulnx didn't already report it.

@@ -1,4 +1,4 @@
-# ThreatForge product inventory
+# Vuln-Skill product inventory
 # One product per line. Format: product_name,tier
 # tier: 1 = internet-facing/auth/production, 2 = internal, 3 = dev/test
 

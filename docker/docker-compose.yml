@@ -1,24 +1,24 @@
 services:
-  threatforge:
-    image: threatforge
-    container_name: threatforge
+  vuln-skill:
+    image: vuln-skill
+    container_name: vuln-skill
     restart: unless-stopped
 
     env_file:
-      - /opt/docker/threatforge/config/.env
+      - /opt/docker/vuln-skill/config/.env
 
     volumes:
-      - /opt/docker/threatforge/outputs:/opt/threatforge/outputs
-      - /opt/docker/threatforge/logs:/opt/threatforge/logs
+      - /opt/docker/vuln-skill/outputs:/opt/vuln-skill/outputs
+      - /opt/docker/vuln-skill/logs:/opt/vuln-skill/logs
       # Directory-level mount, not per-file — a per-file bind mount pins to
       # the inode at container-creation time, so editors/scripts that replace
       # rather than truncate-in-place (sed -i, cp of a new file, etc.) silently
       # orphan it. Mounting the directory resolves by path on every access.
-      - /opt/docker/threatforge/config:/opt/threatforge/config:ro
+      - /opt/docker/vuln-skill/config:/opt/vuln-skill/config:ro
 
     environment:
       - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/opt/threatforge/src
+      - PYTHONPATH=/opt/vuln-skill/src
       - PDCP_API_KEY=${PDTM_API_KEY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPO=${GITHUB_REPO}
@@ -40,33 +40,33 @@ services:
         max-size: 10m
         max-file: "3"
 
-  threatforge-web:
-    image: threatforge
-    container_name: threatforge-web
+  vuln-skill-web:
+    image: vuln-skill
+    container_name: vuln-skill-web
     restart: unless-stopped
-    command: uvicorn web:app --host 0.0.0.0 --port 8000 --app-dir /opt/threatforge/src
+    command: uvicorn web:app --host 0.0.0.0 --port 8000 --app-dir /opt/vuln-skill/src
 
     env_file:
-      - /opt/docker/threatforge/config/.env
+      - /opt/docker/vuln-skill/config/.env
 
     volumes:
-      - /opt/docker/threatforge/outputs:/opt/threatforge/outputs
-      - /opt/docker/threatforge/logs:/opt/threatforge/logs
-      # NOT :ro, unlike the threatforge service above — the web UI's config
+      - /opt/docker/vuln-skill/outputs:/opt/vuln-skill/outputs
+      - /opt/docker/vuln-skill/logs:/opt/vuln-skill/logs
+      # NOT :ro, unlike the vuln-skill service above — the web UI's config
       # editors (products.txt, pipeline/scoring settings) write here.
-      - /opt/docker/threatforge/config:/opt/threatforge/config
+      - /opt/docker/vuln-skill/config:/opt/vuln-skill/config
       # Chat assistant (plan steps 3-4): the system prompt intentionally
-      # lives in the separate threatforge-cloud repo, not this one -- see
+      # lives in the separate vuln-skill-cloud repo, not this one -- see
       # that file's own header note and Cloud/index.md for why. Mounted
       # read-only since this container never writes to it. Only needed by
-      # threatforge-web (which imports web.py); the threatforge service
+      # vuln-skill-web (which imports web.py); the vuln-skill service
       # runs the CLI/cron entrypoint and never touches this code path.
-      - /home/ubuntu/threatforge-cloud-prompt-repo/prompt:/opt/threatforge-cloud-prompt:ro
-      - /opt/docker/threatforge/chat_data:/opt/threatforge/chat_data
+      - /home/ubuntu/vuln-skill-cloud-prompt-repo/prompt:/opt/vuln-skill-cloud-prompt:ro
+      - /opt/docker/vuln-skill/chat_data:/opt/vuln-skill/chat_data
 
     environment:
       - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/opt/threatforge/src
+      - PYTHONPATH=/opt/vuln-skill/src
       - PDCP_API_KEY=${PDTM_API_KEY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPO=${GITHUB_REPO}

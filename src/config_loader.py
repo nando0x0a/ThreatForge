@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-CONFIG_PATH = Path(os.getenv("THREATFORGE_CONFIG", "/opt/threatforge/config/threatforge.yaml"))
+CONFIG_PATH = Path(os.getenv("VULN_SKILL_CONFIG", "/opt/vuln-skill/config/vuln-skill.yaml"))
 
 _config = None
 

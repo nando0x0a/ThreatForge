@@ -54,7 +54,7 @@ class OutputRouter:
         self._log_run(cve_data, output_num, result, filepath)
 
         repo_path = f"outputs/{subdir}/{filename}"
-        commit_msg = f"ThreatForge: {output_type} for {cve_data.get('cve_id', 'UNKNOWN')}"
+        commit_msg = f"Vuln-Skill: {output_type} for {cve_data.get('cve_id', 'UNKNOWN')}"
         github_publisher.publish(str(filepath), repo_path, commit_msg)
 
         return filepath
@@ -82,7 +82,7 @@ class OutputRouter:
             f"Status:    {'REVIEW_NEEDED' if result.get('review_needed') else 'OK'}",
         ]
 
-        title = f"ThreatForge Output — {result.get('output_type', '').upper()}"
+        title = f"Vuln-Skill Output — {result.get('output_type', '').upper()}"
         if ext == ".md":
             # '#'-prefixed lines are H1 headings in Markdown, not comments — each
             # would render as its own giant heading. Use a blockquote instead:
@@ -104,13 +104,13 @@ class OutputRouter:
             # Same heading level and plain list style as the AI's own "## Sources"
             # section, so this reads as the same size/font, not a giant heading
             # per '#'-prefixed line.
-            lines = ["", "## Sources (ThreatForge-verified)", ""]
+            lines = ["", "## Sources (Vuln-Skill-verified)", ""]
             for i, src in enumerate(sources, 1):
                 lines.append(f"[{i}] {src['label']} — {src['url']}")
             return "\n".join(lines) + "\n"
 
         # '#' is a genuine comment character in .txt/.yml/.rules — safe as-is.
-        lines = ["", "# --- Sources (ThreatForge-verified) ---"]
+        lines = ["", "# --- Sources (Vuln-Skill-verified) ---"]
         for i, src in enumerate(sources, 1):
             lines.append(f"# [{i}] {src['label']} — {src['url']}")
         return "\n".join(lines) + "\n"
@@ -135,6 +135,6 @@ class OutputRouter:
             "cost": usage.get("cost"),
             "filepath": str(filepath),
         }
-        log_path = Path("/opt/threatforge/logs/runs.jsonl")
+        log_path = Path("/opt/vuln-skill/logs/runs.jsonl")
         with open(log_path, "a") as f:
             f.write(json.dumps(log_entry) + "\n")

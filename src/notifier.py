@@ -9,7 +9,7 @@ from config_loader import load_config
 log = logging.getLogger("notifier")
 
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
-DISCORD_USERNAME = "ThreatForge"
+DISCORD_USERNAME = "Vuln-Skill"
 # Discord hard limit is 2000 chars; stay under with buffer
 _CHUNK = 1900
 
@@ -41,7 +41,7 @@ class DiscordNotifier:
     def post_brief_report(self, enriched_cves: list[dict]) -> None:
         now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
         lines = [
-            f"**ThreatForge — Daily Report**",
+            f"**Vuln-Skill — Daily Report**",
             f"{now} · {len(enriched_cves)} actionable CVE(s) found",
             "",
         ]
@@ -80,7 +80,7 @@ class DiscordNotifier:
             "",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             "**Produce outputs:**",
-            "`docker exec threatforge python3 src/orchestrate.py --produce 1,3,6,7`",
+            "`docker exec vuln-skill python3 src/orchestrate.py --produce 1,3,6,7`",
             "*(comma-separated, no spaces — e.g. `1,3,6` or `0` for all file outputs; add `7` to also post to Discord)*",
         ]
         _post("\n".join(lines))
@@ -109,11 +109,11 @@ class DiscordNotifier:
         labels = [OUTPUT_LABELS.get(n, f"Output {n}") for n in selected]
         cve_ids = [c["cve_id"] for c in enriched_cves]
         _post(
-            f"**ThreatForge — All outputs posted above** ✓\n"
+            f"**Vuln-Skill — All outputs posted above** ✓\n"
             f"CVEs: {', '.join(cve_ids)}\n"
             f"Produced: {', '.join(labels)}"
         )
 
     def post_empty_report(self) -> None:
         now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-        _post(f"**ThreatForge — Daily Report**\n{now} · No actionable CVEs found today.")
+        _post(f"**Vuln-Skill — Daily Report**\n{now} · No actionable CVEs found today.")
