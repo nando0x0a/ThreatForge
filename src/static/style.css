@@ -112,6 +112,23 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
    no gap of its own until htmx fills it -- margin only once it actually
    has content, so the empty state doesn't leave a permanent dead zone. */
 #produce-result:not(:empty) { margin-top: 1.25rem; }
+/* Banner-strip heading above the canvas card, matching soc-skill-cloud's
+   .pane-heading convention (web-design-system.md §3) -- ThreatForge has
+   no --assistant-bg token (chat-app-specific), so a neutral tint via
+   color-mix substitutes for it. */
+.pane-heading {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
 /* Only rendered when more than one CVE was produced in the same call
    (produced.html) -- lets the analyst jump straight to a CVE's canvas
    instead of scrolling past every other one stacked above it. */
@@ -120,7 +137,8 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 .canvas-index-link:hover { text-decoration: underline; }
 /* Scroll target offset so the sticky header doesn't cover the canvas's
    own heading right after an anchor jump. */
-.canvas-card { scroll-margin-top: 5.5rem; margin-bottom: 1.25rem; }
+.canvas-block { scroll-margin-top: 5.5rem; }
+.canvas-card { margin-bottom: 1.25rem; }
 .canvas-tabs { display: flex; flex-direction: column; }
 .canvas-empty { color: var(--muted); font-size: 0.9rem; padding: 0.5rem 0; }
 

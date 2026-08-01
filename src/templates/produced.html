@@ -10,15 +10,14 @@
 </nav>
 {% endif %}
 {% for canvas in canvases %}
-<div class="card canvas-card" id="canvas-{{ canvas.cve_id }}">
-  <div class="card-header-row">
-    <h2>{{ canvas.cve_id }} — Workspace Canvas</h2>
-  </div>
+<div class="canvas-block" id="canvas-{{ canvas.cve_id }}">
+  <h2 class="pane-heading">{{ canvas.cve_id }} — Workspace Canvas</h2>
+  <div class="card canvas-card">
   <div class="canvas-tabs" data-tab-index="{{ canvas.active_index }}">
     <div class="tab-strip">
       {% for tab in canvas.tabs %}
       <button type="button" class="tab-btn{% if loop.index0 == canvas.active_index %} active{% endif %}{% if not tab.produced %} tab-btn-empty{% endif %}" data-tab="{{ loop.index0 }}" {% if not tab.produced %}disabled title="Not yet produced"{% endif %}>
-        <span class="tab-dot{% if tab.produced %} tab-dot-filled{% else %} tab-dot-empty{% endif %}" aria-hidden="true"></span>{{ tab.label }}
+        <span class="tab-dot{% if tab.produced %} tab-dot-filled{% else %} tab-dot-empty{% endif %}" aria-hidden="true"></span>{{ tab.icon }} {{ tab.label }}
       </button>
       {% endfor %}
     </div>
@@ -46,6 +45,7 @@
       <span class="tab-position">{{ canvas.active_index + 1 }} / {{ canvas.tabs|length }}</span>
       <button type="button" class="tab-nav-btn tab-next" aria-label="Next output">Next ›</button>
     </div>
+  </div>
   </div>
 </div>
 {% endfor %}

@@ -66,6 +66,20 @@ def _output_menu() -> dict:
     return {int(k): v for k, v in load_config()["output_menu"].items()}
 
 
+# Per-output-type icon for the Workspace Canvas tab strip (produced.html),
+# matching soc-skill-cloud's canvas convention of an icon alongside each
+# tab's text label. Keyed by output_menu number, not by key/label text, so
+# a wording change to threatforge.yaml's labels doesn't silently drop the icon.
+_OUTPUT_ICONS = {
+    1: "📋",  # Security advisory (management)
+    2: "🔍",  # Technical findings (SOC analyst)
+    3: "🛡️",  # Suricata signature drafts
+    4: "🧬",  # IoC list
+    5: "🎯",  # Threat hunting queries
+    6: "🩹",  # Patch recommendations
+}
+
+
 def _describe_run(mode: str, product: str, cve: str, count: int) -> str:
     if mode == "product" and product.strip():
         return f"Single product: {product.strip()}"
@@ -169,8 +183,9 @@ def produce_route(
     for cve_data in target_cves:
         tabs = []
         for num, entry in sorted(menu.items()):
+            icon = _OUTPUT_ICONS.get(num, "")
             if num not in output_nums:
-                tabs.append({"num": num, "label": entry["label"], "produced": False})
+                tabs.append({"num": num, "label": entry["label"], "icon": icon, "produced": False})
                 continue
             log.info(f"[web] Producing output {num} for {cve_data['cve_id']}")
             result = caller.produce(num, cve_data)
@@ -179,6 +194,7 @@ def produce_route(
             tabs.append({
                 "num": num,
                 "label": entry["label"],
+                "icon": icon,
                 "produced": True,
                 "status": "REVIEW_NEEDED" if result.get("review_needed") else "OK",
                 "error": result.get("error") if result.get("review_needed") else None,
