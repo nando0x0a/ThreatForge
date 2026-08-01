@@ -9,14 +9,14 @@ import logging
 import os
 import re
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import anthropic
 import markdown
 import yaml
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -44,6 +44,11 @@ CHAT_PROMPT_PATH = Path(os.getenv("CHAT_PROMPT_PATH", "/opt/vuln-skill-cloud-pro
 CHAT_DATA_DIR = Path(os.getenv("CHAT_DATA_DIR", "/opt/vuln-skill/chat_data"))
 CHAT_DATA_DIR.mkdir(parents=True, exist_ok=True)
 CHAT_CURRENT_FILE = CHAT_DATA_DIR / "current.json"
+# Real chat-session history (web-bugs-and-tweaks.md #15), mirroring
+# soc-skill-cloud's archive-on-reset pattern: /chat/reset snapshots the
+# current conversation here before clearing it, rather than discarding it.
+CHAT_SESSIONS_DIR = CHAT_DATA_DIR / "sessions"
+CHAT_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 # Same cost-conscious default as the produce pipeline (config/vuln-skill.yaml's
 # ai_provider.model) -- overridable via env without a code change once this
 # is stable enough to justify a stronger model for tool-selection reasoning.
@@ -165,6 +170,7 @@ def _chat_context() -> dict:
         "chat_totals": _chat_state["totals"],
         "chat_pending_tool": _chat_state["pending_tool"],
         "chat_available": CHAT_SYSTEM_PROMPT is not None,
+        "chat_model": CHAT_MODEL if CHAT_SYSTEM_PROMPT is not None else None,
     }
 
 
@@ -533,6 +539,39 @@ def _chat_save() -> None:
     CHAT_CURRENT_FILE.write_text(json.dumps(_chat_state, indent=2, default=str))
 
 
+def _chat_archive_title(messages: list[dict]) -> str:
+    """First user message, truncated -- Vuln-Skill's chat has no
+    customer-facing-draft structure to prefer (unlike soc-skill-cloud's
+    _archive_title), so the first real question is the best available
+    label for a session in the History list."""
+    for m in messages:
+        if m["role"] != "user":
+            continue
+        text = m["content"] if isinstance(m["content"], str) else "\n".join(
+            b.get("text", "") for b in m["content"] if isinstance(b, dict) and b.get("type") == "text"
+        ).strip()
+        if text:
+            return (text[:80] + "...") if len(text) > 80 else text
+    return "(untitled)"
+
+
+def _chat_archive_current() -> None:
+    """Snapshot the active chat conversation to CHAT_SESSIONS_DIR before
+    /chat/reset clears it -- what makes /chat/history possible. No-op for
+    an empty conversation (nothing worth archiving)."""
+    if not _chat_state["messages"]:
+        return
+    now = datetime.now(timezone.utc)
+    ts = now.strftime("%Y%m%d_%H%M%S")
+    (CHAT_SESSIONS_DIR / f"{ts}.json").write_text(json.dumps({
+        "title": _chat_archive_title(_chat_state["messages"]),
+        "archived_at_iso": now.isoformat(),
+        "messages": _chat_state["messages"],
+        "usage": _chat_state["usage"],
+        "totals": _chat_state["totals"],
+    }, indent=2, default=str))
+
+
 def _chat_load() -> None:
     if not CHAT_CURRENT_FILE.exists():
         return
@@ -859,6 +898,50 @@ def _handle_pending_answer(message: str) -> None:
     _run_chat_turn(_empty_chat_totals())
 
 
+_CVE_ID_RE = r"CVE-\d{4}-\d{4,7}"
+_KEV_PHRASE_RE = r"(?:CISA )?KEV(?:-listed)?\b|Known Exploited Vulnerabilit(?:y|ies)"
+_IPV4_RE = r"\b(?:\d{1,3}\.){3}\d{1,3}\b"
+_HASH_RE = r"\b[a-fA-F0-9]{64}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{32}\b"
+# TLD allowlist keeps this from firing on ordinary prose ("e.g." etc.) --
+# same "not a real parser, just a heuristic" tradeoff web-design-system.md
+# §8 documents for telemetry/log token highlighting.
+_DOMAIN_RE = r"\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|io|gov|edu|mil|info|biz|co|dev|app|ai|to|xyz|ru|cn|de|uk|us)\b"
+
+_ENTITY_RE = re.compile(
+    rf"(?P<cve>{_CVE_ID_RE})|(?P<kev>{_KEV_PHRASE_RE})|(?P<hash>{_HASH_RE})|(?P<ip>{_IPV4_RE})|(?P<domain>{_DOMAIN_RE})",
+    re.IGNORECASE,
+)
+_ENTITY_CLASSES = {"cve": "entity-cve", "kev": "entity-kev", "hash": "entity-hash", "ip": "entity-ip", "domain": "entity-domain"}
+_CODE_SPAN_RE = re.compile(r"`[^`]*`")
+
+
+def _highlight_entities(escaped_text: str) -> str:
+    """Inline syntax highlighting for CVE IDs, KEV status, IPs,
+    hashes/IoCs, and domains within normal chat prose -- web-bugs-and-
+    tweaks.md #16, "similar in spirit to soc-skill-cloud's JSON/telemetry
+    token-coloring but applied inline within normal text rather than to a
+    structured block." Runs on already-HTML-escaped text (see
+    _render_safe_markdown), so every wrapped span's own content already
+    passed through html.escape() -- inserting literal <span> tags here is
+    safe, markdown's default HTML handling passes them through unchanged.
+    Code spans are masked out first so a hash/IP inside inline code isn't
+    double-styled."""
+    spans: list[str] = []
+
+    def _mask(m: re.Match) -> str:
+        spans.append(m.group(0))
+        return f"\x00{len(spans) - 1}\x00"
+
+    masked = _CODE_SPAN_RE.sub(_mask, escaped_text)
+
+    def _wrap(m: re.Match) -> str:
+        cls = _ENTITY_CLASSES[m.lastgroup]
+        return f'<span class="{cls}">{m.group()}</span>'
+
+    highlighted = _ENTITY_RE.sub(_wrap, masked)
+    return re.sub(r"\x00(\d+)\x00", lambda m: spans[int(m.group(1))], highlighted)
+
+
 def _render_safe_markdown(text: str) -> str:
     """Same pattern as soc-skill-cloud's _render_safe_markdown: HTML-escape
     FIRST, then run markdown on the escaped text -- markdown syntax
@@ -866,12 +949,14 @@ def _render_safe_markdown(text: str) -> str:
     formatting still renders, but any literal HTML in a fetched CVE
     description/advisory the model might echo back becomes inert text
     instead of executable markup. Never markdown-render unescaped model
-    output."""
+    output. Entity highlighting runs between escape and markdown, on the
+    already-safe text."""
     escaped = html.escape(text)
-    return markdown.markdown(escaped, extensions=["extra", "nl2br"])
+    highlighted = _highlight_entities(escaped)
+    return markdown.markdown(highlighted, extensions=["extra", "nl2br"])
 
 
-def _chat_display_messages() -> list[dict]:
+def _chat_display_messages(messages: list[dict] | None = None, usage: list[dict | None] | None = None, pending_tool: dict | None = None) -> list[dict]:
     """Only real conversational turns -- a tool_result-only user message
     (internal plumbing feeding a tool's output back to the model) and a
     tool_use-only assistant message (an intermediate step with no reply
@@ -882,10 +967,19 @@ def _chat_display_messages() -> list[dict]:
     actually gets shown. Also tags whichever assistant message currently
     holds the live confirmation question (its content contains the
     tool_use matching _chat_state["pending_tool"]) as is_question, so the
-    template can color it distinctly from a normal completed reply."""
+    template can color it distinctly from a normal completed reply.
+
+    Defaults to the live _chat_state, but accepts explicit messages/usage/
+    pending_tool so /chat/history/{filename} can render an archived
+    session's saved data through the exact same rendering path instead of
+    a second, drift-prone copy of this logic."""
+    if messages is None:
+        messages = _chat_state["messages"]
+        usage = _chat_state["usage"]
+        pending_tool = _chat_state["pending_tool"]
     display = []
-    pending_id = _chat_state["pending_tool"]["tool_use_id"] if _chat_state["pending_tool"] else None
-    for i, m in enumerate(_chat_state["messages"]):
+    pending_id = pending_tool["tool_use_id"] if pending_tool else None
+    for i, m in enumerate(messages):
         if m["role"] == "user":
             if isinstance(m["content"], str):
                 text = m["content"]
@@ -900,7 +994,7 @@ def _chat_display_messages() -> list[dict]:
                     isinstance(b, dict) and b.get("type") == "tool_use" and b.get("id") == pending_id
                     for b in m["content"]
                 )
-                display.append({"role": "assistant", "text": _render_safe_markdown(text), "usage": _chat_state["usage"][i], "html": True, "is_question": is_question})
+                display.append({"role": "assistant", "text": _render_safe_markdown(text), "usage": usage[i], "html": True, "is_question": is_question})
     return display
 
 
@@ -951,6 +1045,7 @@ def chat_route(request: Request, message: str = Form(...)):
 @app.post("/chat/reset", response_class=HTMLResponse)
 def chat_reset_route(request: Request):
     with _chat_lock:
+        _chat_archive_current()
         _chat_state["messages"] = []
         _chat_state["usage"] = []
         _chat_state["totals"] = _empty_chat_totals()
@@ -959,3 +1054,80 @@ def chat_reset_route(request: Request):
         return templates.TemplateResponse(request, "_chat_swap.html", {
             "messages": [], "error": None, "totals": _chat_state["totals"], "pending_tool": None, "state_changed": False,
         })
+
+
+def _chat_archived_at_iso(data: dict, fallback_stem: str) -> str | None:
+    iso = data.get("archived_at_iso")
+    if iso:
+        return iso
+    try:
+        return datetime.strptime(fallback_stem, "%Y%m%d_%H%M%S").replace(tzinfo=timezone.utc).isoformat()
+    except ValueError:
+        return None
+
+
+@app.get("/chat/history", response_class=HTMLResponse)
+def chat_history_route(request: Request):
+    sessions = []
+    for f in sorted(CHAT_SESSIONS_DIR.glob("*.json"), reverse=True):
+        try:
+            data = json.loads(f.read_text())
+        except Exception:
+            continue
+        sessions.append({
+            "filename": f.name,
+            "title": data.get("title") or "(untitled)",
+            "archived_at_iso": _chat_archived_at_iso(data, f.stem),
+            "message_count": len(data.get("messages", [])),
+            "cost": data.get("totals", {}).get("cost", 0.0),
+        })
+    return templates.TemplateResponse(request, "chat_history.html", {"sessions": sessions})
+
+
+@app.get("/chat/history/{filename}", response_class=HTMLResponse)
+def chat_history_view_route(request: Request, filename: str):
+    if filename != Path(filename).name:
+        return PlainTextResponse("Not found", status_code=404)
+    path = CHAT_SESSIONS_DIR / filename
+    if not path.is_file():
+        return PlainTextResponse("Not found", status_code=404)
+    data = json.loads(path.read_text())
+    messages = data.get("messages", [])
+    return templates.TemplateResponse(request, "chat_session_view.html", {
+        "messages": _chat_display_messages(messages, data.get("usage", []), None),
+        "filename": filename,
+        "title": data.get("title", ""),
+    })
+
+
+@app.post("/chat/history/{filename}/resume")
+def chat_history_resume_route(filename: str):
+    if filename != Path(filename).name:
+        return PlainTextResponse("Not found", status_code=404)
+    path = CHAT_SESSIONS_DIR / filename
+    if not path.is_file():
+        return PlainTextResponse("Not found", status_code=404)
+    data = json.loads(path.read_text())
+    with _chat_lock:
+        _chat_archive_current()
+        _chat_state["messages"] = data.get("messages", [])
+        _chat_state["usage"] = data.get("usage", [])
+        _chat_state["totals"] = data.get("totals", _empty_chat_totals())
+        _chat_state["pending_tool"] = None
+        _chat_save()
+    return RedirectResponse("/", status_code=303)
+
+
+@app.get("/account", response_class=HTMLResponse)
+def account_route(request: Request):
+    return templates.TemplateResponse(request, "account.html", {})
+
+
+@app.get("/logout")
+def logout_route():
+    """No session layer of its own -- auth is nginx Basic Auth in front of
+    the whole domain. Same 401 + WWW-Authenticate workaround as
+    soc-skill-cloud (see its own app.py for the fuller rationale): makes
+    the browser discard its cached credentials for this realm."""
+    body = "<p>Logged out. Close this tab, or reload to sign back in.</p>"
+    return Response(content=body, status_code=401, headers={"WWW-Authenticate": 'Basic realm="Vuln-Skill"'}, media_type="text/html")

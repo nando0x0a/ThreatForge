@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vuln-Skill — Chat History</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script>
+    // See base.html's copy of this script for the full rationale.
+    (function () {
+      var saved = localStorage.getItem('theme');
+      if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+    })();
+    function currentTheme() {
+      var t = document.documentElement.getAttribute('data-theme');
+      return t || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+    function toggleTheme() {
+      var next = currentTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateThemeToggleLabel();
+    }
+    function updateThemeToggleLabel() {
+      var btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      var toDark = currentTheme() !== 'dark';
+      btn.textContent = toDark ? '🌙' : '☀️';
+      var label = toDark ? 'Switch to dark mode' : 'Switch to light mode';
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('title', label);
+    }
+    // Server sends UTC ISO timestamps (data-utc) -- rendered in whoever's
+    // actually looking at this page's own local timezone.
+    function renderLocalTimestamps() {
+      document.querySelectorAll('.archived-cell[data-utc]').forEach(function (td) {
+        if (!td.dataset.utc) return;
+        var d = new Date(td.dataset.utc);
+        if (!isNaN(d.getTime())) td.textContent = d.toLocaleString();
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      updateThemeToggleLabel();
+      renderLocalTimestamps();
+    });
+  </script>
+</head>
+<body class="history-page">
+  <div class="page-header-sticky">
+    <header>
+      <h1>Vuln-Skill</h1>
+      <span class="muted subpage-sep" aria-hidden="true">/</span>
+      <span class="muted">Chat history</span>
+      <div class="header-actions">
+        <button type="button" id="theme-toggle" class="icon-btn" onclick="toggleTheme()">🌙</button>
+        <div class="header-nav-group">
+          <a class="reset-btn" href="/">Back to Pipeline</a>
+          <a class="reset-btn" href="/logout">Logout</a>
+        </div>
+      </div>
+    </header>
+  </div>
+  <main class="history-main">
+    {% if not sessions %}
+    <p class="muted">No archived chat sessions yet — a session is archived automatically when you hit "New session".</p>
+    {% else %}
+    <div class="history-table-wrap">
+      <table class="history-table">
+        <thead><tr><th>Archived</th><th>Title</th><th>Messages</th><th>Cost</th><th></th></tr></thead>
+        <tbody>
+        {% for s in sessions %}
+          <tr>
+            <td class="archived-cell" data-utc="{{ s.archived_at_iso or '' }}">{{ s.archived_at_iso or 'unknown' }}</td>
+            <td>{{ s.title }}</td>
+            <td>{{ s.message_count }}</td>
+            <td>${{ "%.4f"|format(s.cost) }}</td>
+            <td class="history-actions">
+              <a class="reset-btn" href="/chat/history/{{ s.filename }}">View</a>
+              <form method="post" action="/chat/history/{{ s.filename }}/resume">
+                <button type="submit" class="reset-btn">Resume</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </main>
+</body>
+</html>

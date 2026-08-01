@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vuln-Skill — Account</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script>
+    (function () {
+      var saved = localStorage.getItem('theme');
+      if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+    })();
+    function currentTheme() {
+      var t = document.documentElement.getAttribute('data-theme');
+      return t || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+    function toggleTheme() {
+      var next = currentTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateThemeToggleLabel();
+    }
+    function updateThemeToggleLabel() {
+      var btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      var toDark = currentTheme() !== 'dark';
+      btn.textContent = toDark ? '🌙' : '☀️';
+      var label = toDark ? 'Switch to dark mode' : 'Switch to light mode';
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('title', label);
+    }
+    document.addEventListener('DOMContentLoaded', updateThemeToggleLabel);
+  </script>
+</head>
+<body class="history-page">
+  <div class="page-header-sticky">
+    <header>
+      <h1>Vuln-Skill</h1>
+      <span class="muted subpage-sep" aria-hidden="true">/</span>
+      <span class="muted">Account</span>
+      <div class="header-actions">
+        <button type="button" id="theme-toggle" class="icon-btn" onclick="toggleTheme()">🌙</button>
+        <div class="header-nav-group">
+          <a class="reset-btn" href="/">Back to Pipeline</a>
+          <a class="reset-btn" href="/logout">Logout</a>
+        </div>
+      </div>
+    </header>
+  </div>
+  <main class="card" style="max-width: 640px;">
+    <h2>Account</h2>
+    <p>This app currently uses one shared login (HTTP Basic Auth, enforced by nginx in front of the whole domain) for every visitor — there's no individual account yet, so every chat session and run in History is visible to anyone with the shared password.</p>
+    <p class="muted">Vuln-Skill's login credential is separate from soc-skill-cloud's (previously both apps on this EC2 (Elastic Compute Cloud) instance shared one nginx credential file — that was split so each app's login can be changed independently going forward).</p>
+    <p class="muted">Per-user accounts — your own login, isolated chat sessions, and your own history — are planned for when this app supports multiple people. Nothing to configure here yet.</p>
+  </main>
+</body>
+</html>

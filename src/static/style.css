@@ -25,12 +25,25 @@
      Send button being added now -- the unchanged #2563eb/#1d4ed8 already
      clear ~5.17:1 in both themes. Fixed now rather than building a new
      button on a known-bad color. */
-  :root {
+  /* :not([data-theme="light"]) -- an explicit light override (manual
+     toggle, added for header parity with soc-skill-cloud) must still win
+     even when the OS prefers dark. web-design-system.md §2. */
+  :root:not([data-theme="light"]) {
     --border: #3a3a3a; --muted: #9a9a9a;
     --user-bg: #1c2b42; --assistant-bg: #262626;
     --danger-bg: #4a1e1c; --danger-text: #ffb4ae;
   }
 }
+/* Identical declarations to the media-query block above, duplicated on
+   purpose (a plain attribute selector can't be nested inside @media or
+   vice versa) -- forces dark even when the OS prefers light. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --border: #3a3a3a; --muted: #9a9a9a;
+  --user-bg: #1c2b42; --assistant-bg: #262626;
+  --danger-bg: #4a1e1c; --danger-text: #ffb4ae;
+}
+:root[data-theme="light"] { color-scheme: light; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -47,6 +60,54 @@ header h1 { margin: 0; font-size: 1.3rem; }
 nav { display: flex; gap: 1rem; flex-wrap: wrap; }
 nav a { text-decoration: none; }
 nav a:hover { text-decoration: underline; }
+
+/* Theme toggle + About are app-level preferences, not conversation
+   actions -- grouped together, icon-only, set apart from the
+   New session/History/Account/Logout group by .header-nav-group's own
+   border-left. Ported from soc-skill-cloud, web-design-system.md §3. */
+/* flex-wrap here (not just on <header> itself) matters at narrow
+   viewports: without it, this whole group can drop to its own line as a
+   unit but its own children (icon buttons + nav group) still refuse to
+   wrap among themselves, overflowing the viewport horizontally -- a real
+   375px-width regression caught via Playwright, not present in
+   soc-skill-cloud's copy of this rule either (same latent bug, just
+   never surfaced there). */
+.header-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 44px; min-width: 44px; padding: 0.3rem; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; }
+/* Same width/border-left/padding-left as .chat-pane (both 420px
+   box-sizing:border-box) -- not a coincidence, this is what lines this
+   divider up with the canvas/chat pane boundary below it. See
+   web-design-system.md §3's alignment trick. */
+.header-nav-group { width: 420px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-shrink: 0; border-left: 1px solid var(--border); padding-left: 1.5rem; }
+
+dialog { max-width: 500px; border-radius: 10px; border: 1px solid var(--border); color: inherit; background: Canvas; padding: 1.25rem 1.5rem; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+dialog h2 { margin-top: 0; font-size: 1.1rem; }
+dialog p { font-size: 0.9rem; line-height: 1.5; }
+.about-warning { background: var(--danger-bg); color: var(--danger-text); border: 1px solid #f5b5b2; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; margin-bottom: 0.9rem; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .about-warning { border-color: #6b2a26; } }
+:root[data-theme="dark"] .about-warning { border-color: #6b2a26; }
+
+/* Subpage header separator (History, Account) -- distinguishes a
+   subpage's muted label from the main page's own tagline. aria-hidden so
+   a screen reader doesn't read a stray slash. web-design-system.md §3. */
+.subpage-sep { color: var(--muted); }
+
+.history-page main { max-width: 100%; }
+.history-main { padding-top: 0.5rem; }
+.history-table-wrap, .candidates-table-wrap { overflow-x: auto; }
+.history-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.history-table th, .history-table td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.history-table td:nth-child(2) { white-space: normal; }
+.history-actions { display: flex; gap: 0.4rem; }
+.history-actions form { display: inline; }
+
+/* Inline entity highlighting within chat prose (CVE IDs, KEV status,
+   IPs, hashes/IoCs, domains) -- see web-design-system.md §8 for the
+   shared syntax-highlighting color vocabulary this borrows from. */
+.entity-cve { font-weight: 700; color: var(--accent); }
+.entity-kev { font-weight: 700; color: var(--warn); }
+.entity-ip, .entity-hash, .entity-domain { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.92em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0 0.25em; }
 
 .card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
 .card h2 { margin-top: 0; font-size: 1.05rem; }
@@ -107,8 +168,9 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
   display: none;
 }
 @media (prefers-color-scheme: dark) {
-  .loading-banner { background: #3a2f0b; color: #ffe69c; border-color: #5c4a12; }
+  :root:not([data-theme="light"]) .loading-banner { background: #3a2f0b; color: #ffe69c; border-color: #5c4a12; }
 }
+:root[data-theme="dark"] .loading-banner { background: #3a2f0b; color: #ffe69c; border-color: #5c4a12; }
 
 .spinner {
   display: inline-block;
@@ -259,6 +321,8 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
   body:has(main.app-shell) { height: auto; overflow: visible; }
   main.app-shell { flex-direction: column; gap: 1rem; }
   .canvas-pane { overflow-y: visible; padding-right: 0; }
+  /* No side panel left to align a divider with at this width. */
+  .header-nav-group { width: auto; border-left: none; padding-left: 0; }
   .chat-pane {
     width: 100%;
     max-width: none;
@@ -288,7 +352,8 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
    --user-bg/--assistant-bg -- inherit the bubble's own amber text color
    here instead of assuming muted-on-amber also clears AA contrast. */
 .chat-msg-question .copy-btn { color: inherit; }
-@media (prefers-color-scheme: dark) { .chat-msg-question { background: #3a2f0b; color: #ffe69c; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chat-msg-question { background: #3a2f0b; color: #ffe69c; } }
+:root[data-theme="dark"] .chat-msg-question { background: #3a2f0b; color: #ffe69c; }
 
 .chat-role { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
 .chat-text { font-size: 0.92rem; overflow-wrap: anywhere; word-break: break-word; }
@@ -313,7 +378,8 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
    restatement removes any ambiguity when a reply happens to end abruptly
    or the page was reloaded mid-conversation. */
 .chat-done { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: #664d03; background: #fff3cd; border: 1px solid #ffe69c; border-radius: 999px; padding: 0.2rem 0.65rem; }
-@media (prefers-color-scheme: dark) { .chat-done { color: #ffe69c; background: #3a2f0b; border-color: #5c4a12; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chat-done { color: #ffe69c; background: #3a2f0b; border-color: #5c4a12; } }
+:root[data-theme="dark"] .chat-done { color: #ffe69c; background: #3a2f0b; border-color: #5c4a12; }
 
 #chat-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 #chat-message-input { width: 100%; font-family: inherit; font-size: 0.92rem; resize: none; max-height: 220px; overflow-y: auto; box-sizing: border-box; }

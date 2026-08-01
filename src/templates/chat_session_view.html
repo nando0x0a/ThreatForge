@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vuln-Skill — {{ title }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script>
+    (function () {
+      var saved = localStorage.getItem('theme');
+      if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+    })();
+    function currentTheme() {
+      var t = document.documentElement.getAttribute('data-theme');
+      return t || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+    function toggleTheme() {
+      var next = currentTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateThemeToggleLabel();
+    }
+    function updateThemeToggleLabel() {
+      var btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      var toDark = currentTheme() !== 'dark';
+      btn.textContent = toDark ? '🌙' : '☀️';
+      var label = toDark ? 'Switch to dark mode' : 'Switch to light mode';
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('title', label);
+    }
+    document.addEventListener('DOMContentLoaded', updateThemeToggleLabel);
+    function copyChatText(btn) {
+      var msg = btn.closest('.chat-msg');
+      var textEl = msg.querySelector('.chat-text');
+      var text = textEl ? textEl.innerText : '';
+      navigator.clipboard.writeText(text).then(function () {
+        var original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      });
+    }
+  </script>
+</head>
+<body class="history-page">
+  <div class="page-header-sticky">
+    <header>
+      <h1>Vuln-Skill</h1>
+      <span class="muted subpage-sep" aria-hidden="true">/</span>
+      <span class="muted">Viewing archived session (read-only)</span>
+      <div class="header-actions">
+        <button type="button" id="theme-toggle" class="icon-btn" onclick="toggleTheme()">🌙</button>
+        <div class="header-nav-group">
+          <a class="reset-btn" href="/chat/history">Back to history</a>
+          <form method="post" action="/chat/history/{{ filename }}/resume">
+            <button type="submit" class="reset-btn">Resume this session</button>
+          </form>
+          <a class="reset-btn" href="/logout">Logout</a>
+        </div>
+      </div>
+    </header>
+  </div>
+  <main class="card">
+    <div id="chat-history" role="log" aria-label="Archived conversation">
+      {% include "_messages.html" %}
+    </div>
+  </main>
+</body>
+</html>

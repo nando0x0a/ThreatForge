@@ -26,6 +26,7 @@
     {% endif %}
   {% else %}
   <form method="post" action="/produce" hx-post="/produce" hx-target="#produce-result" hx-swap="innerHTML">
+    <div class="candidates-table-wrap">
     <table>
       <thead>
         <tr>
@@ -52,6 +53,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     <fieldset>
       <legend>Outputs to produce</legend>

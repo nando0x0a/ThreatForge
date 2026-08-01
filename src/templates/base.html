@@ -5,6 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Vuln-Skill{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script>
+    // Runs synchronously before first paint, so a saved theme applies
+    // immediately -- no flash of the wrong theme on load. Only sets the
+    // attribute when the analyst has explicitly chosen a theme before;
+    // otherwise prefers-color-scheme (style.css) still decides. Ported
+    // from soc-skill-cloud, see web-design-system.md §2.
+    (function () {
+      var saved = localStorage.getItem('theme');
+      if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+    })();
+    function currentTheme() {
+      var t = document.documentElement.getAttribute('data-theme');
+      return t || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+    function toggleTheme() {
+      var next = currentTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateThemeToggleLabel();
+    }
+    // Icon-only button: swaps both the glyph and the accessible name/
+    // tooltip to describe the action a click will take, not the current state.
+    function updateThemeToggleLabel() {
+      var btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      var toDark = currentTheme() !== 'dark';
+      btn.textContent = toDark ? '🌙' : '☀️';
+      var label = toDark ? 'Switch to dark mode' : 'Switch to light mode';
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('title', label);
+    }
+    document.addEventListener('DOMContentLoaded', updateThemeToggleLabel);
+  </script>
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
 </head>
 <body>
@@ -19,11 +52,31 @@
         <a href="/config/products">Products</a>
         <a href="/config/pipeline">Pipeline settings</a>
       </nav>
+      <div class="header-actions">
+        <button type="button" id="theme-toggle" class="icon-btn" onclick="toggleTheme()">🌙</button>
+        <button type="button" class="icon-btn" onclick="document.getElementById('about-dialog').showModal()" aria-label="About" title="About">ℹ️</button>
+        <div class="header-nav-group">
+          {% if chat_available %}
+          <button type="button" id="chat-reset-btn" class="reset-btn" hx-post="/chat/reset" hx-target="#chat-history" hx-swap="innerHTML" hx-confirm="Start a new session? The current one is saved to History.">New session</button>
+          {% endif %}
+          <a class="reset-btn" href="/chat/history">History</a>
+          <a class="reset-btn" href="/account">Account</a>
+          <a class="reset-btn" href="/logout">Logout</a>
+        </div>
+      </div>
     </header>
     <div id="loading-banner" class="loading-banner" {% if not pipeline_running %}hidden{% endif %}>
       <span class="spinner"></span> Working — this can take a minute or two for a full pipeline run or AI-generated output...
     </div>
   </div>
+
+  <dialog id="about-dialog">
+    <h2>About Vuln-Skill</h2>
+    <div class="about-warning">⚠ Don't submit sensitive data — content sent to the AI Assistant is sent to the LLM provider.</div>
+    <p>Vulnerability Intelligence Assistant — runs CVE (Common Vulnerabilities and Exposures) scoring, security advisories, detection rules, and IoC (indicator of compromise) generation over public vulnerability intelligence feeds.</p>
+    <p class="muted">Chat Model: {{ chat_model or "unavailable" }}</p>
+    <form method="dialog"><button class="reset-btn">Close</button></form>
+  </dialog>
 
   <main class="{{ 'app-shell' if chat_available else '' }}">
     <section class="canvas-pane">
@@ -39,10 +92,9 @@
       </div>
 
       <form id="chat-form" method="post" action="/chat" hx-post="/chat" hx-target="#chat-history" hx-swap="innerHTML">
-        <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask the assistant to run the pipeline, look up a CVE, or produce an output..." required></textarea>
+        <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask the assistant to run the pipeline, look up a CVE, or produce an output... (try /demo)" required></textarea>
         <div class="input-toolbar">
-          <button type="button" id="chat-reset-btn" class="reset-btn" hx-post="/chat/reset" hx-target="#chat-history" hx-swap="innerHTML" hx-confirm="Start a new conversation? The current one will be cleared.">New conversation</button>
-          <span class="char-count">Chars: <span id="chat-char-count">0</span></span>
+          <span class="char-count">Tip: type /demo to try a guided example · Chars: <span id="chat-char-count">0</span></span>
           <button type="submit" disabled>Send</button>
         </div>
       </form>
@@ -177,6 +229,22 @@
       function updateSendState() { sendBtn.disabled = !input.value.trim(); }
       function updateCharCount() { charCount.textContent = input.value.length.toLocaleString(); }
       function autoResize() { input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; }
+
+      // /demo: a real, non-fictional guided example (see ai-skill-webapp
+      // skill §4 -- a real CVE search actually returns genuine OSINT-style
+      // context, unlike a made-up CVE number). Rewrites the textarea's own
+      // value in a 'submit' listener attached directly to the form itself,
+      // which (by normal DOM bubble-order) always runs before htmx's own
+      // delegated document-level submit handler sees the same event -- so
+      // this works whether the message was sent via Enter (requestSubmit())
+      // or a click on the Send button (native submit), with no dependency
+      // on htmx's internal request-building order.
+      function expandSlashCommand() {
+        if (input.value.trim().toLowerCase() === '/demo') {
+          input.value = 'Find a critical, recently disclosed CVE (KEV-listed or high CVSS/EPSS) and produce a security advisory for it.';
+        }
+      }
+      form.addEventListener('submit', expandSlashCommand);
 
       input.addEventListener('input', function () { updateCharCount(); updateSendState(); autoResize(); });
       updateSendState();
