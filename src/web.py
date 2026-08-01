@@ -689,11 +689,30 @@ def _execute_chat_tool(name: str, tool_input: dict) -> dict:
     raise ValueError(f"Unknown or unsupported-here tool: {name}")
 
 
+# Appended as a second system block (own cache_control) after the drafted
+# prompt itself, which stays untouched. §7.1/§7.4 of that prompt tell the
+# model to state the question and wait for Yes/No before producing -- but
+# without this note, the model sometimes satisfies that by asking in plain
+# text WITHOUT calling produce_output at all, deferring the actual tool
+# call to the next turn once the analyst says yes. That leaves this app's
+# server-side gate (_process_tool_uses) with nothing to intercept on the
+# asking turn, so it only catches the SECOND, now-real call -- forcing the
+# analyst to confirm twice for one request. Telling the model to always
+# call the tool immediately removes that gap: the app's own interception
+# is what generates the pause, not the model choosing to withhold the call.
+CHAT_OPERATIONAL_ADDENDUM = """Operational note for this deployment (in addition to all instructions above):
+
+For produce_output specifically: call the tool directly as soon as you've determined the CVE(s) and output type(s), in the same turn as any text you send. Do not withhold the tool call and ask in plain text first, and do not wait for the analyst's Yes/No before calling it -- this application intercepts every produce_output call itself and pauses for the analyst's confirmation automatically, regardless of what you do. If you ask in text without calling the tool, the confirmation will not actually happen and the analyst will have to confirm twice."""
+
+
 def _call_chat_claude(messages: list) -> tuple["anthropic.types.Message", dict]:
     response = anthropic_client.messages.create(
         model=CHAT_MODEL,
         max_tokens=4096,
-        system=[{"type": "text", "text": CHAT_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+        system=[
+            {"type": "text", "text": CHAT_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": CHAT_OPERATIONAL_ADDENDUM, "cache_control": {"type": "ephemeral"}},
+        ],
         tools=CHAT_TOOLS,
         messages=messages,
     )
@@ -792,15 +811,20 @@ def _handle_pending_answer(message: str) -> None:
             result = {"produced": False, "error": str(e)}
     else:
         # §7's rule: a "No," a follow-up question, or new data all count as
-        # "No" -- the analyst's actual text already precedes this tool_result
-        # in the message list as its own turn (appended by chat_route before
-        # calling this function), so the model sees it directly rather than
-        # needing it duplicated here.
+        # "No" -- the analyst's actual text is embedded as a text block in
+        # this same message (see below) so the model still sees it directly.
         result = {"produced": False, "declined": True}
 
+    # The Anthropic API requires a tool_use's matching tool_result to be in
+    # the VERY NEXT message, not just "the next user-role message" -- a
+    # separate plain-text message inserted in between (even same role)
+    # produces a hard 400 ("tool_use ids were found without tool_result
+    # blocks immediately after"). So the analyst's literal text has to ride
+    # inside this SAME message as a text block alongside the tool_result,
+    # not as its own preceding turn.
     tool_result_block = {"type": "tool_result", "tool_use_id": pending["tool_use_id"], "content": json.dumps(result, default=str)}
-    all_results = pending["deferred_results"] + [tool_result_block]
-    _chat_state["messages"].append({"role": "user", "content": all_results})
+    combined_content = pending["deferred_results"] + [tool_result_block, {"type": "text", "text": message}]
+    _chat_state["messages"].append({"role": "user", "content": combined_content})
     _chat_state["usage"].append(None)
     _run_chat_turn(_empty_chat_totals())
 
@@ -809,11 +833,20 @@ def _chat_display_messages() -> list[dict]:
     """Only real conversational turns -- a tool_result-only user message
     (internal plumbing feeding a tool's output back to the model) and a
     tool_use-only assistant message (an intermediate step with no reply
-    text yet) are both invisible plumbing, not chat bubbles."""
+    text yet) are both invisible plumbing, not chat bubbles. A user message
+    can be a plain string (a fresh question) or a list mixing tool_result
+    blocks with a text block (an answer to a pending confirmation, see
+    _handle_pending_answer) -- either way, only the human-readable text
+    actually gets shown."""
     display = []
     for i, m in enumerate(_chat_state["messages"]):
-        if m["role"] == "user" and isinstance(m["content"], str):
-            display.append({"role": "user", "text": m["content"]})
+        if m["role"] == "user":
+            if isinstance(m["content"], str):
+                text = m["content"]
+            else:
+                text = "\n".join(b.get("text", "") for b in m["content"] if isinstance(b, dict) and b.get("type") == "text").strip()
+            if text:
+                display.append({"role": "user", "text": text})
         elif m["role"] == "assistant":
             text = "\n".join(b.get("text", "") for b in m["content"] if isinstance(b, dict) and b.get("type") == "text").strip()
             if text:
@@ -836,14 +869,9 @@ def chat_route(request: Request, message: str = Form(...)):
         if message:
             try:
                 if _chat_state["pending_tool"]:
-                    _chat_state["messages"].append({"role": "user", "content": message})
-                    _chat_state["usage"].append(None)
-                    # The literal text still needs to reach the model as this
-                    # turn's answer, but the *decision* (yes/no) is derived
-                    # from it directly, not re-asked of the model -- so the
-                    # user-visible message above is for display/history only;
-                    # _handle_pending_answer reads `message` itself for the
-                    # actual yes/no check and folds it into the tool_result.
+                    # _handle_pending_answer appends the resulting message
+                    # itself (text + tool_result combined into one, see its
+                    # own comment for why) -- nothing to append here first.
                     _handle_pending_answer(message)
                 else:
                     _chat_state["messages"].append({"role": "user", "content": message})
