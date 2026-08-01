@@ -381,6 +381,20 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chat-done { color: #ffe69c; background: #3a2f0b; border-color: #5c4a12; } }
 :root[data-theme="dark"] .chat-done { color: #ffe69c; background: #3a2f0b; border-color: #5c4a12; }
 
+/* In-context "request is being processed" signal, appended client-side
+   right after the optimistic user bubble -- same pill shape/colors as
+   .chat-done above (reusing that established "here's the chat's own
+   status" visual language) so the analyst doesn't have to look away from
+   the chat log at the top loading banner to know their message is being
+   worked on. Never persisted -- htmx:afterSwap replaces #chat-history's
+   entire innerHTML with the server's rendered messages, which removes
+   this along with everything else outside _chat_state. */
+.chat-working { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: #664d03; background: #fff3cd; border: 1px solid #ffe69c; border-radius: 999px; padding: 0.2rem 0.65rem; }
+.chat-working .spinner { width: 0.7rem; height: 0.7rem; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chat-working { color: #ffe69c; background: #3a2f0b; border-color: #5c4a12; } }
+:root[data-theme="dark"] .chat-working { color: #ffe69c; background: #3a2f0b; border-color: #5c4a12; }
+@media (prefers-reduced-motion: reduce) { .chat-working .spinner { animation: none; } }
+
 #chat-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 #chat-message-input { width: 100%; font-family: inherit; font-size: 0.92rem; resize: none; max-height: 220px; overflow-y: auto; box-sizing: border-box; }
 .input-toolbar { display: flex; align-items: center; gap: 0.5rem; }

@@ -272,9 +272,30 @@
         chatHistory.scrollTop = chatHistory.scrollHeight;
       }
 
+      // In-context "working" signal right where the reply will land -- the
+      // top loading banner alone made this invisible unless the analyst
+      // happened to look up at the sticky header instead of the chat log
+      // they're actually watching. No manual removal needed: htmx:afterSwap
+      // replaces #chat-history's entire innerHTML with the server's
+      // rendered messages, which wipes this out along with everything else
+      // that isn't in _chat_state -- same reason appendOptimisticUserMessage
+      // above needs no cleanup either.
+      function appendTypingIndicator() {
+        // Same pill shape as .chat-done ("Reply complete") -- reusing that
+        // established visual language for "here's the chat's own status"
+        // rather than inventing a second one, just swapped to the amber
+        // spinner already used by the top loading banner.
+        var div = document.createElement('div');
+        div.className = 'chat-working';
+        div.innerHTML = '<span class="spinner"></span> Assistant is working...';
+        chatHistory.appendChild(div);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+
       document.body.addEventListener('htmx:beforeRequest', function (evt) {
         if (evt.target === form) {
           if (input.value.trim()) appendOptimisticUserMessage(input.value);
+          appendTypingIndicator();
           input.value = '';
           updateCharCount();
           autoResize();
