@@ -63,7 +63,7 @@ output_management:
 #     api_key_env: OPENAI_API_KEY
 ai_provider:
   provider: anthropic
-  model: claude-sonnet-4-6
+  model: claude-haiku-4-5-20251001
   base_url: null
   api_key_env: ANTHROPIC_API_KEY
   max_tokens: 2048
