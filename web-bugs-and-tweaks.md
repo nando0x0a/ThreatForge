@@ -14,6 +14,30 @@ Future work on KEV-on-entry (see #12 below): a standalone, more frequent
 poll against CISA's KEV feed, independent of when a pipeline run happens —
 today it's only checked once per web-UI run, not continuously.
 
+13. **`/demo` capability, like soc-skill-cloud** — needs clarification
+    first: no `/demo` route actually exists in soc-skill-cloud's code as
+    of 2026-08-01, so confirm what this should do before scoping it.
+14. **Rename "New conversation" → "New session"** — copy change only.
+15. **Replicate soc-skill-cloud's header buttons/look and feel** — theme
+    toggle (manual light/dark override) + About info icon as small
+    icon-only buttons, divider separating them from text-labelled
+    buttons, move the session button into the header row (currently in
+    the chat pane's input toolbar), add Logout (soc-skill-cloud's 401 +
+    fresh `WWW-Authenticate` challenge trick forces the browser to drop
+    cached Basic Auth). History and Account don't have Vuln-Skill
+    equivalents yet — decide build-real-feature vs. skip/stub before
+    implementing.
+16. **Chat syntax highlighting** — CVE IDs, KEV status, IPs, IoCs,
+    domains styled distinctly from surrounding prose in chat replies,
+    similar in spirit to soc-skill-cloud's JSON/telemetry token-coloring
+    but applied inline within normal text rather than to a structured
+    block.
+17. **Change login credentials** — username `skills`, password
+    `crimson-ember-threat-5836`. This Basic Auth is shared with
+    soc-skill-cloud on the same EC2 (Elastic Compute Cloud) instance —
+    changing it affects both apps' logins unless split into separate
+    credentials first (decide which before acting).
+
 ## Done
 
 1. **Run button hard to notice** — moved to its own line with a top border and bolder styling, visually separated from the mode radios. Deployed 2026-07-30.
