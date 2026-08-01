@@ -28,6 +28,14 @@ today it's only checked once per web-UI run, not continuously.
     which is which). Make all of them render in the viewer's own local time
     consistently, and label it as local time so it's unambiguous (not just
     an unlabeled local-looking timestamp).
+20. **`/demo` should let the user pick which output type(s)** — right now
+    typing `/demo` always expands to a fixed request for a Security
+    advisory. Instead, show the six output types as an enumerated list (1
+    Security advisory, 2 Technical findings, 3 Suricata signature, 4 IoC
+    list, 5 Hunting queries, 6 Patch recommendations) and let the user
+    select one or more by number, comma-separated (e.g. "1,3,5"), mapping
+    directly to produce_output's own output_nums — then expand /demo's
+    request text accordingly instead of hardcoding "a security advisory."
 
 ## Done
 
