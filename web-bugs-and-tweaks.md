@@ -29,6 +29,24 @@ today it's only checked once per web-UI run, not continuously.
     these should go away once there's a real explanation in their place,
     not before.
 
+    **How it ranks risk** (NJ's draft explanation, verified against
+    `config/vuln-skill.yaml`'s actual `scoring.weights` — two real tags
+    were missing from the original draft and are included below):
+    a composite priority score built from tags, not CVSS alone:
+    KEV +50, RCE +40, RCE-KEV +25, Critical CVSS (≥ `cvss_crit_threshold`,
+    currently 9.0) +30, High CVSS +20, T1 (MITRE ATT&CK technique match)
+    +20, EPSS above `epss_threshold` (currently 0.5) +15, Public PoC +10,
+    Newly disclosed (within `new_threshold_days`, currently 3 days) +10,
+    Widely deployed product +10. Mapped to tiers via `tier_thresholds`:
+    90+ → Tier 0 CRITICAL — ACT NOW, 70–89 → Tier 1 HIGH PRIORITY, 40–69
+    → Tier 2 STANDARD, below 40 → Tier 3 MONITOR. Example: a recent
+    KEV-listed RCE with critical CVSS and high EPSS clears the "act now"
+    threshold quickly — confirmed exploitation and exploit likelihood
+    complement severity scoring rather than replacing it. When #38 is
+    actually built, pull the live weight/threshold *values* from config at
+    render time (not hardcoded into the template) so this explanation
+    can't drift from what's actually configured.
+
 ## Done
 
 1. **Run button hard to notice** — moved to its own line with a top border and bolder styling, visually separated from the mode radios. Deployed 2026-07-30.
