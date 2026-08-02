@@ -107,13 +107,13 @@
 
   <main class="{{ 'app-shell' if chat_available else '' }}">
     <section class="canvas-pane">
-      {% if chat_available %}<h2 class="pane-heading">Vuln-Skill Workspace</h2>{% endif %}
+      {% if chat_available %}<h2 class="pane-heading">Workflows</h2>{% endif %}
       {% block content %}{% endblock %}
     </section>
 
     {% if chat_available %}
     <section class="chat-pane">
-      <h2 class="pane-heading">Vuln-Skill Assistant</h2>
+      <h2 class="pane-heading">Assistant</h2>
       <div id="chat-history" role="log" aria-live="polite" aria-label="Conversation">
         {% include "_messages.html" %}
       </div>
@@ -121,7 +121,7 @@
       <form id="chat-form" method="post" action="/chat" hx-post="/chat" hx-target="#chat-history" hx-swap="innerHTML">
         <div class="input-wrap">
           <div class="command-menu" id="command-menu" role="listbox" aria-label="Command suggestions" hidden></div>
-          <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask Vuln-Skill to run a workflow, search a product or CVE, or generate security outputs... (try /demo or /help)" required role="combobox" aria-expanded="false" aria-controls="command-menu" aria-autocomplete="list"></textarea>
+          <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Run a workflow, search a product or CVE, or generate outputs... (try /demo or /help)" required role="combobox" aria-expanded="false" aria-controls="command-menu" aria-autocomplete="list"></textarea>
         </div>
         <div class="input-toolbar">
           <span class="char-count">Tip: type /help for commands · Chars: <span id="chat-char-count">0</span></span>
@@ -449,7 +449,7 @@
           '<p>Type <code>/demo</code> and send it — runs a live search for a critical, recently disclosed CVE and offers to generate a sample output for it, so you can see a full run without needing your own CVE on hand.</p>',
           '<p><strong>How it works</strong></p>',
           '<p>Send a request, get a reply. Whenever Vuln-Skill is about to generate an output, it always pauses and asks for a Yes/No confirmation first — nothing gets written until you confirm.</p>',
-          '<p><strong>Vuln-Skill Workspace tabs</strong> (left pane — one tab per output type, shown for the current CVE once generated)</p>',
+          '<p><strong>Output tabs</strong> (left pane — one tab per output type, shown for the current CVE once generated)</p>',
           '<ul>' + tabItems + '</ul>',
           '<p><strong>Commands</strong></p>',
           '<ul>' + commandItems + '</ul>'

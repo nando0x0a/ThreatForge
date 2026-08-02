@@ -1,5 +1,5 @@
 {% if not messages %}
-<p class="canvas-empty muted">Ask Vuln-Skill to run a workflow, search a product or CVE, or generate security outputs. Try /demo or /help.</p>
+<p class="canvas-empty muted">Run a workflow, search a product or CVE, or generate outputs. Try /demo or /help.</p>
 {% endif %}
 {% for m in messages %}
 <div class="chat-msg chat-msg-{{ m.role }}{% if m.is_question %} chat-msg-question{% endif %}">
