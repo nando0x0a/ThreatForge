@@ -33,11 +33,56 @@ today it's only checked once per web-UI run, not continuously.
     state and `base.html`'s textarea placeholder) → "Ask Vuln-Skill to run
     a workflow...", and mention both `/demo` and `/help` so a new user
     discovers them without having to be told. `/demo` already exists;
-    `/help` does not yet — this needs actually building (a slash command
-    that explains what the assistant can do, presumably listing the
-    supported actions from § 4 of the system prompt / `CHAT_TOOLS`, in the
-    same spirit as `/demo`'s client-side-only, no-API-cost menu), not just
-    referencing it in copy that would otherwise point at nothing.
+    `/help` does not — build it using the exact pattern already proven in
+    `soc-skill-cloud/src/templates/index.html` (the `ai-skill-webapp`
+    skill's own reference implementation, its § 5 covers the rationale):
+
+    - **A command registry, not a second bolt-on check** — refactor
+      `/demo`'s current bespoke `expandSlashCommand()` logic in
+      `base.html` into a `COMMANDS` array (`{name, description, type:
+      'expand'|'local', run}`), same shape as soc-skill-cloud's. `/demo`
+      becomes `type: 'expand'` (its `run()` returns the expanded text,
+      normal send proceeds); `/help` is `type: 'local'` (`run()` renders
+      a help card client-side and the input clears — nothing sent to the
+      model. Never route `/help` through the API: slower, costs real
+      money, and gives an inconsistent answer for something that should
+      be an exact, static list).
+    - **Typeahead autocomplete** — a small filtered dropdown
+      (`#command-menu`, `role="listbox"`) appearing the instant the
+      input matches `/^\/[a-z]*$/i` and closing on an exact match
+      (`findCommand(value)` truthy) or a space. Arrow keys navigate,
+      Enter/Tab *completes the input text, does not submit* (matches
+      Slack/Discord/Notion/Linear), Escape dismisses. This is the actual
+      fix for discoverability — `/help` is the fallback for whoever
+      doesn't stumble onto the dropdown first.
+    - **Three real gotchas** (soc-skill-cloud hit all three building
+      this): (1) exact-match must close the menu independent of the
+      "still looks like a command" check, or Enter on a fully-typed
+      command "selects" it instead of sending, requiring a second Enter;
+      (2) selecting a menu item completes the text into the input, it
+      does not submit by itself; (3) bind the menu's click handler on
+      `mousedown`, not `click` — the textarea's own `blur` (which hides
+      the menu) fires first on a `click`, so the menu vanishes before a
+      `click` handler would ever see it.
+    - **`/help`'s actual content**, in order: (1) one-to-two sentences on
+      what Vuln-Skill is and what kind of request it expects; (2) a
+      pointer to `/demo` as the fastest way to see it work; (3) the
+      workflow shape — send a request, get a reply, a produce_output
+      call always pauses for Yes/No first; (4) what each Workspace
+      Canvas tab is *for* (not just its name — "Advisory" or "Hunting
+      queries" doesn't explain itself to a first-time user), hardcoded
+      client-side prose alongside `_OUTPUT_ICONS`/the output_menu labels,
+      flagged to need updating alongside any future tab rename (same
+      maintenance burden the icons already carry); (5) the command list
+      last, since by then it's reinforcing what was already shown, not
+      introducing it cold.
+    - **Don't pad the command set out beyond `/demo` + `/help`** — no
+      third command has an actual candidate yet, and inventing one just
+      to make the framework feel more complete isn't worth the added
+      surface area (more to test, more to explain in `/help`). Also
+      don't build fuzzy "did you mean" correction for a two-command set
+      — let an unrecognized `/word` just pass through as literal text,
+      same as any other typo.
 
     **How it ranks risk** (NJ's draft explanation, verified against
     `config/vuln-skill.yaml`'s actual `scoring.weights` — two real tags
