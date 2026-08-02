@@ -83,6 +83,16 @@ today it's only checked once per web-UI run, not continuously.
       don't build fuzzy "did you mean" correction for a two-command set
       — let an unrecognized `/word` just pass through as literal text,
       same as any other typo.
+40. **Match soc-skill-cloud's font** — checked: the main UI font already
+    matches exactly (`body`'s `font-family` in both apps is identically
+    `-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif`). The one real difference is the monospace stack —
+    Vuln-Skill's is `ui-monospace, Menlo, Consolas, monospace`;
+    soc-skill-cloud's (used for its JSON syntax highlighter) adds
+    `SFMono-Regular` as the second fallback: `ui-monospace,
+    SFMono-Regular, Menlo, Consolas, monospace`. Align Vuln-Skill's
+    monospace declarations (`textarea`, `.entity-ip`/`.entity-hash`/
+    `.entity-domain`, `.chat-text code`) to match.
 
     **How it ranks risk** (NJ's draft explanation, verified against
     `config/vuln-skill.yaml`'s actual `scoring.weights` — two real tags
