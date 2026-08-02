@@ -12,17 +12,12 @@ pipeline:
   new_threshold_days: 3    # CVE age below which the [NEW] tag applies
   query_limit: 15          # candidates to pull per product per query (KEV, and CVSS-sorted), before filtering — same shape as test_mode.query_limit
 
-# Daily automated run — disabled by default. When disabled, Vuln-Skill only
-# runs when triggered manually (via `docker exec ... src/cli.py` or
-# `orchestrate.py` directly); the container stays up and healthy either way,
-# since manual runs need it alive regardless.
-#
-# The scheduler is set up once when the container starts, so changing either
-# value here requires a container restart to take effect:
-#   docker compose -f docker/docker-compose.yml up -d --force-recreate
-scheduler:
-  enabled: false
-  cron: "30 1 * * *"   # cron expression (supercronic syntax), only used when enabled: true
+# web-bugs-and-tweaks.md #37: the scheduler config that used to live here
+# (scheduler.enabled/scheduler.cron) was removed -- always disabled, never
+# actually enabled by anything in either deployment. Vuln-Skill only runs
+# when triggered manually (via `docker exec ... src/cli.py`, `orchestrate.py`
+# directly, or the web UI); the container stays up and healthy idle either
+# way.
 
 # Local outputs/ folder housekeeping. Outputs are drafts for analyst review
 # (see runs.jsonl for a permanent record of every generation, independent of

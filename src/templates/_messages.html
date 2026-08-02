@@ -1,10 +1,10 @@
 {% if not messages %}
-<p class="canvas-empty muted">Ask the assistant to run a workflow, look up a CVE, or produce an output.</p>
+<p class="canvas-empty muted">Ask Vuln-Skill to run a workflow, look up a CVE, or produce an output. Try /demo or /help.</p>
 {% endif %}
 {% for m in messages %}
 <div class="chat-msg chat-msg-{{ m.role }}{% if m.is_question %} chat-msg-question{% endif %}">
   <div class="chat-role">
-    {{ 'You' if m.role == 'user' else 'Assistant' }}
+    {{ 'You' if m.role == 'user' else 'Vuln-Skill' }}
     <button type="button" class="copy-btn" onclick="copyChatText(this)">Copy</button>
   </div>
   {% if m.html %}

@@ -14,120 +14,6 @@ Future work on KEV-on-entry (see #12 below): a standalone, more frequent
 poll against CISA's KEV feed, independent of when a pipeline run happens —
 today it's only checked once per web-UI run, not continuously.
 
-37. **Remove the scheduler.** Scope not yet defined — need to confirm what
-    this covers before touching it: the daily automated run described in
-    `config/vuln-skill.yaml` (currently "disabled by default"), the
-    `--scheduled` CLI flag/cron trigger in `orchestrate.py`, or both.
-38. **Workflow settings tab: explain every field + the scoring engine, with
-    an example** — make the settings page genuinely user-friendly so NJ
-    can adjust CVSS/EPSS/age thresholds and weights and understand what
-    each one actually does and how the composite score gets computed, not
-    just see bare number inputs. Also remove two specific lines once this
-    lands: "AI prompts and the output menu are not editable here — SSH in
-    and edit `config/vuln-skill.yaml` directly for those" and "(edit
-    weights directly in `vuln-skill.yaml` — not exposed here yet)" —
-    these should go away once there's a real explanation in their place,
-    not before.
-39. **Chatbox empty-state/placeholder wording + a real `/help` command** —
-    "Ask the assistant to run a workflow..." (`_messages.html`'s empty
-    state and `base.html`'s textarea placeholder) → "Ask Vuln-Skill to run
-    a workflow...", and mention both `/demo` and `/help` so a new user
-    discovers them without having to be told. `/demo` already exists;
-    `/help` does not — build it using the exact pattern already proven in
-    `soc-skill-cloud/src/templates/index.html` (the `ai-skill-webapp`
-    skill's own reference implementation, its § 5 covers the rationale):
-
-    - **A command registry, not a second bolt-on check** — refactor
-      `/demo`'s current bespoke `expandSlashCommand()` logic in
-      `base.html` into a `COMMANDS` array (`{name, description, type:
-      'expand'|'local', run}`), same shape as soc-skill-cloud's. `/demo`
-      becomes `type: 'expand'` (its `run()` returns the expanded text,
-      normal send proceeds); `/help` is `type: 'local'` (`run()` renders
-      a help card client-side and the input clears — nothing sent to the
-      model. Never route `/help` through the API: slower, costs real
-      money, and gives an inconsistent answer for something that should
-      be an exact, static list).
-    - **Typeahead autocomplete** — a small filtered dropdown
-      (`#command-menu`, `role="listbox"`) appearing the instant the
-      input matches `/^\/[a-z]*$/i` and closing on an exact match
-      (`findCommand(value)` truthy) or a space. Arrow keys navigate,
-      Enter/Tab *completes the input text, does not submit* (matches
-      Slack/Discord/Notion/Linear), Escape dismisses. This is the actual
-      fix for discoverability — `/help` is the fallback for whoever
-      doesn't stumble onto the dropdown first.
-    - **Three real gotchas** (soc-skill-cloud hit all three building
-      this): (1) exact-match must close the menu independent of the
-      "still looks like a command" check, or Enter on a fully-typed
-      command "selects" it instead of sending, requiring a second Enter;
-      (2) selecting a menu item completes the text into the input, it
-      does not submit by itself; (3) bind the menu's click handler on
-      `mousedown`, not `click` — the textarea's own `blur` (which hides
-      the menu) fires first on a `click`, so the menu vanishes before a
-      `click` handler would ever see it.
-    - **`/help`'s actual content**, in order: (1) one-to-two sentences on
-      what Vuln-Skill is and what kind of request it expects; (2) a
-      pointer to `/demo` as the fastest way to see it work; (3) the
-      workflow shape — send a request, get a reply, a produce_output
-      call always pauses for Yes/No first; (4) what each Workspace
-      Canvas tab is *for* (not just its name — "Advisory" or "Hunting
-      queries" doesn't explain itself to a first-time user), hardcoded
-      client-side prose alongside `_OUTPUT_ICONS`/the output_menu labels,
-      flagged to need updating alongside any future tab rename (same
-      maintenance burden the icons already carry); (5) the command list
-      last, since by then it's reinforcing what was already shown, not
-      introducing it cold.
-    - **Don't pad the command set out beyond `/demo` + `/help`** — no
-      third command has an actual candidate yet, and inventing one just
-      to make the framework feel more complete isn't worth the added
-      surface area (more to test, more to explain in `/help`). Also
-      don't build fuzzy "did you mean" correction for a two-command set
-      — let an unrecognized `/word` just pass through as literal text,
-      same as any other typo.
-40. **Match soc-skill-cloud's font** — checked: the main UI font already
-    matches exactly (`body`'s `font-family` in both apps is identically
-    `-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif`). The one real difference is the monospace stack —
-    Vuln-Skill's is `ui-monospace, Menlo, Consolas, monospace`;
-    soc-skill-cloud's (used for its JSON syntax highlighter) adds
-    `SFMono-Regular` as the second fallback: `ui-monospace,
-    SFMono-Regular, Menlo, Consolas, monospace`. Align Vuln-Skill's
-    monospace declarations (`textarea`, `.entity-ip`/`.entity-hash`/
-    `.entity-domain`, `.chat-text code`) to match.
-
-    **How it ranks risk** (NJ's draft explanation, verified against
-    `config/vuln-skill.yaml`'s actual `scoring.weights` — two real tags
-    were missing from the original draft and are included below):
-    a composite priority score built from tags, not CVSS alone:
-    KEV +50, RCE +40, RCE-KEV +25, Critical CVSS (≥ `cvss_crit_threshold`,
-    currently 9.0) +30, High CVSS +20, T1 (MITRE ATT&CK technique match)
-    +20, EPSS above `epss_threshold` (currently 0.5) +15, Public PoC +10,
-    Newly disclosed (within `new_threshold_days`, currently 3 days) +10,
-    Widely deployed product +10. Mapped to tiers via `tier_thresholds`:
-    90+ → Tier 0 CRITICAL — ACT NOW, 70–89 → Tier 1 HIGH PRIORITY, 40–69
-    → Tier 2 STANDARD, below 40 → Tier 3 MONITOR. Example: a recent
-    KEV-listed RCE with critical CVSS and high EPSS clears the "act now"
-    threshold quickly — confirmed exploitation and exploit likelihood
-    complement severity scoring rather than replacing it. When #38 is
-    actually built, pull the live weight/threshold *values* from config at
-    render time (not hardcoded into the template) so this explanation
-    can't drift from what's actually configured.
-41. **Label every bubble in a `/demo` exchange with "(Demo N/M)"** — per
-    NJ's example: the assistant's output-type menu reply and the user's
-    own follow-up selection message (after picking numbers) both get a
-    small "(Demo N/M)" tag, on its own line above the actual content, not
-    merged into the same paragraph. **Open question to resolve before
-    building:** soc-skill-cloud's "Demo N/M" (the pattern this is modeled
-    on) rotates through a *fixed* set of M canned payloads, so N/M means
-    "scenario 2 of 3." Vuln-Skill's `/demo` has no fixed set — it always
-    does a live search for whatever CVE is currently critical/recent, so
-    there's no natural "M" the way soc-skill-cloud has one. Options: (a)
-    N = how many times `/demo` has been invoked this session, no fixed M
-    (drop the "/M" entirely, just "(Demo #N)"); (b) invent a small fixed
-    rotation of demo *framings* (e.g. "most recent," "highest EPSS,"
-    "highest composite score") so M has a real meaning even though the
-    actual CVE found is still live; (c) something else. Decide this
-    before implementing, not while implementing.
-
 ## Done
 
 1. **Run button hard to notice** — moved to its own line with a top border and bolder styling, visually separated from the mode radios. Deployed 2026-07-30.
@@ -159,5 +45,12 @@ today it's only checked once per web-UI run, not continuously.
 34. **Two more header dividers** — added `.header-divider` spans before and after `<nav>`, splitting the header into three visually distinct clusters: brand+tagline | Workflows/Outputs/History/Products/Workflow settings | theme+About icons — New session/Account/Logout (the third divider, between icons and the session group, is #33 above). `align-self: stretch` overrides the header's own `align-items: baseline` just for the dividers, so each spans the full row height.
 35. **"Pipeline"/"Scan" → "Workflow(s)" everywhere; retired Test mode from the web UI; removed the header's chat-History button** — full pass across the web app (nav, headings, tooltips, placeholders, the produce/lookup tool descriptions the model reads, and the literal refusal message shown to a blocked user) and the shared system prompt (`vuln-skill-cloud/prompt/vuln_skill_cloud_assistant.md`) replacing "pipeline" with "workflow". The four remaining Select-workflow options were relabeled to match NJ's exact spec (Daily vulnerability triage / Recent critical-KEV sweep / Product vulnerability search / Run a specific CVE) and mirrored into the system prompt's own § 4.1/4.3/4.4/4.5 rows for consistency between UI and chat self-description. Test mode's radio+count input removed from `index.html` (NJ's list didn't include it) — the backend `_execute_run("test", ...)` and the chat's `run_test_mode` tool are untouched, so it's still chat-reachable, just not a button on the page anymore (`orchestrate.py`'s dead `.test-mode-option`/`.count-input` CSS also removed). **Flagging this one explicitly:** the header's "History" button (linked to `/chat/history`, the archived-conversation browser) was removed and "Run history" (`/runs`, the CVE-workflow run log — a different feature) renamed to plain "History", per NJ's literal instruction that these were duplicates. They aren't the same feature — `/chat/history` still works if navigated to directly, but there's no longer a discoverable link to it anywhere in the UI. If chat-session browsing/resume was still wanted, this needs a follow-up.
 36. **Output menu: 6 types → 5, "Technical findings" retired** — matching NJ's exact "Select output type" list (Advisory / Detection Rule Draft / IoC list / Hunting queries / Patch playbook), `technical_findings` was dropped as a distinct producible type (its own prompt template removed too) and everything after it renumbered down by one in `config/vuln-skill.yaml`'s `output_menu`. Propagated the renumbering everywhere it was assumed: `web.py`'s `_OUTPUT_ICONS`, the `produce_output` tool schema (`maximum: 6→5`) and its description, `_expand_output_nums` (now computed from `len(_output_menu())` instead of a hardcoded `range(1, 7)`, so a future resize can't drift out of sync again), the `/demo` menu's `DEMO_OUTPUT_TYPES` JS array, `orchestrate.py`'s CLI wizard prompt/flag help text (Discord's opt-in toggle shifted 7→6 to match), and the shared system prompt's § 4.7/4.8. **Found and fixed a real latent bug while renumbering:** `ai_caller.py` injected its Suricata few-shot example via a hardcoded `output_num == 3` check — after signatures moved to `#2`, that check would have silently fired for the wrong type (or never fired at all). Now keyed off the menu entry's own `"key"` string (`== 'signatures'`), immune to any future renumbering. Verified live end-to-end: selecting "2" (Detection Rule Draft) in chat correctly produced `rules/CVE_2026_42945_signatures.rules` with the few-shot-formatted confidence comment intact, and the Outputs page showed the correct 5-tab strip with matching icons.
+37. **Removed the scheduler entirely** — `config/vuln-skill.yaml`'s `scheduler.enabled`/`scheduler.cron` block, `orchestrate.py`'s `--scheduled` flag, and the `supercronic` install/invocation in `docker/Dockerfile` and `docker/entrypoint.sh`. Confirmed nothing in either deployment (no cron, no systemd timer) ever actually enabled it — Vuln-Skill only ever ran on an explicit trigger (`docker exec ... src/cli.py`/`orchestrate.py`, or the web UI). The `vuln-skill` container now idles on `tail -f /dev/null` after printing how to trigger a manual run; `pipeline_config.html`'s Scheduler fieldset removed; `vuln_skill_cloud_assistant.md` §11.2's not-supported list updated to drop "enabling/disabling the scheduler." Verified: image builds clean, `entrypoint.sh` prints the idle message and stays up, `orchestrate.py --help` shows no `--scheduled` flag.
+38. **Workflow settings tab now explains every field + the scoring engine** — each Workflow/Scoring input in `pipeline_config.html` got a one-line `.field-help` explanation; added a scoring-tag table (tag, points, when it applies) and a priority-tier table, both driven by live config values (`weights`, `tier_thresholds`, `tier_labels` — `pipeline_config_get` now passes the latter two), plus a worked example computing a real composite score. Corrected one detail while writing the field help: `T1` is not a MITRE ATT&CK technique match — it's "affected product marked tier 1 (internet-facing/auth/production) in `products.txt`" (checked `scorer.py` directly). Removed the "AI prompts... SSH in and edit" and "not exposed here yet" lines now that a real explanation exists in their place (kept one accurate "edit weights directly in `vuln-skill.yaml`" note, since weight *values* still aren't editable via the UI). Verified live: page renders with no scheduler fieldset, composite-score example computes 200 → tier 0 from live weights.
+39. **Real `/help` command + command registry + typeahead autocomplete** — ported soc-skill-cloud's exact pattern into `base.html`: a `COMMANDS` array (`/demo`, `/help`) backs both a `#command-menu` autocomplete dropdown (opens on a bare `/`, narrows while typing, closes on an exact match, arrow keys navigate, Enter/Tab completes the input without submitting, `mousedown` not `click` on menu items so the textarea's own `blur` doesn't eat the click first) and `/help`'s own listing. `/help` renders entirely client-side (`showHelpCard()` — no API call): what Vuln-Skill is, a pointer to `/demo`, the produce_output Yes/No gate, a description of each Workspace Canvas tab (sourced from each `output_menu` entry's own `description` field in `vuln-skill.yaml`), then the command list. `/demo`'s existing two-step flow (menu → numeric selection) stays its own dedicated logic rather than a generic `run()`, since it's stateful and doesn't share a shape with `/help`'s one-shot card. Chatbox placeholder and empty-state text now mention both `/demo` and `/help`. Verified live: typing `/` shows both commands, exact `/help` closes the menu and submitting it renders the help card client-side with 2 bubbles (no server round-trip); no duplicate-submission bug found.
+40. **Matched soc-skill-cloud's monospace font stack** — `ui-monospace, Menlo, Consolas, monospace` → `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` in all 3 monospace declarations in `style.css` (main UI font already matched exactly, verified in #40's own research).
+41. **Labeled `/demo` bubbles with "(Demo #N)"** — resolved the open question from the original pending item: Vuln-Skill's `/demo` always does a live search (no fixed canned-payload set the way soc-skill-cloud's does), so there's no real "M" to rotate through — used a plain incrementing counter (`localStorage`-persisted) instead of inventing a denominator that wouldn't mean anything. Both the output-type menu reply and the user's own expanded follow-up message get the tag, on its own line above the content. Verified live end-to-end: `/demo` → menu tagged "(Demo #1)"; replying "1,3" → the actual message sent to (and rendered back from) the server included "(Demo #1)" and the selected output-type labels.
+42. **"Assistant" → "Vuln-Skill" everywhere** — `CHAT_REFUSAL_MESSAGE`, `CHAT_SCREEN_PROMPT_TEMPLATE`, the injection-screen log line, and every chat-bubble role label (`_messages.html`, `base.html`'s local-message helpers) now say "Vuln-Skill" instead of "assistant"/"Assistant". Internal CSS class names and JS identifiers (`chat-msg-assistant`, `appendLocalAssistantMessage`) were left as-is — not user-visible text, same distinction already applied earlier in this project. The product tagline ("AI Vulnerability Intelligence Assistant", #30) and About-dialog description are unaffected — those use "Assistant" as a category noun, not a self-referential pronoun. Verified live via source inspection (no live API call needed — these are static strings).
+43. **Produce confirmations name the Outputs page** — `CHAT_OPERATIONAL_ADDENDUM` and `vuln_skill_cloud_assistant.md` §6.3 both reworded so the model's after-producing reply names the Outputs page explicitly alongside the tab (e.g. "See the Advisory and Detection Rule Draft tabs on the Outputs page for CVE-...", not just "See the Advisory tab"). Verified via source inspection.
 
-Deployed 2026-08-01.
+Deployed 2026-08-02.

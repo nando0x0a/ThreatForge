@@ -401,7 +401,6 @@ def run_pipeline(
          "Example: --produce 1,2,6. Pass --produce ask to defer the output-type prompt until "
          "after the CVE list is printed (interactive terminals only).",
 )
-@click.option("--scheduled", is_flag=True, help="Scheduled run mode (cron trigger)")
 @click.option("--dry-run", is_flag=True, help="Run pipeline without Claude calls or Discord posts")
 @click.option(
     "--test", "test_count", is_flag=False, flag_value=-1, default=None, type=int, metavar="[N]",
@@ -420,11 +419,11 @@ def run_pipeline(
          "Bare --recent uses the configured default count (test_mode.default_count). Mutually "
          "exclusive with --test.",
 )
-def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
+def main(product, cve, produce, dry_run, test_count, recent_count):
     if test_count is not None and recent_count is not None:
         raise click.UsageError("--test and --recent are mutually exclusive — pick one.")
 
-    log.info(f"Vuln-Skill starting — mode: {'scheduled' if scheduled else 'manual'}")
+    log.info("Vuln-Skill starting")
     broad_search = test_count is not None or recent_count is not None
 
     products = None
@@ -472,9 +471,10 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
         log.info("Vuln-Skill run complete.")
         return
 
-    # Scheduled/cron runs and non-interactive invocations must never block on
-    # input — only prompt when a human is actually attached and watching.
-    interactive = not scheduled and sys.stdin.isatty()
+    # Non-interactive invocations (e.g. a web-UI-triggered run) must never
+    # block on input — only prompt when a human is actually attached and
+    # watching.
+    interactive = sys.stdin.isatty()
 
     if produce == "ask":
         # Defers "which outputs?" until after the CVE table above is on
@@ -524,7 +524,7 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
             return
 
     # Only now — after the analyst has narrowed the list, or immediately for
-    # non-interactive/scheduled runs — enrich and brief just the CVEs that
+    # non-interactive runs — enrich and brief just the CVEs that
     # are actually about to be produced. Unlike post_output/post_outputs_complete
     # below, this brief always posts regardless of the item-7 toggle — it's
     # the "here's what's about to happen" notification, not produced content.

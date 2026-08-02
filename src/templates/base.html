@@ -119,9 +119,12 @@
       </div>
 
       <form id="chat-form" method="post" action="/chat" hx-post="/chat" hx-target="#chat-history" hx-swap="innerHTML">
-        <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask the assistant to run a workflow, look up a CVE, or produce an output... (try /demo)" required></textarea>
+        <div class="input-wrap">
+          <div class="command-menu" id="command-menu" role="listbox" aria-label="Command suggestions" hidden></div>
+          <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask Vuln-Skill to run a workflow, look up a CVE, or produce an output... (try /demo or /help)" required role="combobox" aria-expanded="false" aria-controls="command-menu" aria-autocomplete="list"></textarea>
+        </div>
         <div class="input-toolbar">
-          <span class="char-count">Tip: type /demo to try a guided example · Chars: <span id="chat-char-count">0</span></span>
+          <span class="char-count">Tip: type /help for commands · Chars: <span id="chat-char-count">0</span></span>
           <button type="submit" disabled>Send</button>
         </div>
       </form>
@@ -271,6 +274,7 @@
       var charCount = document.getElementById('chat-char-count');
       var sendBtn = form.querySelector('button[type="submit"]');
       var resetBtn = document.getElementById('chat-reset-btn');
+      var commandMenu = document.getElementById('command-menu');
 
       function updateSendState() { sendBtn.disabled = !input.value.trim(); }
       function updateCharCount() { charCount.textContent = input.value.length.toLocaleString(); }
@@ -298,13 +302,166 @@
         {num: 5, label: 'Patch playbook'},
       ];
       var awaitingDemoSelection = false;
+      var currentDemoNumber = null;
+
+      // web-bugs-and-tweaks.md #41: unlike soc-skill-cloud's "Demo N/M"
+      // (which rotates through a FIXED set of M canned payloads, so N/M
+      // means "scenario 2 of 3"), this /demo always does a live search --
+      // there's no fixed set to be "N of M" through. Using a plain
+      // incrementing counter instead of inventing a denominator that
+      // wouldn't correspond to anything real.
+      function nextDemoNumber() {
+        var n = parseInt(localStorage.getItem('vulnSkillDemoCount') || '0', 10);
+        if (isNaN(n)) n = 0;
+        n += 1;
+        localStorage.setItem('vulnSkillDemoCount', String(n));
+        return n;
+      }
+
+      // web-bugs-and-tweaks.md #39: a single command registry backs both
+      // /demo's and /help's discoverability (autocomplete menu below, and
+      // /help's own listing) -- actual execution stays with the dedicated
+      // logic in expandSlashCommand() below rather than a generic run()
+      // dispatcher, since /demo's behavior (a stateful two-step menu, see
+      // #20/#41 above) and /help's (a static one-shot card) don't share a
+      // common shape worth abstracting over.
+      var COMMANDS = [
+        {name: '/demo', description: 'Try a guided example: search a real CVE and produce sample output(s)'},
+        {name: '/help', description: 'Show what this tool does, how to use it, and what each tab is for'},
+      ];
+
+      function findCommand(value) {
+        var trimmed = value.trim().toLowerCase();
+        for (var i = 0; i < COMMANDS.length; i++) {
+          if (COMMANDS[i].name === trimmed) return COMMANDS[i];
+        }
+        return null;
+      }
+
+      // Typeahead autocomplete (ported from soc-skill-cloud, see
+      // ai-skill-webapp skill §5): a small filtered dropdown appears the
+      // instant the input looks like a command still being typed, narrows
+      // as more is typed, fully keyboard-navigable. Selecting an entry
+      // completes the input text, it does not submit by itself.
+      var commandMenuMatches = [];
+      var commandMenuIndex = -1;
+
+      function updateCommandMenu() {
+        var value = input.value;
+        var isComposingCommand = /^\/[a-z]*$/i.test(value);
+        var isExactMatch = !!findCommand(value);
+        if (!isComposingCommand || isExactMatch) {
+          hideCommandMenu();
+          return;
+        }
+        var prefix = value.toLowerCase();
+        commandMenuMatches = COMMANDS.filter(function (c) { return c.name.indexOf(prefix) === 0; });
+        if (!commandMenuMatches.length) {
+          hideCommandMenu();
+          return;
+        }
+        commandMenuIndex = 0;
+        renderCommandMenu();
+      }
+
+      function renderCommandMenu() {
+        commandMenu.innerHTML = commandMenuMatches.map(function (c, i) {
+          return '<div class="command-menu-item' + (i === commandMenuIndex ? ' active' : '') + '" data-index="' + i + '" role="option" aria-selected="' + (i === commandMenuIndex) + '">' +
+            '<span class="command-menu-item-name">' + c.name + '</span>' +
+            '<span class="command-menu-item-desc">' + c.description + '</span>' +
+            '</div>';
+        }).join('');
+        commandMenu.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+      }
+
+      function hideCommandMenu() {
+        commandMenu.hidden = true;
+        input.setAttribute('aria-expanded', 'false');
+        commandMenuMatches = [];
+        commandMenuIndex = -1;
+      }
+
+      function selectCommandMenuItem(i) {
+        var cmd = commandMenuMatches[i];
+        if (!cmd) return;
+        input.value = cmd.name;
+        updateCharCount();
+        updateSendState();
+        autoResize();
+        hideCommandMenu();
+        input.focus();
+      }
+
+      // mousedown, not click -- fires before the textarea's own blur
+      // handler below, so the selection registers instead of the menu
+      // disappearing out from under the click.
+      commandMenu.addEventListener('mousedown', function (evt) {
+        var item = evt.target.closest('.command-menu-item');
+        if (!item) return;
+        evt.preventDefault();
+        selectCommandMenuItem(parseInt(item.dataset.index, 10));
+      });
+
+      input.addEventListener('blur', function () {
+        setTimeout(hideCommandMenu, 150);
+      });
+
+      // Tab descriptions sourced from each output_menu entry's own
+      // "description" field in config/vuln-skill.yaml -- update here
+      // alongside any future relabeling/renumbering of output_menu.
+      var TAB_HELP = [
+        ['📋 Advisory', 'Non-technical risk summary for CISO/management: business impact, affected systems, and a time-bound remediation timeline.'],
+        ['🛡️ Detection Rule Draft', 'Draft Suricata IDS/IPS rule targeting network-observable behaviour, with MITRE ATT&CK tag and KEV status. Experimental -- review before deploying.'],
+        ['🧬 IoC list', 'Indicators of compromise (IPs, domains, URLs, file hashes, user-agents, URI paths) extracted from the KEV entry, vendor advisory, and OSINT, confidence-rated per indicator.'],
+        ['🎯 Hunting queries', 'Ready-to-run CrowdStrike Event Search and nfdump Netflow queries targeting C2 connections, post-exploitation process chains, and protocol anomalies.'],
+        ['🩹 Patch playbook', 'Upgrade path, rollback risk assessment, and an Ansible playbook to patch the affected package across your inventory.'],
+      ];
+
+      function appendLocalHtmlMessage(html) {
+        var div = document.createElement('div');
+        div.className = 'chat-msg chat-msg-assistant';
+        var role = document.createElement('div');
+        role.className = 'chat-role';
+        role.textContent = 'Vuln-Skill';
+        var body = document.createElement('div');
+        body.className = 'chat-text';
+        // Safe here specifically because callers only ever pass static
+        // content built from COMMANDS/TAB_HELP above, never anything the
+        // user typed.
+        body.innerHTML = html;
+        div.appendChild(role);
+        div.appendChild(body);
+        chatHistory.appendChild(div);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+
+      function showHelpCard() {
+        var commandItems = COMMANDS.map(function (c) {
+          return '<li><code>' + c.name + '</code> — ' + c.description + '</li>';
+        }).join('');
+        var tabItems = TAB_HELP.map(function (t) {
+          return '<li><strong>' + t[0] + '</strong> — ' + t[1] + '</li>';
+        }).join('');
+        appendLocalHtmlMessage([
+          '<p>Vuln-Skill is an AI (Artificial Intelligence) CVE (Common Vulnerabilities and Exposures) intelligence assistant. Ask it to run a workflow, look up a specific CVE, or produce an output, and it works the request through to a finished document.</p>',
+          '<p><strong>Try it</strong></p>',
+          '<p>Type <code>/demo</code> and send it — runs a live search for a critical, recently disclosed CVE and offers to produce a sample output for it, so you can see a full run without needing your own CVE on hand.</p>',
+          '<p><strong>How it works</strong></p>',
+          '<p>Send a request, get a reply. Whenever Vuln-Skill is about to produce an output, it always pauses and asks for a Yes/No confirmation first — nothing gets written until you confirm.</p>',
+          '<p><strong>Workflow Workspace tabs</strong> (left pane — one tab per output type, shown for the current CVE once produced)</p>',
+          '<ul>' + tabItems + '</ul>',
+          '<p><strong>Commands</strong></p>',
+          '<ul>' + commandItems + '</ul>'
+        ].join(''));
+      }
 
       function appendLocalAssistantMessage(text) {
         var div = document.createElement('div');
         div.className = 'chat-msg chat-msg-assistant';
         var role = document.createElement('div');
         role.className = 'chat-role';
-        role.textContent = 'Assistant';
+        role.textContent = 'Vuln-Skill';
         var body = document.createElement('div');
         body.className = 'chat-text chat-text-plain';
         body.textContent = text;
@@ -331,28 +488,72 @@
           }
           awaitingDemoSelection = false;
           var labels = nums.map(function (n) { return DEMO_OUTPUT_TYPES[n - 1].label; }).join(', ');
-          input.value = 'Find a critical, recently disclosed CVE (KEV-listed or high CVSS/EPSS) and produce ' + labels + ' for it.';
+          var tag = currentDemoNumber !== null ? '(Demo #' + currentDemoNumber + ')\n\n' : '';
+          currentDemoNumber = null;
+          input.value = tag + 'Find a critical, recently disclosed CVE (KEV-listed or high CVSS/EPSS) and produce ' + labels + ' for it.';
           return;
         }
         if (raw.toLowerCase() === '/demo') {
           evt.preventDefault();
           appendOptimisticUserMessage(raw);
-          var menu = 'Which output type(s) would you like? Reply with the number(s), comma-separated (e.g. "1,3"):\n' +
+          currentDemoNumber = nextDemoNumber();
+          var menu = '(Demo #' + currentDemoNumber + ')\n\n' +
+            'Which output type(s) would you like? Reply with the number(s), comma-separated (e.g. "1,3"):\n' +
             DEMO_OUTPUT_TYPES.map(function (t) { return t.num + '. ' + t.label; }).join('\n');
           appendLocalAssistantMessage(menu);
           awaitingDemoSelection = true;
           input.value = '';
           updateCharCount();
           autoResize();
+          return;
+        }
+        if (raw.toLowerCase() === '/help') {
+          // Entirely client-side, no API call -- see ai-skill-webapp
+          // skill §5: help is a fact about the app, not the model.
+          evt.preventDefault();
+          appendOptimisticUserMessage(raw);
+          showHelpCard();
+          input.value = '';
+          updateCharCount();
+          autoResize();
         }
       }
-      form.addEventListener('submit', expandSlashCommand);
+      form.addEventListener('submit', function (evt) {
+        hideCommandMenu();
+        expandSlashCommand(evt);
+      });
 
-      input.addEventListener('input', function () { updateCharCount(); updateSendState(); autoResize(); });
+      input.addEventListener('input', function () { updateCharCount(); updateSendState(); autoResize(); updateCommandMenu(); });
       updateSendState();
       autoResize();
 
       input.addEventListener('keydown', function (evt) {
+        if (!commandMenu.hidden) {
+          if (evt.key === 'ArrowDown') {
+            evt.preventDefault();
+            commandMenuIndex = (commandMenuIndex + 1) % commandMenuMatches.length;
+            renderCommandMenu();
+            return;
+          }
+          if (evt.key === 'ArrowUp') {
+            evt.preventDefault();
+            commandMenuIndex = (commandMenuIndex - 1 + commandMenuMatches.length) % commandMenuMatches.length;
+            renderCommandMenu();
+            return;
+          }
+          if (evt.key === 'Escape') {
+            evt.preventDefault();
+            hideCommandMenu();
+            return;
+          }
+          if (evt.key === 'Tab' || (evt.key === 'Enter' && !evt.shiftKey)) {
+            // Selecting completes the input text, same convention as
+            // Slack/Discord/Notion/Linear -- it does not submit by itself.
+            evt.preventDefault();
+            selectCommandMenuItem(commandMenuIndex);
+            return;
+          }
+        }
         if (evt.key === 'Enter' && !evt.shiftKey) {
           evt.preventDefault();
           if (input.value.trim()) form.requestSubmit();

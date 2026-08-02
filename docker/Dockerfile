@@ -14,10 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.2.29/supercronic-linux-amd64
-ENV SUPERCRONIC=/usr/local/bin/supercronic
-RUN curl -fsSLo "$SUPERCRONIC" "$SUPERCRONIC_URL" && chmod +x "$SUPERCRONIC"
-
 RUN curl -fsSL "https://api.github.com/repos/projectdiscovery/pdtm/releases/latest" \
     | jq -r '.assets[] | select(.name | test("linux_amd64.zip")) | .browser_download_url' \
     | xargs curl -fsSL -o /tmp/pdtm.zip \
@@ -45,6 +41,9 @@ RUN mkdir -p outputs/{rules,advisories,iocs,hunting,patches} logs
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python3 -c "import anthropic, openai; print('ok')" || exit 1
 
-# entrypoint.sh reads config/vuln-skill.yaml's scheduler section at startup —
-# it decides between running supercronic or idling. See that file for details.
+# web-bugs-and-tweaks.md #37: the scheduler (supercronic + a
+# scheduler.enabled config flag) was removed -- it was always disabled by
+# default and nothing (no cron, no systemd timer) ever actually enabled
+# it in either deployment. entrypoint.sh now just idles unconditionally;
+# a run always happens via an explicit docker exec / the web UI instead.
 CMD ["/usr/local/bin/entrypoint.sh"]

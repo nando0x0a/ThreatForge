@@ -3,28 +3,67 @@
 {% block content %}
 <section class="card">
   <h2>Workflow &amp; scoring settings</h2>
-  <p class="muted">AI prompts and the output menu are not editable here — SSH in and edit <code>config/vuln-skill.yaml</code> directly for those.</p>
   <form method="post" action="/config/pipeline">
     <fieldset>
       <legend>Workflow</legend>
-      <label>CVE age window (days) <input type="number" name="cve_age_days" value="{{ pipeline.cve_age_days }}"></label>
-      <label>CVSS threshold <input type="number" step="0.1" name="cvss_threshold" value="{{ pipeline.cvss_threshold }}"></label>
-      <label>EPSS threshold <input type="number" step="0.01" name="epss_threshold" value="{{ pipeline.epss_threshold }}"></label>
-      <label>"New" threshold (days) <input type="number" name="new_threshold_days" value="{{ pipeline.new_threshold_days }}"></label>
-      <label>Query limit <input type="number" name="query_limit" value="{{ pipeline.query_limit }}"></label>
+      <label>CVE age window (days)
+        <input type="number" name="cve_age_days" value="{{ pipeline.cve_age_days }}">
+        <span class="field-help">How far back a workflow looks for candidates. A KEV (Known Exploited Vulnerabilities)-listed CVE (Common Vulnerabilities and Exposures) is measured from its KEV-added date instead of publish date, so an old KEV entry doesn't get filtered out just because the CVE itself is old.</span>
+      </label>
+      <label>CVSS threshold
+        <input type="number" step="0.1" name="cvss_threshold" value="{{ pipeline.cvss_threshold }}">
+        <span class="field-help">Minimum CVSS (Common Vulnerability Scoring System) score to be considered actionable, unless the CVE is KEV-listed (KEV-listed CVEs bypass this). Also the boundary for the [HIGH] scoring tag below.</span>
+      </label>
+      <label>EPSS threshold
+        <input type="number" step="0.01" name="epss_threshold" value="{{ pipeline.epss_threshold }}">
+        <span class="field-help">EPSS (Exploit Prediction Scoring System) probability (0-1) above which the [EPSS] scoring tag applies — a higher EPSS means exploitation in the wild is more likely soon.</span>
+      </label>
+      <label>"New" threshold (days)
+        <input type="number" name="new_threshold_days" value="{{ pipeline.new_threshold_days }}">
+        <span class="field-help">A CVE younger than this many days gets the [NEW] scoring tag, for surfacing brand-new activity before EPSS/exploit signal has had time to accumulate.</span>
+      </label>
+      <label>Query limit
+        <input type="number" name="query_limit" value="{{ pipeline.query_limit }}">
+        <span class="field-help">Candidates pulled per product per query (KEV feed, and CVSS-sorted) before filtering — a ceiling on API calls per workflow run, not a ceiling on results shown.</span>
+      </label>
     </fieldset>
 
     <fieldset>
       <legend>Scoring</legend>
-      <label>CRIT threshold (CVSS) <input type="number" step="0.1" name="cvss_crit_threshold" value="{{ cvss_crit_threshold }}"></label>
-      <p class="muted">Weights: {% for tag, w in weights.items() %}{{ tag }}={{ w }} {% endfor %}(edit weights directly in <code>vuln-skill.yaml</code> — not exposed here yet)</p>
-    </fieldset>
+      <label>CRIT threshold (CVSS)
+        <input type="number" step="0.1" name="cvss_crit_threshold" value="{{ cvss_crit_threshold }}">
+        <span class="field-help">CVSS score at/above which a CVE gets the [CRIT] tag (worth {{ weights.CRIT }} points) instead of [HIGH] (worth {{ weights.HIGH }}).</span>
+      </label>
 
-    <fieldset>
-      <legend>Scheduler</legend>
-      <label><input type="checkbox" name="scheduler_enabled" {% if scheduler.enabled %}checked{% endif %}> Enabled</label>
-      <label>Cron expression <input type="text" name="scheduler_cron" value="{{ scheduler.cron }}"></label>
-      <p class="muted">Scheduler changes require a container recreate to take effect (<code>docker compose up -d --force-recreate</code>).</p>
+      <p>Every candidate CVE gets a <strong>composite score</strong>: the sum of every scoring tag that applies to it. The tags and their point values (edit weights directly in <code>vuln-skill.yaml</code> — not exposed here yet):</p>
+      <table class="tag-weights-table">
+        <tr><th>Tag</th><th>Points</th><th>Applies when</th></tr>
+        <tr><td><code>KEV</code></td><td>{{ weights.KEV }}</td><td>Listed in CISA's Known Exploited Vulnerabilities catalog</td></tr>
+        <tr><td><code>RCE</code></td><td>{{ weights.RCE }}</td><td>Allows remote code execution</td></tr>
+        <tr><td><code>RCE-KEV</code></td><td>{{ weights['RCE-KEV'] }}</td><td>Both RCE-capable <em>and</em> KEV-listed (on top of the KEV and RCE points above)</td></tr>
+        <tr><td><code>CRIT</code></td><td>{{ weights.CRIT }}</td><td>CVSS ≥ CRIT threshold above</td></tr>
+        <tr><td><code>HIGH</code></td><td>{{ weights.HIGH }}</td><td>CVSS ≥ CVSS threshold (Workflow section above), below the CRIT threshold</td></tr>
+        <tr><td><code>EPSS</code></td><td>{{ weights.EPSS }}</td><td>EPSS probability above the EPSS threshold above</td></tr>
+        <tr><td><code>T1</code></td><td>{{ weights.T1 }}</td><td>Affected product is marked tier 1 (internet-facing/auth/production) in <code>products.txt</code></td></tr>
+        <tr><td><code>WIDE</code></td><td>{{ weights.WIDE }}</td><td>Affected product is on the "widely used" list (nginx, OpenSSL, Log4j, etc. — see <code>vuln-skill.yaml</code>)</td></tr>
+        <tr><td><code>POC</code></td><td>{{ weights.POC }}</td><td>A public proof-of-concept exploit exists</td></tr>
+        <tr><td><code>NEW</code></td><td>{{ weights.NEW }}</td><td>CVE age below the "New" threshold above</td></tr>
+      </table>
+
+      <p>The composite score then sets a <strong>priority tier</strong>:</p>
+      <table class="tag-weights-table">
+        <tr><th>Tier</th><th>Label</th><th>Score</th></tr>
+        <tr><td>0</td><td>{{ tier_labels[0] }}</td><td>KEV + RCE together (any score), or score ≥ {{ tier_thresholds.tier_0 }}</td></tr>
+        <tr><td>1</td><td>{{ tier_labels[1] }}</td><td>score ≥ {{ tier_thresholds.tier_1 }}</td></tr>
+        <tr><td>2</td><td>{{ tier_labels[2] }}</td><td>score ≥ {{ tier_thresholds.tier_2 }}</td></tr>
+        <tr><td>3</td><td>{{ tier_labels[3] }}</td><td>below {{ tier_thresholds.tier_2 }}</td></tr>
+      </table>
+
+      <div class="scoring-example">
+        <strong>Worked example</strong> — a KEV-listed RCE vulnerability in nginx (tier 1, widely used), CVSS 9.5, EPSS 0.91, disclosed yesterday:
+        <p><code>KEV +{{ weights.KEV }}, RCE +{{ weights.RCE }}, RCE-KEV +{{ weights['RCE-KEV'] }}, CRIT +{{ weights.CRIT }}, EPSS +{{ weights.EPSS }}, T1 +{{ weights.T1 }}, WIDE +{{ weights.WIDE }}, NEW +{{ weights.NEW }}</code></p>
+        <p>Composite score = {{ weights.KEV + weights.RCE + weights['RCE-KEV'] + weights.CRIT + weights.EPSS + weights.T1 + weights.WIDE + weights.NEW }} → tier 0 ({{ tier_labels[0] }}), since it's both KEV-listed and RCE-capable regardless of the numeric threshold.</p>
+      </div>
     </fieldset>
 
     <button type="submit">Save</button>

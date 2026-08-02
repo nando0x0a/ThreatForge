@@ -115,7 +115,7 @@ dialog p { font-size: 0.9rem; line-height: 1.5; }
    shared syntax-highlighting color vocabulary this borrows from. */
 .entity-cve { font-weight: 700; color: var(--accent); }
 .entity-kev { font-weight: 700; color: var(--warn); }
-.entity-ip, .entity-hash, .entity-domain { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.92em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0 0.25em; }
+.entity-ip, .entity-hash, .entity-domain { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0 0.25em; }
 
 .card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
 .card h2 { margin-top: 0; font-size: 1.05rem; }
@@ -149,8 +149,15 @@ th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(
 
 fieldset { border: 1px solid var(--border); border-radius: 6px; margin: 0.75rem 0; }
 fieldset label { display: block; margin: 0.3rem 0; }
+/* web-bugs-and-tweaks.md #38: one-line "what this does" under each
+   settings field, so a bare number input isn't the only thing on screen. */
+.field-help { display: block; font-size: 0.78rem; color: var(--muted); margin: 0.1rem 0 0.5rem; font-weight: normal; }
+.scoring-example { border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.75rem; background: var(--assistant-bg); }
+.scoring-example code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.tag-weights-table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.85rem; }
+.tag-weights-table th, .tag-weights-table td { border: 1px solid var(--border); padding: 0.3rem 0.6rem; text-align: left; }
 
-textarea { width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; box-sizing: border-box; }
+textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; box-sizing: border-box; }
 
 button { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; background: transparent; color: inherit; }
 button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
@@ -407,7 +414,7 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 .chat-text p:last-child { margin-bottom: 0; }
 .chat-text ul, .chat-text ol { margin: 0.3em 0 0.6em 1.3em; }
 .chat-text li { margin-bottom: 0.2em; }
-.chat-text code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.88em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0.05em 0.3em; }
+.chat-text code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.88em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0.05em 0.3em; }
 .chat-text pre { background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 6px; padding: 0.6rem 0.75rem; overflow-x: auto; }
 .chat-text pre code { background: none; padding: 0; }
 .chat-text a { color: var(--accent); }
@@ -439,6 +446,28 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 
 #chat-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 #chat-message-input { width: 100%; font-family: inherit; font-size: 0.92rem; resize: none; max-height: 220px; overflow-y: auto; box-sizing: border-box; }
+/* web-bugs-and-tweaks.md #39: anchors #command-menu above the textarea via
+   position:absolute -- .input-wrap itself has no visual styling of its
+   own, purely a positioning context (ported from soc-skill-cloud). */
+.input-wrap { position: relative; }
+.command-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 0.4rem;
+  background: Canvas;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 20;
+}
+.command-menu-item { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.5rem 0.75rem; cursor: pointer; }
+.command-menu-item + .command-menu-item { border-top: 1px solid var(--border); }
+.command-menu-item-name { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; font-size: 0.85rem; }
+.command-menu-item-desc { font-size: 0.75rem; color: var(--muted); }
+.command-menu-item.active { background: var(--assistant-bg); }
 .input-toolbar { display: flex; align-items: center; gap: 0.5rem; }
 .char-count { font-size: 0.72rem; color: var(--muted); }
 .input-toolbar > button[type="submit"] { margin-left: auto; min-height: 44px; min-width: 44px; border-radius: 6px; cursor: pointer; padding: 0.5rem 1.6rem; font-size: 0.95rem; font-weight: 700; border: 1px solid var(--accent); background: var(--accent); color: #fff; }
