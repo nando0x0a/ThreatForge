@@ -4,12 +4,12 @@
    a `canvases` list in context: [{"cve_id", "tabs": [...], "active_index"}]. #}
 {% macro render_canvas(canvas) %}
 <div class="canvas-block">
-  <h2 class="pane-heading">{{ canvas.cve_id }} — Workspace Canvas</h2>
+  <h2 class="pane-heading">{{ canvas.cve_id }} — Generated Outputs</h2>
   <div class="card canvas-card">
   <div class="canvas-tabs" data-tab-index="{{ canvas.active_index }}">
     <div class="tab-strip">
       {% for tab in canvas.tabs %}
-      <button type="button" class="tab-btn{% if loop.index0 == canvas.active_index %} active{% endif %}{% if not tab.produced %} tab-btn-empty{% endif %}" data-tab="{{ loop.index0 }}" {% if not tab.produced %}disabled title="Not yet produced"{% endif %}>
+      <button type="button" class="tab-btn{% if loop.index0 == canvas.active_index %} active{% endif %}{% if not tab.produced %} tab-btn-empty{% endif %}" data-tab="{{ loop.index0 }}" {% if not tab.produced %}disabled title="Not yet generated"{% endif %}>
         <span class="tab-dot{% if tab.produced %} tab-dot-filled{% else %} tab-dot-empty{% endif %}" aria-hidden="true"></span>{{ tab.icon }} {{ tab.label }}
       </button>
       {% endfor %}
@@ -33,7 +33,7 @@
       </div>
       <div class="content-toggle">
         <button type="button" class="content-toggle-btn active" data-view="preview" onclick="setContentView(this, 'preview')">Preview</button>
-        <button type="button" class="content-toggle-btn" data-view="raw" onclick="setContentView(this, 'raw')">Raw</button>
+        <button type="button" class="content-toggle-btn" data-view="raw" onclick="setContentView(this, 'raw')">Source file</button>
       </div>
       {% if tab.is_markdown %}
       <div class="content-view content-view-preview chat-text active">{{ tab.content_html | safe }}</div>
@@ -42,7 +42,7 @@
       {% endif %}
       <pre class="tab-detail content-view content-view-raw">{{ tab.content }}</pre>
       {% else %}
-      <p class="canvas-empty muted">Not yet produced — select "{{ tab.label }}" and Produce to generate.</p>
+      <p class="canvas-empty muted">Not yet generated — select "{{ tab.label }}" and Generate selected outputs above.</p>
       {% endif %}
     </div>
     {% endfor %}

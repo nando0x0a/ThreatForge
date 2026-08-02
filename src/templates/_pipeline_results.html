@@ -1,6 +1,6 @@
 {% if recent_kev_entries %}
 <section class="card kev-alert">
-  <h2>⚠ Recently added to CISA KEV</h2>
+  <h2>⚠ Recently added to CISA KEV Catalog</h2>
   <p class="muted">Flagged as actively exploited within the last {{ kev_recent_days }} days — shown separately from the normal candidate list below, regardless of how the rest of scoring already treated them.</p>
   <ul>
     {% for c in recent_kev_entries %}
@@ -12,7 +12,7 @@
 
 {% if last_run %}
 <section class="card">
-  <h2>Candidates ({{ cves|length }})</h2>
+  <h2>Prioritized CVE candidates ({{ cves|length }})</h2>
   {% if last_run.status == 'running' %}
   <p class="muted">Running: {{ last_run.description }} (started <span class="local-time" data-utc="{{ last_run.started_at }}">{{ last_run.started_at }}</span>) — candidates below will refresh once it finishes.</p>
   {% else %}
@@ -56,13 +56,13 @@
     </div>
 
     <fieldset>
-      <legend>Outputs to produce</legend>
+      <legend>Select outputs to generate</legend>
       {% for num, entry in output_menu.items() %}
       <label><input type="checkbox" name="output_nums" value="{{ num }}"> {{ entry.label }}</label>
       {% endfor %}
     </fieldset>
 
-    <button type="submit" class="primary-btn">Produce selected</button>
+    <button type="submit" class="primary-btn">Generate selected outputs</button>
   </form>
   {% endif %}
 </section>

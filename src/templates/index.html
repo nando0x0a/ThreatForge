@@ -8,9 +8,9 @@
     <label title="Full workflow using production CVSS/EPSS/age filters."><input type="radio" name="mode" value="daily" checked> Daily vulnerability triage</label>
     <label title="Same candidate selection as the daily triage, but sorted by most recently disclosed CVEs first."><input type="radio" name="mode" value="recent"> Recent critical/KEV sweep</label>
     <label title="Run against one specific product name only, ignoring the usual candidate filters."><input type="radio" name="mode" value="product"> Product vulnerability search <input type="text" name="product" placeholder="e.g. nginx"></label>
-    <label title="Run against one specific CVE ID only."><input type="radio" name="mode" value="cve"> Run a specific CVE <input type="text" name="cve" placeholder="CVE-2024-12345"></label>
+    <label class="mode-cve" title="Run against one specific CVE ID only."><input type="radio" name="mode" value="cve"> Run a specific CVE <input type="text" name="cve" placeholder="CVE-2024-12345"></label>
     <div class="run-form-actions">
-      <button type="submit">Run</button>
+      <button type="submit">Run workflow</button>
     </div>
   </form>
 </section>

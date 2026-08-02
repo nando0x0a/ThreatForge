@@ -132,7 +132,7 @@ output_menu:
   # silently misfire it onto the wrong type again.
   1:
     key: advisory
-    label: "Advisory"
+    label: "Security advisory"
     description: "Non-technical risk summary for CISO/management. Covers business impact, affected systems, and recommended action with a time-bound remediation timeline."
     output_dir: advisories
     extension: ".md"
@@ -150,28 +150,28 @@ output_menu:
     preview: markdown
   2:
     key: signatures
-    label: "Detection Rule Draft"
+    label: "Suricata detection rule draft"
     description: "Draft Suricata IDS/IPS rule targeting network-observable behaviour. Includes MITRE ATT&CK tag, KEV status, classtype, and sid. Marked experimental — review before deploying."
     output_dir: rules
     extension: ".rules"
     preview: highlight
   3:
     key: ioc_list
-    label: "IoC list"
+    label: "Indicator list (IoCs)"
     description: "Structured list of IPs, domains, URLs, file hashes, user-agents, and URI paths extracted from KEV entry, vendor advisory, and OSINT. Confidence-rated per indicator."
     output_dir: iocs
     extension: ".txt"
     preview: highlight
   4:
     key: hunting_queries
-    label: "Hunting queries"
+    label: "Threat-hunting queries"
     description: "Ready-to-run CrowdStrike Event Search queries and nfdump Netflow queries. Targets C2 connections, post-exploitation process chains, and protocol anomalies."
     output_dir: hunting
     extension: ".txt"
     preview: markdown
   5:
     key: patch_recs
-    label: "Patch playbook"
+    label: "Patch remediation playbook"
     description: "Upgrade path, rollback risk assessment, and an Ansible playbook (apt module) to patch the affected package across your inventory. Includes dry-run command."
     output_dir: patches
     extension: ".yml"

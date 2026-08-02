@@ -2,11 +2,16 @@
 {% block title %}Vuln-Skill — Products{% endblock %}
 {% block content %}
 <section class="card">
-  <h2>Tracked products</h2>
-  <p class="muted">One per line: <code>product_name,tier</code> (tier 1 = internet-facing/auth/production, 2 = internal, 3 = dev/test). Comments (<code>#</code>) preserved as-is.</p>
+  <h2>Monitored products</h2>
+  <p class="muted">One entry per line: <code>product_name,tier</code>.<br>
+  Tier 1 = internet-facing, authenticated, or production;<br>
+  Tier 2 = internal;<br>
+  Tier 3 = development or test.<br>
+  Lines beginning with <code>#</code> are comments and are preserved.</p>
   <form method="post" action="/config/products">
-    <textarea name="content" rows="25" spellcheck="false">{{ content }}</textarea>
-    <button type="submit">Save</button>
+    <label for="products-editor" class="field-help">Product watchlist</label>
+    <textarea name="content" id="products-editor" rows="25" spellcheck="false">{{ content }}</textarea>
+    <button type="submit">Save monitored products</button>
   </form>
 </section>
 {% endblock %}

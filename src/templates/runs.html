@@ -6,7 +6,8 @@
   {% if not runs %}
     <p class="muted">No runs logged yet.</p>
   {% else %}
-  <table>
+  <input type="search" id="history-search" class="history-search" placeholder="Search by CVE, product, or output type..." aria-label="Search history">
+  <table id="history-table">
     <thead><tr><th>Time</th><th>CVE</th><th>Product</th><th>Output</th><th>Score</th><th>Status</th><th>Tokens (in/out)</th><th>Cost</th></tr></thead>
     <tbody>
       {% for r in runs %}
@@ -23,6 +24,26 @@
       {% endfor %}
     </tbody>
   </table>
+  <p id="history-no-match" class="muted" hidden>No matching runs.</p>
+  <script>
+    // Client-side filter -- the whole log is already server-rendered on
+    // this page (no pagination), so there's no need for a round-trip.
+    (function () {
+      var input = document.getElementById('history-search');
+      var rows = document.querySelectorAll('#history-table tbody tr');
+      var noMatch = document.getElementById('history-no-match');
+      input.addEventListener('input', function () {
+        var q = input.value.trim().toLowerCase();
+        var visibleCount = 0;
+        rows.forEach(function (row) {
+          var match = !q || row.innerText.toLowerCase().indexOf(q) !== -1;
+          row.hidden = !match;
+          if (match) visibleCount++;
+        });
+        noMatch.hidden = visibleCount !== 0;
+      });
+    })();
+  </script>
   {% endif %}
 </section>
 {% endblock %}

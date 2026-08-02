@@ -99,7 +99,7 @@
 
   <dialog id="about-dialog">
     <h2>About Vuln-Skill</h2>
-    <div class="about-warning">⚠ Don't submit sensitive data — content sent through the Chatbox is sent to the LLM provider.</div>
+    <div class="about-warning">⚠ Don't submit sensitive data — content sent through the Vuln-Skill Assistant is sent to the LLM provider.</div>
     <p>Vulnerability Intelligence Assistant — runs CVE (Common Vulnerabilities and Exposures) scoring, security advisories, detection rules, and IoC (indicator of compromise) generation over public vulnerability intelligence feeds.</p>
     <p class="muted">Chat Model: {{ chat_model or "unavailable" }}</p>
     <form method="dialog"><button class="reset-btn">Close</button></form>
@@ -107,13 +107,13 @@
 
   <main class="{{ 'app-shell' if chat_available else '' }}">
     <section class="canvas-pane">
-      {% if chat_available %}<h2 class="pane-heading">Workflow Workspace</h2>{% endif %}
+      {% if chat_available %}<h2 class="pane-heading">Vuln-Skill Workspace</h2>{% endif %}
       {% block content %}{% endblock %}
     </section>
 
     {% if chat_available %}
     <section class="chat-pane">
-      <h2 class="pane-heading">Chatbox</h2>
+      <h2 class="pane-heading">Vuln-Skill Assistant</h2>
       <div id="chat-history" role="log" aria-live="polite" aria-label="Conversation">
         {% include "_messages.html" %}
       </div>
@@ -121,7 +121,7 @@
       <form id="chat-form" method="post" action="/chat" hx-post="/chat" hx-target="#chat-history" hx-swap="innerHTML">
         <div class="input-wrap">
           <div class="command-menu" id="command-menu" role="listbox" aria-label="Command suggestions" hidden></div>
-          <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask Vuln-Skill to run a workflow, look up a CVE, or produce an output... (try /demo or /help)" required role="combobox" aria-expanded="false" aria-controls="command-menu" aria-autocomplete="list"></textarea>
+          <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask Vuln-Skill to run a workflow, search a product or CVE, or generate security outputs... (try /demo or /help)" required role="combobox" aria-expanded="false" aria-controls="command-menu" aria-autocomplete="list"></textarea>
         </div>
         <div class="input-toolbar">
           <span class="char-count">Tip: type /help for commands · Chars: <span id="chat-char-count">0</span></span>
@@ -295,11 +295,11 @@
       // the Send button (native submit), with no dependency on htmx's
       // internal request-building order.
       var DEMO_OUTPUT_TYPES = [
-        {num: 1, label: 'Advisory'},
-        {num: 2, label: 'Detection Rule Draft'},
-        {num: 3, label: 'IoC list'},
-        {num: 4, label: 'Hunting queries'},
-        {num: 5, label: 'Patch playbook'},
+        {num: 1, label: 'Security advisory'},
+        {num: 2, label: 'Suricata detection rule draft'},
+        {num: 3, label: 'Indicator list (IoCs)'},
+        {num: 4, label: 'Threat-hunting queries'},
+        {num: 5, label: 'Patch remediation playbook'},
       ];
       var awaitingDemoSelection = false;
       var currentDemoNumber = null;
@@ -326,7 +326,7 @@
       // #20/#41 above) and /help's (a static one-shot card) don't share a
       // common shape worth abstracting over.
       var COMMANDS = [
-        {name: '/demo', description: 'Try a guided example: search a real CVE and produce sample output(s)'},
+        {name: '/demo', description: 'Try a guided example: search a real CVE and generate sample output(s)'},
         {name: '/help', description: 'Show what this tool does, how to use it, and what each tab is for'},
       ];
 
@@ -411,11 +411,11 @@
       // "description" field in config/vuln-skill.yaml -- update here
       // alongside any future relabeling/renumbering of output_menu.
       var TAB_HELP = [
-        ['📋 Advisory', 'Non-technical risk summary for CISO/management: business impact, affected systems, and a time-bound remediation timeline.'],
-        ['🛡️ Detection Rule Draft', 'Draft Suricata IDS/IPS rule targeting network-observable behaviour, with MITRE ATT&CK tag and KEV status. Experimental -- review before deploying.'],
-        ['🧬 IoC list', 'Indicators of compromise (IPs, domains, URLs, file hashes, user-agents, URI paths) extracted from the KEV entry, vendor advisory, and OSINT, confidence-rated per indicator.'],
-        ['🎯 Hunting queries', 'Ready-to-run CrowdStrike Event Search and nfdump Netflow queries targeting C2 connections, post-exploitation process chains, and protocol anomalies.'],
-        ['🩹 Patch playbook', 'Upgrade path, rollback risk assessment, and an Ansible playbook to patch the affected package across your inventory.'],
+        ['📋 Security advisory', 'Non-technical risk summary for CISO/management: business impact, affected systems, and a time-bound remediation timeline.'],
+        ['🛡️ Suricata detection rule draft', 'Draft Suricata IDS/IPS rule targeting network-observable behaviour, with MITRE ATT&CK tag and KEV status. Experimental -- review before deploying.'],
+        ['🧬 Indicator list (IoCs)', 'Indicators of compromise (IPs, domains, URLs, file hashes, user-agents, URI paths) extracted from the KEV entry, vendor advisory, and OSINT, confidence-rated per indicator.'],
+        ['🎯 Threat-hunting queries', 'Ready-to-run CrowdStrike Event Search and nfdump Netflow queries targeting C2 connections, post-exploitation process chains, and protocol anomalies.'],
+        ['🩹 Patch remediation playbook', 'Upgrade path, rollback risk assessment, and an Ansible playbook to patch the affected package across your inventory.'],
       ];
 
       function appendLocalHtmlMessage(html) {
@@ -444,12 +444,12 @@
           return '<li><strong>' + t[0] + '</strong> — ' + t[1] + '</li>';
         }).join('');
         appendLocalHtmlMessage([
-          '<p>Vuln-Skill is an AI (Artificial Intelligence) CVE (Common Vulnerabilities and Exposures) intelligence assistant. Ask it to run a workflow, look up a specific CVE, or produce an output, and it works the request through to a finished document.</p>',
+          '<p>Vuln-Skill is an AI (Artificial Intelligence) CVE (Common Vulnerabilities and Exposures) intelligence assistant. Ask it to run a workflow, search a product or CVE, or generate security outputs, and it works the request through to a finished document.</p>',
           '<p><strong>Try it</strong></p>',
-          '<p>Type <code>/demo</code> and send it — runs a live search for a critical, recently disclosed CVE and offers to produce a sample output for it, so you can see a full run without needing your own CVE on hand.</p>',
+          '<p>Type <code>/demo</code> and send it — runs a live search for a critical, recently disclosed CVE and offers to generate a sample output for it, so you can see a full run without needing your own CVE on hand.</p>',
           '<p><strong>How it works</strong></p>',
-          '<p>Send a request, get a reply. Whenever Vuln-Skill is about to produce an output, it always pauses and asks for a Yes/No confirmation first — nothing gets written until you confirm.</p>',
-          '<p><strong>Workflow Workspace tabs</strong> (left pane — one tab per output type, shown for the current CVE once produced)</p>',
+          '<p>Send a request, get a reply. Whenever Vuln-Skill is about to generate an output, it always pauses and asks for a Yes/No confirmation first — nothing gets written until you confirm.</p>',
+          '<p><strong>Vuln-Skill Workspace tabs</strong> (left pane — one tab per output type, shown for the current CVE once generated)</p>',
           '<ul>' + tabItems + '</ul>',
           '<p><strong>Commands</strong></p>',
           '<ul>' + commandItems + '</ul>'
@@ -490,7 +490,7 @@
           var labels = nums.map(function (n) { return DEMO_OUTPUT_TYPES[n - 1].label; }).join(', ');
           var tag = currentDemoNumber !== null ? '(Demo #' + currentDemoNumber + ')\n\n' : '';
           currentDemoNumber = null;
-          input.value = tag + 'Find a critical, recently disclosed CVE (KEV-listed or high CVSS/EPSS) and produce ' + labels + ' for it.';
+          input.value = tag + 'Find a critical, recently disclosed CVE (KEV-listed or high CVSS/EPSS) and generate ' + labels + ' for it.';
           return;
         }
         if (raw.toLowerCase() === '/demo') {
@@ -617,6 +617,13 @@
       document.body.addEventListener('htmx:afterSwap', function (evt) {
         if (evt.target === chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
       });
+
+      // Start scrolled to the most recent bubble on every page load/nav,
+      // not just after a live send -- otherwise a page with existing
+      // history (a reload, or navigating back to a page with the shared
+      // chat pane) opens scrolled to the top of the conversation instead
+      // of where the user actually left off.
+      chatHistory.scrollTop = chatHistory.scrollHeight;
     })();
 
     function copyChatText(btn) {
@@ -624,9 +631,16 @@
       var textEl = msg.querySelector('.chat-text');
       var text = textEl ? textEl.innerText : '';
       navigator.clipboard.writeText(text).then(function () {
+        // Icon-only button -- swap to a checkmark rather than the word
+        // "Copied" (which would look out of place next to a bare glyph),
+        // then restore the original icon.
         var original = btn.textContent;
-        btn.textContent = 'Copied';
-        setTimeout(function () { btn.textContent = original; }, 1500);
+        btn.textContent = '✓';
+        btn.setAttribute('aria-label', 'Copied');
+        setTimeout(function () {
+          btn.textContent = original;
+          btn.setAttribute('aria-label', 'Copy');
+        }, 1500);
       });
     }
   </script>

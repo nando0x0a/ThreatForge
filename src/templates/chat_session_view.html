@@ -36,8 +36,12 @@
       var text = textEl ? textEl.innerText : '';
       navigator.clipboard.writeText(text).then(function () {
         var original = btn.textContent;
-        btn.textContent = 'Copied';
-        setTimeout(function () { btn.textContent = original; }, 1500);
+        btn.textContent = '✓';
+        btn.setAttribute('aria-label', 'Copied');
+        setTimeout(function () {
+          btn.textContent = original;
+          btn.setAttribute('aria-label', 'Copy');
+        }, 1500);
       });
     }
   </script>

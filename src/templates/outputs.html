@@ -3,7 +3,7 @@
 {% block content %}
 <section class="card">
   <div class="card-header-row">
-    <h2>Produced outputs</h2>
+    <h2>Generated outputs</h2>
     <button type="button" class="refresh-btn" hx-get="/outputs" hx-select="#outputs-content" hx-target="#outputs-content" hx-swap="outerHTML">⟳ Refresh</button>
   </div>
   <div id="outputs-content">
@@ -11,7 +11,7 @@
     <p class="muted">Also mirrored to <code>{{ github_repo }}</code> on GitHub — links below open this site's own copy.</p>
     {% endif %}
     {% if not canvases and not unmatched %}
-      <p class="muted">Nothing produced yet.</p>
+      <p class="muted">Nothing generated yet.</p>
     {% endif %}
 
     {% include "_workspace_canvas.html" %}

@@ -7,7 +7,7 @@
    click (never persisted across a page reload, since this route's own
    response is the only thing that ever populates that div). #}
 <div class="card produce-confirm">
-  <p class="ok">✓ Produced output{{ 's' if canvases|length != 1 else '' }} for {{ canvases|length }} CVE{{ 's' if canvases|length != 1 else '' }}.</p>
+  <p class="ok">✓ Generated output{{ 's' if canvases|length != 1 else '' }} for {{ canvases|length }} CVE{{ 's' if canvases|length != 1 else '' }}.</p>
   <ul>
     {% for canvas in canvases %}
     <li><strong>{{ canvas.cve_id }}</strong> — {% for tab in canvas.tabs if tab.produced %}{{ tab.label }}{% if not loop.last %}, {% endif %}{% endfor %}</li>

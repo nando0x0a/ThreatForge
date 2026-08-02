@@ -1,11 +1,11 @@
 {% if not messages %}
-<p class="canvas-empty muted">Ask Vuln-Skill to run a workflow, look up a CVE, or produce an output. Try /demo or /help.</p>
+<p class="canvas-empty muted">Ask Vuln-Skill to run a workflow, search a product or CVE, or generate security outputs. Try /demo or /help.</p>
 {% endif %}
 {% for m in messages %}
 <div class="chat-msg chat-msg-{{ m.role }}{% if m.is_question %} chat-msg-question{% endif %}">
   <div class="chat-role">
     {{ 'You' if m.role == 'user' else 'Vuln-Skill' }}
-    <button type="button" class="copy-btn" onclick="copyChatText(this)">Copy</button>
+    <button type="button" class="copy-btn" onclick="copyChatText(this)" aria-label="Copy" title="Copy">📋</button>
   </div>
   {% if m.html %}
   <div class="chat-text">{{ m.text | safe }}</div>
