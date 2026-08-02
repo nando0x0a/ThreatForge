@@ -144,9 +144,14 @@ output_menu:
     # comment line read as an H1, a Suricata rule body reflowed into one
     # paragraph). Decided per-type from each one's actual prompts.yaml
     # template, not by file extension -- patch_recs is ".yml" but its
-    # template is genuinely markdown (headers, bold, fenced code blocks);
-    # signatures/ioc_list use bare "#" comment lines as literal syntax,
-    # not markdown headers, so full rendering would misrender them.
+    # template is genuinely markdown (headers, bold, fenced code blocks).
+    # ioc_list was "highlight" until web-bugs-and-tweaks.md #51 -- its
+    # template was rewritten to real Markdown structure (## headers, bold
+    # labels, bullet lists) specifically so it can render properly here;
+    # it no longer uses bare "#" pseudo-comment lines. signatures still
+    # genuinely needs "highlight": a Suricata rule's own syntax (content:,
+    # pcre:, flow:) would get reflowed into a paragraph and its "#"
+    # confidence-comment lines misread as H1s under full rendering.
     preview: markdown
   2:
     key: signatures
@@ -161,7 +166,7 @@ output_menu:
     description: "Structured list of IPs, domains, URLs, file hashes, user-agents, and URI paths extracted from KEV entry, vendor advisory, and OSINT. Confidence-rated per indicator."
     output_dir: iocs
     extension: ".txt"
-    preview: highlight
+    preview: markdown
   4:
     key: hunting_queries
     label: "Threat-hunting queries"
@@ -334,30 +339,33 @@ prompts:
       You are a threat intelligence analyst extracting indicators of compromise.
 
       Based on the CVE metadata, CISA KEV entry, advisory context, and OSINT
-      provided, produce a structured IoC list in the following format:
+      provided, produce a structured IoC list in clean Markdown format (this
+      renders as full Markdown in the web UI's Preview, so use real Markdown
+      structure throughout -- headers, bold labels, bullet lists, inline
+      code -- never a bare "#"-prefixed line as a pseudo-comment; that
+      reads as an oversized heading once rendered).
 
-      # IoC List — CVE-XXXX-XXXX
-      # Generated: [date]
-      # Confidence: HIGH / MEDIUM / LOW per indicator
+      **Confidence:** HIGH / MEDIUM / LOW per indicator, stated once here and
+      per-indicator below where it varies.
 
       ## Network Indicators
-      IP: x.x.x[.]x  # source / description (defanged per the system instructions)
+      - **IP:** `x.x.x[.]x` — source / description (defanged per the system instructions)
 
       ## Domain Indicators
-      DOMAIN: malicious.example[.]com  # description
+      - **Domain:** `malicious.example[.]com` — description
 
       ## URL Indicators
-      URL: hxxp://example[.]com/exploit/path  # description
+      - **URL:** `hxxp://example[.]com/exploit/path` — description
 
       ## File Indicators
-      HASH_SHA256: abc123...  # filename / description
-      HASH_MD5: abc123...     # filename / description
+      - **SHA256:** `abc123...` — filename / description
+      - **MD5:** `abc123...` — filename / description
 
       ## User-Agent Indicators
-      UA: ExploitScanner/1.0
+      - **UA:** `ExploitScanner/1.0`
 
       ## URI Path Indicators
-      URI: /vulnerable/endpoint
+      - **URI:** `/vulnerable/endpoint`
 
       ## Notes
       Any caveats, confidence levels, or context about these indicators.

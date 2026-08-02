@@ -132,13 +132,25 @@ class OutputRouter:
         filename = f"{cve_id}_{output_type}{ext}"
         filepath = folder / filename
 
-        header = self._build_header(cve_data, result, output_num, ext)
-        footer = self._build_sources_footer(cve_data, ext)
+        # Governs blockquote-vs-comment header/footer style below -- keyed off
+        # the entry's own "preview" setting (what the web UI actually renders
+        # this as), not the file extension. hunting_queries/ioc_list are both
+        # ".txt" with preview:markdown, so they need the SAME blockquote
+        # treatment ".md" gets, or every "#"-prefixed header/footer line
+        # renders as its own giant H1 once the body goes through full
+        # Markdown rendering (web-bugs-and-tweaks.md #51 -- found live: a
+        # hunting_queries file's own header rendered as nine stacked H1s).
+        is_markdown_preview = menu_entry.get("preview") == "markdown"
+        header = self._build_header(cve_data, result, output_num, is_markdown_preview)
+        footer = self._build_sources_footer(cve_data, is_markdown_preview)
         body = _defang_body(result.get("content", ""), output_type)
         content = header + "\n\n" + body + footer
 
         if result.get("review_needed"):
-            content += f"\n\n# REVIEW_NEEDED\n# Error: {result.get('error', 'unknown')}"
+            if is_markdown_preview:
+                content += f"\n\n**REVIEW_NEEDED**\nError: {result.get('error', 'unknown')}"
+            else:
+                content += f"\n\n# REVIEW_NEEDED\n# Error: {result.get('error', 'unknown')}"
 
         filepath.write_text(content)
         log.info(f"Saved: {filepath}")
@@ -150,7 +162,7 @@ class OutputRouter:
 
         return filepath
 
-    def _build_header(self, cve_data: dict, result: dict, output_num: int, ext: str) -> str:
+    def _build_header(self, cve_data: dict, result: dict, output_num: int, is_markdown_preview: bool) -> str:
         tags_str = " ".join(f"[{t}]" for t in cve_data.get("tags", []))
         fields = [
             f"CVE:       {cve_data.get('cve_id', '')}",
@@ -177,24 +189,35 @@ class OutputRouter:
         menu_entry = _OUTPUT_MENU.get(output_num, {})
         label = menu_entry.get("label", result.get("output_type", ""))
         title = f"VULN-SKILL GENERATED OUTPUT — {label.upper()}"
-        if ext == ".md":
+        if is_markdown_preview:
             # '#'-prefixed lines are H1 headings in Markdown, not comments — each
-            # would render as its own giant heading. Use a blockquote instead:
-            # normal body-text size, still visually set apart from the content below.
-            lines = [f"> **{title}**", ">"] + [f"> {f}" for f in fields]
+            # would render as its own giant heading (web-bugs-and-tweaks.md #51/
+            # #52 -- found live on both counts: hunting_queries/ioc_list's own
+            # "#"-prefixed header rendering as nine stacked H1s). A ">" blockquote
+            # was tried instead, but _render_safe_markdown HTML-escapes the text
+            # BEFORE running it through Markdown (deliberately, so literal HTML
+            # in AI-echoed content can't execute) -- html.escape() turns a
+            # leading ">" into "&gt;", which Markdown's blockquote parser no
+            # longer recognizes, so the whole header rendered as one plain
+            # escaped-looking paragraph instead of an indented blockquote. Bold
+            # (`**`) and a horizontal rule (`---`) both use characters
+            # html.escape() never touches, so they're the only formatting that
+            # actually survives the escape-then-render pipeline intact -- normal
+            # body-text size, still visually set apart via the rule below it.
+            lines = [f"**{title}**", ""] + fields + ["", "---"]
             return "\n".join(lines)
 
         lines = [f"# {title}"] + [f"# {f}" for f in fields] + ["# ---"]
         return "\n".join(lines)
 
-    def _build_sources_footer(self, cve_data: dict, ext: str) -> str:
+    def _build_sources_footer(self, cve_data: dict, is_markdown_preview: bool) -> str:
         """Deterministic source list, guaranteed present regardless of whether
         the model's own citations (if any) match or are complete."""
         sources = cve_data.get("context", {}).get("sources") or []
         if not sources:
             return ""
 
-        if ext == ".md":
+        if is_markdown_preview:
             # Same heading level and plain list style as the AI's own "## Sources"
             # section, so this reads as the same size/font, not a giant heading
             # per '#'-prefixed line.
