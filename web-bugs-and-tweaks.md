@@ -111,6 +111,22 @@ today it's only checked once per web-UI run, not continuously.
     actually built, pull the live weight/threshold *values* from config at
     render time (not hardcoded into the template) so this explanation
     can't drift from what's actually configured.
+41. **Label every bubble in a `/demo` exchange with "(Demo N/M)"** — per
+    NJ's example: the assistant's output-type menu reply and the user's
+    own follow-up selection message (after picking numbers) both get a
+    small "(Demo N/M)" tag, on its own line above the actual content, not
+    merged into the same paragraph. **Open question to resolve before
+    building:** soc-skill-cloud's "Demo N/M" (the pattern this is modeled
+    on) rotates through a *fixed* set of M canned payloads, so N/M means
+    "scenario 2 of 3." Vuln-Skill's `/demo` has no fixed set — it always
+    does a live search for whatever CVE is currently critical/recent, so
+    there's no natural "M" the way soc-skill-cloud has one. Options: (a)
+    N = how many times `/demo` has been invoked this session, no fixed M
+    (drop the "/M" entirely, just "(Demo #N)"); (b) invent a small fixed
+    rotation of demo *framings* (e.g. "most recent," "highest EPSS,"
+    "highest composite score") so M has a real meaning even though the
+    actual CVE found is still live; (c) something else. Decide this
+    before implementing, not while implementing.
 
 ## Done
 
