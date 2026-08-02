@@ -127,9 +127,17 @@ scoring:
     - postgresql
 
 output_menu:
+  # web-bugs-and-tweaks.md #34: "Technical findings (SOC analyst)" retired
+  # as a distinct producible type (NJ's new 5-item "Select output type"
+  # list didn't include it) -- its own prompt template was removed from
+  # prompts.output_templates below too, not just unlisted here. Every
+  # other entry renumbered down by one to close the gap. ai_caller.py's
+  # few-shot injection is keyed off each entry's "key" string, not a
+  # hardcoded number, specifically so a renumbering like this one can't
+  # silently misfire it onto the wrong type again.
   1:
     key: advisory
-    label: "Security advisory (management)"
+    label: "Advisory"
     description: "Non-technical risk summary for CISO/management. Covers business impact, affected systems, and recommended action with a time-bound remediation timeline."
     output_dir: advisories
     extension: ".md"
@@ -146,36 +154,29 @@ output_menu:
     # not markdown headers, so full rendering would misrender them.
     preview: markdown
   2:
-    key: technical_findings
-    label: "Technical findings (SOC analyst)"
-    description: "Deep-dive for SOC analysts. Attack vector breakdown, CVSS analysis, observable behaviour on the wire, detection coverage gaps, and immediate response steps."
-    output_dir: advisories
-    extension: ".md"
-    preview: markdown
-  3:
     key: signatures
-    label: "Suricata signature drafts"
+    label: "Detection Rule Draft"
     description: "Draft Suricata IDS/IPS rule targeting network-observable behaviour. Includes MITRE ATT&CK tag, KEV status, classtype, and sid. Marked experimental — review before deploying."
     output_dir: rules
     extension: ".rules"
     preview: highlight
-  4:
+  3:
     key: ioc_list
     label: "IoC list"
     description: "Structured list of IPs, domains, URLs, file hashes, user-agents, and URI paths extracted from KEV entry, vendor advisory, and OSINT. Confidence-rated per indicator."
     output_dir: iocs
     extension: ".txt"
     preview: highlight
-  5:
+  4:
     key: hunting_queries
-    label: "Threat hunting queries (CrowdStrike + Netflow)"
+    label: "Hunting queries"
     description: "Ready-to-run CrowdStrike Event Search queries and nfdump Netflow queries. Targets C2 connections, post-exploitation process chains, and protocol anomalies."
     output_dir: hunting
     extension: ".txt"
     preview: markdown
-  6:
+  5:
     key: patch_recs
-    label: "Patch recommendations"
+    label: "Patch playbook"
     description: "Upgrade path, rollback risk assessment, and an Ansible playbook (apt module) to patch the affected package across your inventory. Includes dry-run command."
     output_dir: patches
     extension: ".yml"
@@ -260,37 +261,6 @@ prompts:
 
       Write for a CISO or VP-level audience. Avoid CVE numbers in the summary.
       Use the priority tier to set the urgency tone.
-
-    technical_findings: |
-      You are a senior security analyst writing a technical findings report
-      for a SOC analyst audience.
-
-      Write a technical findings report in Markdown format:
-
-      ## CVE Summary
-      CVE ID, affected product, CVSS score, KEV status, age.
-
-      ## Attack Vector
-      How the vulnerability is exploited. Network path, required conditions,
-      authentication requirements. Reference the CVSS vector components.
-
-      ## Observable Behaviour
-      What this attack looks like on the wire or in endpoint telemetry.
-      Specific indicators: HTTP paths, payload patterns, process chains,
-      network connections.
-
-      ## Detection Coverage
-      What signatures or queries would catch this. Reference the Suricata
-      rule or hunting query if produced.
-
-      ## Affected Assets
-      Which assets in the inventory are affected based on the product list.
-
-      ## Recommended Response
-      Immediate containment actions, investigation steps, escalation criteria.
-
-      Write with technical precision. Include specific field values, protocol
-      details, and command examples where relevant.
 
     signatures: |
       You are a detection engineer writing a Suricata IDS/IPS rule.

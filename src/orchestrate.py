@@ -397,8 +397,8 @@ def run_pipeline(
 @click.option("--cve", default=None, help="Force-process specific CVE ID(s), comma-separated")
 @click.option(
     "--produce", default=None,
-    help="Comma-separated output numbers 1-6 (7=post to Discord), or 0 for all file outputs. "
-         "Example: --produce 1,3,6. Pass --produce ask to defer the output-type prompt until "
+    help="Comma-separated output numbers 1-5 (6=post to Discord), or 0 for all file outputs. "
+         "Example: --produce 1,2,6. Pass --produce ask to defer the output-type prompt until "
          "after the CVE list is printed (interactive terminals only).",
 )
 @click.option("--scheduled", is_flag=True, help="Scheduled run mode (cron trigger)")
@@ -483,9 +483,9 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
             log.warning("--produce ask requires an interactive terminal — nothing to produce.")
             return
         which = click.prompt(
-            "Which outputs? 1=advisory 2=technical 3=signatures 4=iocs 5=hunting "
-            "6=patches 7=post to Discord (comma-separated, 0=all file outputs, "
-            "blank to skip production — 7 is opt-in and not included by 0)",
+            "Which outputs? 1=advisory 2=signatures 3=iocs 4=hunting "
+            "5=patches 6=post to Discord (comma-separated, 0=all file outputs, "
+            "blank to skip production — 6 is opt-in and not included by 0)",
             default="", show_default=False,
         )
         if not which.strip():
@@ -493,14 +493,14 @@ def main(product, cve, produce, scheduled, dry_run, test_count, recent_count):
             return
         produce = which.strip()
 
-    raw_selected = list(range(1, 7)) if produce == "0" else [int(x) for x in produce.replace(",", " ").split()]
-    # 7 is a reserved toggle ("post produced drafts to Discord"), not an
-    # output_menu entry — ai_caller/output_router only know about 1-6
+    raw_selected = list(range(1, 6)) if produce == "0" else [int(x) for x in produce.replace(",", " ").split()]
+    # 6 is a reserved toggle ("post produced drafts to Discord"), not an
+    # output_menu entry — ai_caller/output_router only know about 1-5
     # (real prompts with a save location), so it's split out here rather
-    # than treated as a 7th produce-able draft type. "0" (all outputs)
+    # than treated as a 6th produce-able draft type. "0" (all outputs)
     # never implies it — posting to Discord is always opt-in.
-    post_to_discord = 7 in raw_selected
-    selected = [n for n in raw_selected if n != 7]
+    post_to_discord = 6 in raw_selected
+    selected = [n for n in raw_selected if n != 6]
 
     if not selected:
         log.info("No output types selected (only the Discord toggle) — nothing to produce.")

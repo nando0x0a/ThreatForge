@@ -89,7 +89,13 @@ class AICaller:
             f"Priority Score: {cve_data.get('composite_score', 0)}\n"
             f"Priority Tags: {tags_str}\n"
             f"Priority Tier: {cve_data.get('tier_label', 'UNKNOWN')}\n\n"
-            f"{self.few_shot if output_num == 3 else ''}\n\n"
+            # Keyed off the menu entry's own "key" (e.g. "signatures"), not
+            # output_num -- a magic-number check here would silently break
+            # (fire for the wrong type, or never fire at all) every time
+            # config/vuln-skill.yaml's output_menu gets renumbered, exactly
+            # what happened when technical_findings was retired and every
+            # entry after it shifted down by one.
+            f"{self.few_shot if output_type == 'signatures' else ''}\n\n"
             f"{template}"
         )
 

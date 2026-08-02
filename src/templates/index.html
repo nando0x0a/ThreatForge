@@ -1,15 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Vuln-Skill — Scan{% endblock %}
+{% block title %}Vuln-Skill — Workflows{% endblock %}
 {% block content %}
 
 <section class="card">
-  <h2>Run scan</h2>
+  <h2>Select workflow</h2>
   <form method="post" action="/run" class="run-form">
-    <label title="Full scan using production CVSS/EPSS/age filters."><input type="radio" name="mode" value="daily" checked> Daily (production filters)</label>
-    <label title="Same candidate selection as Test mode, but sorted by most recently disclosed CVEs first."><input type="radio" name="mode" value="recent"> Recent mode</label>
-    <label title="Run a scan against one specific product name only, ignoring the usual candidate filters."><input type="radio" name="mode" value="product"> Single product <input type="text" name="product" placeholder="e.g. nginx"></label>
-    <label title="Run a scan against one specific CVE ID only."><input type="radio" name="mode" value="cve"> Single CVE <input type="text" name="cve" placeholder="CVE-2024-12345"></label>
-    <label class="test-mode-option" title="Skips the production filters entirely and returns up to N candidates for testing/dev purposes."><input type="radio" name="mode" value="test"> Test mode <input type="number" name="count" value="5" min="1" max="50" class="count-input"></label>
+    <label title="Full workflow using production CVSS/EPSS/age filters."><input type="radio" name="mode" value="daily" checked> Daily vulnerability triage</label>
+    <label title="Same candidate selection as the daily triage, but sorted by most recently disclosed CVEs first."><input type="radio" name="mode" value="recent"> Recent critical/KEV sweep</label>
+    <label title="Run against one specific product name only, ignoring the usual candidate filters."><input type="radio" name="mode" value="product"> Product vulnerability search <input type="text" name="product" placeholder="e.g. nginx"></label>
+    <label title="Run against one specific CVE ID only."><input type="radio" name="mode" value="cve"> Run a specific CVE <input type="text" name="cve" placeholder="CVE-2024-12345"></label>
     <div class="run-form-actions">
       <button type="submit">Run</button>
     </div>

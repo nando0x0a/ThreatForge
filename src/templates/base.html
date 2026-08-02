@@ -71,13 +71,15 @@
     <header>
       <h1>Vuln-Skill</h1>
       <span class="muted">AI Vulnerability Intelligence Assistant</span>
+      <span class="header-divider" aria-hidden="true"></span>
       <nav>
-        <a href="/">Scan</a>
+        <a href="/">Workflows</a>
         <a href="/outputs">Outputs</a>
-        <a href="/runs">Run history</a>
+        <a href="/runs">History</a>
         <a href="/config/products">Products</a>
-        <a href="/config/pipeline">Scan settings</a>
+        <a href="/config/pipeline">Workflow settings</a>
       </nav>
+      <span class="header-divider" aria-hidden="true"></span>
       <div class="header-actions">
         <button type="button" id="theme-toggle" class="icon-btn" onclick="toggleTheme()">🌙</button>
         <button type="button" class="icon-btn" onclick="document.getElementById('about-dialog').showModal()" aria-label="About" title="About">ℹ️</button>
@@ -85,14 +87,13 @@
           {% if chat_available %}
           <button type="button" id="chat-reset-btn" class="reset-btn" hx-post="/chat/reset" hx-target="#chat-history" hx-swap="innerHTML" hx-confirm="Start a new session? The current one is saved to History.">New session</button>
           {% endif %}
-          <a class="reset-btn" href="/chat/history">History</a>
           <a class="reset-btn" href="/account">Account</a>
           <a class="reset-btn" href="/logout">Logout</a>
         </div>
       </div>
     </header>
     <div id="loading-banner" class="loading-banner" {% if not pipeline_running %}hidden{% endif %}>
-      <span class="spinner"></span> Working — this can take a minute or two for a full scan or AI-generated output...
+      <span class="spinner"></span> Working — this can take a minute or two for a full workflow or AI-generated output...
     </div>
   </div>
 
@@ -106,7 +107,7 @@
 
   <main class="{{ 'app-shell' if chat_available else '' }}">
     <section class="canvas-pane">
-      {% if chat_available %}<h2 class="pane-heading">Scan Workspace</h2>{% endif %}
+      {% if chat_available %}<h2 class="pane-heading">Workflow Workspace</h2>{% endif %}
       {% block content %}{% endblock %}
     </section>
 
@@ -118,7 +119,7 @@
       </div>
 
       <form id="chat-form" method="post" action="/chat" hx-post="/chat" hx-target="#chat-history" hx-swap="innerHTML">
-        <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask the assistant to run a scan, look up a CVE, or produce an output... (try /demo)" required></textarea>
+        <textarea name="message" id="chat-message-input" rows="3" maxlength="10000" placeholder="Ask the assistant to run a workflow, look up a CVE, or produce an output... (try /demo)" required></textarea>
         <div class="input-toolbar">
           <span class="char-count">Tip: type /demo to try a guided example · Chars: <span id="chat-char-count">0</span></span>
           <button type="submit" disabled>Send</button>
@@ -290,12 +291,11 @@
       // the Send button (native submit), with no dependency on htmx's
       // internal request-building order.
       var DEMO_OUTPUT_TYPES = [
-        {num: 1, label: 'Security advisory (management)'},
-        {num: 2, label: 'Technical findings (SOC analyst)'},
-        {num: 3, label: 'Suricata signature drafts'},
-        {num: 4, label: 'IoC list'},
-        {num: 5, label: 'Threat hunting queries (CrowdStrike + Netflow)'},
-        {num: 6, label: 'Patch recommendations'},
+        {num: 1, label: 'Advisory'},
+        {num: 2, label: 'Detection Rule Draft'},
+        {num: 3, label: 'IoC list'},
+        {num: 4, label: 'Hunting queries'},
+        {num: 5, label: 'Patch playbook'},
       ];
       var awaitingDemoSelection = false;
 
