@@ -28,6 +28,16 @@ today it's only checked once per web-UI run, not continuously.
     weights directly in `vuln-skill.yaml` — not exposed here yet)" —
     these should go away once there's a real explanation in their place,
     not before.
+39. **Chatbox empty-state/placeholder wording + a real `/help` command** —
+    "Ask the assistant to run a workflow..." (`_messages.html`'s empty
+    state and `base.html`'s textarea placeholder) → "Ask Vuln-Skill to run
+    a workflow...", and mention both `/demo` and `/help` so a new user
+    discovers them without having to be told. `/demo` already exists;
+    `/help` does not yet — this needs actually building (a slash command
+    that explains what the assistant can do, presumably listing the
+    supported actions from § 4 of the system prompt / `CHAT_TOOLS`, in the
+    same spirit as `/demo`'s client-side-only, no-API-cost menu), not just
+    referencing it in copy that would otherwise point at nothing.
 
     **How it ranks risk** (NJ's draft explanation, verified against
     `config/vuln-skill.yaml`'s actual `scoring.weights` — two real tags
