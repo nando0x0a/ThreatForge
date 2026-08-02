@@ -203,6 +203,28 @@ prompts:
       MUST surface it explicitly in the output, citing both sources by their
       [N] numbers. Never silently pick one score and omit the other — the
       analyst needs to see the disagreement to judge it themselves.
+    - Defang EVERY external IP address, domain, or URL that appears
+      anywhere in the output text, with NO exception for a source you
+      judge trustworthy or non-malicious — this includes your own "##
+      Sources" citation list, NVD/CISA/CVE.org/vendor-advisory links, and
+      any other reference URL, not only ones that look attacker-controlled.
+      Defanging here is a uniform formatting convention, not a judgment
+      call about which links are dangerous (matching this workspace's
+      soc-skill-cloud pattern, which defangs even a benign VirusTotal
+      lookup URL the same way) — the entire point is that a reader can't
+      tell which ones are "safe" without deliberately un-defanging, so
+      selectively defanging only what looks risky defeats it. Convention:
+      bracket only the IP's last octet separator (10.10.10[.]10), only a
+      domain's final period before the TLD (example[.]com), and for a
+      full URL replace http/https with hxxp/hxxps in addition to the
+      domain's TLD bracket (hxxp://example[.]com/path). Exception: the
+      Detection Rule Draft (Suricata rule) and Hunting queries output
+      types must NOT defang anything inside the actual functional
+      rule/query syntax (content:, pcre:, dns.query, IP variables,
+      CrowdStrike/nfdump query values) — those values must stay literal
+      to remain operationally valid. Defang only within a comment or
+      notes section of those two output types, never inside the working
+      rule or query body itself.
 
   few_shot_rules: |
     # Example Suricata rules for few-shot context (signatures module only)
@@ -290,6 +312,12 @@ prompts:
       Return ONLY the rule text (comment block + rule). No explanation outside
       the comment block, no markdown fencing.
 
+      Do NOT defang any IP, domain, or URL used inside the rule's own match
+      syntax (content:, pcre:, dns.query, IP variables) — this must remain a
+      literal, working Suricata rule. If a specific known-malicious indicator
+      is mentioned in the confidence comment block only (not the rule body),
+      defang it there per the system instructions.
+
       Example format:
       # Confidence: PoC known — see [4]. No PCAP data source available; pattern
       # inferred from PoC + advisory description, not verified against captured
@@ -313,13 +341,13 @@ prompts:
       # Confidence: HIGH / MEDIUM / LOW per indicator
 
       ## Network Indicators
-      IP: x.x.x.x  # source / description
+      IP: x.x.x[.]x  # source / description (defanged per the system instructions)
 
       ## Domain Indicators
-      DOMAIN: malicious.example.com  # description
+      DOMAIN: malicious.example[.]com  # description
 
       ## URL Indicators
-      URL: http://example.com/exploit/path  # description
+      URL: hxxp://example[.]com/exploit/path  # description
 
       ## File Indicators
       HASH_SHA256: abc123...  # filename / description
@@ -337,6 +365,12 @@ prompts:
       If no specific IoCs are available from the provided context, state that
       clearly and list the observable behaviour patterns instead.
       Only include indicators with reasonable confidence from the provided context.
+
+      Defang every IP, domain, and URL indicator per the system instructions
+      (10.10.10[.]10, malicious.example[.]com, hxxp://example[.]com/path) —
+      this is a reference list for analyst review, not something meant to be
+      pasted directly into an executing tool, so every indicator here must be
+      inert by default.
 
     hunting_queries: |
       You are a threat hunter writing detection queries for two platforms.
@@ -377,6 +411,12 @@ prompts:
 
       Write queries that are ready to run. Use placeholder values
       (x.x.x.x, malicious.example.com) where specific IoCs are not available.
+
+      Do NOT defang any IP or domain used inside the actual query syntax
+      (RemoteIP values, nfdump filter expressions) — these queries must
+      remain literal and copy-paste runnable against CrowdStrike/nfdump. If
+      a specific known-malicious indicator is mentioned in the Hunting
+      Notes section only, defang it there per the system instructions.
 
     patch_recs: |
       You are a systems engineer writing a patch recommendation and remediation playbook.

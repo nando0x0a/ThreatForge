@@ -977,12 +977,20 @@ def _handle_pending_answer(message: str) -> None:
 
 _CVE_ID_RE = r"CVE-\d{4}-\d{4,7}"
 _KEV_PHRASE_RE = r"(?:CISA )?KEV(?:-listed)?\b|Known Exploited Vulnerabilit(?:y|ies)"
-_IPV4_RE = r"\b(?:\d{1,3}\.){3}\d{1,3}\b"
+# Matches a plain IP (10.10.10.10) or one defanged per the system prompt's
+# single-defang-point convention (10.10.10[.]10, last octet separator only)
+# -- config/vuln-skill.yaml's output_templates now instruct the AI to
+# defang IOCs in advisory/ioc_list output, so this has to keep recognizing
+# them for Preview highlighting, same reasoning as soc-skill-cloud's own
+# _IOC_DEFANGED_RE (src/app.py).
+_IPV4_RE = r"\b(?:\d{1,3}\.){2}\d{1,3}(?:\.|\[\.\])\d{1,3}\b"
 _HASH_RE = r"\b[a-fA-F0-9]{64}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{32}\b"
 # TLD allowlist keeps this from firing on ordinary prose ("e.g." etc.) --
 # same "not a real parser, just a heuristic" tradeoff web-design-system.md
-# §8 documents for telemetry/log token highlighting.
-_DOMAIN_RE = r"\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|io|gov|edu|mil|info|biz|co|dev|app|ai|to|xyz|ru|cn|de|uk|us)\b"
+# §8 documents for telemetry/log token highlighting. The final separator
+# before the TLD accepts a bare "." or a defanged "[.]" for the same reason
+# as _IPV4_RE above.
+_DOMAIN_RE = r"\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.|\[\.\])(?:com|net|org|io|gov|edu|mil|info|biz|co|dev|app|ai|to|xyz|ru|cn|de|uk|us)\b"
 # web-bugs-and-tweaks.md #19: every timestamp surfaced anywhere should
 # render in the viewer's own local time, labeled as such -- this catches
 # the "Generated: ..." line baked into a produced doc's own header text
