@@ -3,7 +3,7 @@
 **CVE (Common Vulnerabilities and Exposures) intelligence automation platform.** Vuln-Skill ingests vulnerability data, scores and prioritises it against real-world exploitation signals, and produces analyst-ready drafts — advisories, detection rules, IoC (Indicator of Compromise) lists, hunting queries, patch playbooks — only when an analyst asks for them. Every output is a proposed draft, cited back to its sources. Nothing is deployed automatically.
 
 Repository: `git@github.com:nando0x0a/Vuln-Skill.git`
-License: MIT
+License: All rights reserved
 
 ---
 
