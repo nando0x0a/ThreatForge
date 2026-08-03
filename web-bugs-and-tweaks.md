@@ -14,6 +14,21 @@ Future work on KEV-on-entry (see #12 below): a standalone, more frequent
 poll against CISA's KEV feed, independent of when a pipeline run happens —
 today it's only checked once per web-UI run, not continuously.
 
+52. **"The autocomplete as in soc-skill"** — NJ flagged the chatbox
+    autocomplete as not matching soc-skill-cloud's, but Vuln-Skill's
+    `/help`+`/demo` typeahead (#39) was already built as a direct port of
+    soc-skill-cloud's own `#command-menu` implementation (same registry
+    shape, same open-on-`/`/close-on-exact-match/arrow-key/mousedown
+    behavior). Checked soc-skill-cloud's `src/templates/index.html` again
+    for anything else under "autocomplete" and found nothing beyond that
+    same command menu — so the gap NJ is seeing is either (a) a real
+    behavioral difference between the two live implementations worth a
+    side-by-side comparison, or (b) something else NJ means by
+    "autocomplete" that isn't the slash-command menu at all (e.g. CVE ID
+    or product-name autocomplete while typing a normal message, which
+    neither app currently has). Needs clarification on which before
+    building anything — logged here rather than guessed at.
+
 ## Done
 
 1. **Run button hard to notice** — moved to its own line with a top border and bolder styling, visually separated from the mode radios. Deployed 2026-07-30.
