@@ -15,8 +15,8 @@ from pathlib import Path
 import anthropic
 import markdown
 import yaml
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, PlainTextResponse, Response
+from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -24,6 +24,10 @@ from config_loader import load_config, CONFIG_PATH
 from context_assembler import ContextAssembler
 from ai_caller import AICaller
 from output_router import OutputRouter
+from llm_provider import DEFAULT_MODEL, SCREEN_MODEL as LLM_SCREEN_MODEL, get_active_model
+from resilience import with_retry
+from csrf import verify_same_origin
+from rate_limit import InMemoryRateLimiter, client_ip
 import github_publisher
 import orchestrate
 
@@ -49,11 +53,22 @@ CHAT_CURRENT_FILE = CHAT_DATA_DIR / "current.json"
 # current conversation here before clearing it, rather than discarding it.
 CHAT_SESSIONS_DIR = CHAT_DATA_DIR / "sessions"
 CHAT_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-# Same cost-conscious default as the produce pipeline (config/vuln-skill.yaml's
-# ai_provider.model) -- overridable via env without a code change once this
-# is stable enough to justify a stronger model for tool-selection reasoning.
-CHAT_MODEL = os.getenv("CHAT_MODEL", "claude-haiku-4-5-20251001")
-CHAT_SCREEN_MODEL = "claude-haiku-4-5-20251001"
+# claude-sonnet-5 by default (DEFAULT_MODEL, from llm_provider.py) as of
+# 2026-08-06 -- previously defaulted to claude-haiku-4-5-20251001 to match
+# the batch produce pipeline's own cost-conscious default (config/vuln-
+# skill.yaml's ai_provider.model), but the interactive chat assistant and
+# the batch pipeline are different cost/quality tradeoffs (one request at
+# a time vs. potentially many CVEs per run) and don't need the same
+# answer; the pipeline's own default is intentionally left alone. Still
+# overridable via CHAT_MODEL without a code change.
+# get_active_model layers LLM_TEST_MODE=1 on top, forcing the cheap Haiku
+# path for local iteration regardless of what CHAT_MODEL/DEFAULT_MODEL
+# resolve to.
+CHAT_MODEL = get_active_model(os.getenv("CHAT_MODEL", DEFAULT_MODEL))
+# Sourced from llm_provider.py (LLM_SCREEN_MODEL), same single source of
+# truth soc-skill-cloud's own SCREEN_MODEL uses -- not env-overridable by
+# design, this is a fixed policy, not a per-deployment knob.
+CHAT_SCREEN_MODEL = LLM_SCREEN_MODEL
 MAX_CHAT_MESSAGE_CHARS = 10000
 # USD per token -- see soc-skill-cloud/src/app.py's PRICING for the
 # verification source/date; reused here rather than re-derived.
@@ -87,6 +102,37 @@ def _github_url(subdir: str, filename: str) -> str | None:
 app = FastAPI(title="Vuln-Skill")
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=APP_DIR / "templates")
+
+
+@app.get("/health")
+def health() -> JSONResponse:
+    """Real liveness endpoint for docker-compose's healthcheck -- proves
+    uvicorn is actually up and responding. vuln-skill-web previously had
+    no healthcheck override of its own in docker-compose.yml and silently
+    inherited the vuln-skill image's baked-in Dockerfile HEALTHCHECK
+    (`import anthropic, openai`), which only proves the SDKs are
+    installed, not that this specific service is serving requests."""
+    return JSONResponse({"status": "ok"})
+
+
+@app.middleware("http")
+async def _csrf_guard(request: Request, call_next):
+    """Same Origin-header CSRF guard as soc-skill-cloud's app.py -- see
+    csrf.py's own header note for why Basic Auth needs this too, not just
+    cookie-based sessions. Catches HTTPException itself since exceptions
+    raised inside `@app.middleware("http")` run outside FastAPI's own
+    ExceptionMiddleware and would otherwise surface as a raw 500."""
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        try:
+            verify_same_origin(request)
+        except HTTPException as exc:
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+    return await call_next(request)
+
+
+# Per-IP, in-process (no Redis, no new AWS resource) -- guards the chat
+# endpoint specifically, the one that triggers an LLM call.
+_chat_rate_limiter = InMemoryRateLimiter(max_requests=20, window_seconds=60.0)
 
 # In-memory state for the current candidate list — single-operator tool, no
 # need for per-session complexity. Reset every time the pipeline runs.
@@ -665,22 +711,29 @@ def _accumulate_chat_totals(usage: dict) -> None:
         _chat_state["totals"][k] += usage[k]
 
 
+@with_retry()
+def _screen_chat_call(message: str):
+    return anthropic_client.messages.create(
+        model=CHAT_SCREEN_MODEL,
+        max_tokens=100,
+        messages=[{"role": "user", "content": CHAT_SCREEN_PROMPT_TEMPLATE.format(message=message)}],
+        output_config={"format": {"type": "json_schema", "schema": {
+            "type": "object",
+            "properties": {"is_attack_on_assistant": {"type": "boolean"}},
+            "required": ["is_attack_on_assistant"],
+            "additionalProperties": False,
+        }}},
+    )
+
+
 def _screen_chat_message(message: str) -> tuple[bool, dict]:
     """Same 'harmlessness screen' pattern as soc-skill-cloud's
-    _screen_for_attack -- fails open on its own errors so a transient API
-    hiccup on the screen never blocks legitimate pipeline use."""
+    _screen_for_attack -- _screen_chat_call retries transient errors
+    (timeout/429/5xx) up to 3x with backoff before this function's own
+    try/except takes over; fails open on any persistent or non-retryable
+    error so a screen failure never blocks legitimate pipeline use."""
     try:
-        response = anthropic_client.messages.create(
-            model=CHAT_SCREEN_MODEL,
-            max_tokens=100,
-            messages=[{"role": "user", "content": CHAT_SCREEN_PROMPT_TEMPLATE.format(message=message)}],
-            output_config={"format": {"type": "json_schema", "schema": {
-                "type": "object",
-                "properties": {"is_attack_on_assistant": {"type": "boolean"}},
-                "required": ["is_attack_on_assistant"],
-                "additionalProperties": False,
-            }}},
-        )
+        response = _screen_chat_call(message)
         usage = _chat_usage_from_response(CHAT_SCREEN_MODEL, response.usage)
         verdict = json.loads(response.content[0].text)
         return bool(verdict.get("is_attack_on_assistant")), usage
@@ -820,8 +873,9 @@ Never post the full content of a generated output in the chat reply, per §6.3 o
 If the confirmation's tool_result comes back with "produced": false and a "not_found" list, nothing was actually generated for those CVE(s) -- do not tell the analyst it was generated. This happens when a CVE drops out of the current candidate list (e.g. a later workflow run replaced it) before the confirmation was answered. Say plainly that it wasn't generated and why, then call lookup_cve for that exact CVE ID to reload it before offering to retry produce_output -- don't just repeat the same produce_output call against stale state."""
 
 
-def _call_chat_claude(messages: list) -> tuple["anthropic.types.Message", dict]:
-    response = anthropic_client.messages.create(
+@with_retry()
+def _call_chat_claude_api(messages: list):
+    return anthropic_client.messages.create(
         model=CHAT_MODEL,
         max_tokens=4096,
         system=[
@@ -831,6 +885,16 @@ def _call_chat_claude(messages: list) -> tuple["anthropic.types.Message", dict]:
         tools=CHAT_TOOLS,
         messages=messages,
     )
+
+
+def _call_chat_claude(messages: list) -> tuple["anthropic.types.Message", dict]:
+    """_call_chat_claude_api retries transient errors (timeout/429/5xx) up
+    to 3x with backoff -- this app previously had no retry or explicit
+    timeout on this call site at all, so a transient hiccup surfaced
+    straight to the analyst as a hard error requiring a manual Retry
+    click. A non-retryable error (validation, auth, bad request) still
+    raises immediately, same as before."""
+    response = _call_chat_claude_api(messages)
     return response, _chat_usage_from_response(CHAT_MODEL, response.usage)
 
 
@@ -1110,6 +1174,7 @@ def _chat_display_messages(messages: list[dict] | None = None, usage: list[dict 
 
 @app.post("/chat", response_class=HTMLResponse)
 def chat_route(request: Request, message: str = Form(...)):
+    _chat_rate_limiter.check(client_ip(request))
     if CHAT_SYSTEM_PROMPT is None:
         return templates.TemplateResponse(request, "_chat_swap.html", {
             "messages": _chat_display_messages(), "error": "Chat assistant unavailable -- system prompt not mounted.",

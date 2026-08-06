@@ -18,16 +18,20 @@ from notifier import DiscordNotifier
 from output_router import OutputRouter
 from ai_caller import AICaller
 from config_loader import load_config
+from resilience import JSONFormatter
 
 load_dotenv("/opt/vuln-skill/config/.env")
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler("/opt/vuln-skill/logs/vuln-skill.log"),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
+# JSON lines on both handlers, not the old plain-text format -- this
+# process is imported by web.py too (see that module's own `import
+# orchestrate`), so this basicConfig call is effectively the root logger
+# config for the whole app, CLI and web alike. File handler preserved
+# (not swapped for resilience.configure_json_logging's single stdout
+# handler) since /opt/vuln-skill/logs/vuln-skill.log is a mounted volume
+# other tooling may already tail.
+_log_handlers = [logging.FileHandler("/opt/vuln-skill/logs/vuln-skill.log"), logging.StreamHandler(sys.stdout)]
+for _h in _log_handlers:
+    _h.setFormatter(JSONFormatter())
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), handlers=_log_handlers)
 log = logging.getLogger("orchestrate")
 
 _cfg = load_config()

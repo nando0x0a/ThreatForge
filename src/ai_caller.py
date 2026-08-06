@@ -5,6 +5,7 @@ import logging
 
 from context_assembler import ContextAssembler
 from config_loader import load_config
+from resilience import with_retry
 
 log = logging.getLogger("ai_caller")
 
@@ -115,26 +116,38 @@ class AICaller:
         result["cve_id"] = cve_data.get("cve_id", "")
         return result
 
+    @with_retry()
+    def _raw_call(self, user_message: str):
+        if self.provider == "anthropic":
+            return self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                system=self.system_prompt,
+                messages=[{"role": "user", "content": user_message}],
+            )
+        return self.client.chat.completions.create(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        )
+
     def _call(self, user_message: str) -> dict:
+        """_raw_call retries transient errors (timeout/429/5xx) up to 3x
+        with backoff before this function's own try/except takes over --
+        this pipeline previously had no retry or explicit timeout on
+        either provider branch, so a transient hiccup during a batch run
+        burned the § 2.1-style self-repair retry (produce()'s own,
+        content-quality-focused mechanism) on what was really just a
+        flaky connection, not a bad model response."""
         try:
+            response = self._raw_call(user_message)
             if self.provider == "anthropic":
-                response = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=self.max_tokens,
-                    system=self.system_prompt,
-                    messages=[{"role": "user", "content": user_message}],
-                )
                 content = response.content[0].text
                 usage = _extract_usage(self.model, response.usage)
             else:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    max_tokens=self.max_tokens,
-                    messages=[
-                        {"role": "system", "content": self.system_prompt},
-                        {"role": "user", "content": user_message},
-                    ],
-                )
                 content = response.choices[0].message.content
                 # No verified per-token pricing for arbitrary openai_compatible
                 # endpoints — token counts only, no cost estimate.

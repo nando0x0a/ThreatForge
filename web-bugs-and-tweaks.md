@@ -15,19 +15,23 @@ poll against CISA's KEV feed, independent of when a pipeline run happens —
 today it's only checked once per web-UI run, not continuously.
 
 52. **"The autocomplete as in soc-skill"** — NJ flagged the chatbox
-    autocomplete as not matching soc-skill-cloud's, but Vuln-Skill's
-    `/help`+`/demo` typeahead (#39) was already built as a direct port of
-    soc-skill-cloud's own `#command-menu` implementation (same registry
-    shape, same open-on-`/`/close-on-exact-match/arrow-key/mousedown
-    behavior). Checked soc-skill-cloud's `src/templates/index.html` again
-    for anything else under "autocomplete" and found nothing beyond that
-    same command menu — so the gap NJ is seeing is either (a) a real
-    behavioral difference between the two live implementations worth a
-    side-by-side comparison, or (b) something else NJ means by
-    "autocomplete" that isn't the slash-command menu at all (e.g. CVE ID
-    or product-name autocomplete while typing a normal message, which
-    neither app currently has). Needs clarification on which before
-    building anything — logged here rather than guessed at.
+    autocomplete as not matching soc-skill-cloud's. Re-checked 2026-08-06
+    during the production-hardening pass with both files open side by
+    side, function by function (`updateCommandMenu`, `renderCommandMenu`,
+    `hideCommandMenu`, `selectCommandMenuItem`, the mousedown/blur
+    handlers, the `COMMANDS`/`findCommand` shape): confirmed identical,
+    not just "probably a direct port" as the earlier check concluded —
+    same logic, same CSS classes, same keyboard/ARIA behavior in both
+    apps. The only actual difference between the two `/demo` commands is
+    content strategy, not the autocomplete mechanism: Vuln-Skill's
+    `/demo` does a live CVE search each time (no fixed set, so a plain
+    incrementing counter, not "N/M"); soc-skill-cloud's rotates a fixed
+    set of canned payloads round-robin with a real "N/M" denominator —
+    that's a deliberate, documented difference (#41 below), not a bug.
+    So (a) from the prior note is ruled out — remains pending only on (b):
+    whether NJ actually means something else by "autocomplete" (e.g. CVE
+    ID or product-name autocomplete while typing, which neither app has).
+    Needs that clarification before anything gets built here.
 
 ## Done
 

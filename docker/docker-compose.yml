@@ -34,6 +34,16 @@ services:
       retries: 3
       start_period: 10s
 
+    # Crash-containment safety net, not generous headroom -- the shared
+    # t3.micro has 1 GiB RAM total across every service on the instance.
+    # See Cloud/references/app-scaffold/docker-compose.template.yml's own
+    # header note before changing these. This service just idles (see
+    # entrypoint.sh) so its footprint should stay well under this cap;
+    # the limit exists for a runaway CLI/orchestrate invocation, not
+    # steady-state idle usage.
+    mem_limit: 200m
+    cpus: 0.5
+
     logging:
       driver: json-file
       options:
@@ -80,6 +90,24 @@ services:
 
     networks:
       - infra
+
+    # Real HTTP check against this service's own /health endpoint (added
+    # 2026-08-06) -- previously this service had no healthcheck override
+    # at all and silently inherited the shared image's Dockerfile
+    # HEALTHCHECK (`import anthropic, openai`), which only proves the
+    # SDKs are installed, not that uvicorn is actually serving requests.
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # See the crash-containment note on the vuln-skill service above --
+    # this one gets more headroom since it's the interactive chat/web UI,
+    # not an idle container.
+    mem_limit: 400m
+    cpus: 0.5
 
     logging:
       driver: json-file
