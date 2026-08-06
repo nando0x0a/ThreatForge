@@ -2,7 +2,7 @@
 {% if error %}
 <div class="chat-error">{{ error }}</div>
 {% endif %}
-<footer id="chat-token-totals" class="token-totals" hx-swap-oob="true">Session tokens: {{ totals.input }} in / {{ totals.output }} out / {{ totals.input + totals.output }} total — ${{ "%.4f"|format(totals.cost) }}</footer>
+<footer id="chat-token-totals" class="token-totals" hx-swap-oob="true">Session tokens: {{ totals.input }} in / {{ totals.output }} out / {{ totals.input + totals.output }} total — ${{ "%.4f"|format(totals.cost) }}{% if context_pct is not none %} — Context: <span class="{{ 'context-pct-high' if context_pct >= 90 else ('context-pct-medium' if context_pct >= 70 else '') }}">{{ context_pct }}%</span> of {{ context_window }}{% endif %}</footer>
 {% if state_changed %}
 <div id="pipeline-content" hx-swap-oob="true">{% include "_pipeline_results.html" %}</div>
 {% endif %}

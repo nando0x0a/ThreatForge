@@ -77,14 +77,56 @@ CHAT_PRICING = {
     "claude-sonnet-5": {"input": 2.00 / 1_000_000, "cache_write": 2.50 / 1_000_000, "cache_read": 0.20 / 1_000_000, "output": 10.00 / 1_000_000},
 }
 
+# Context window size per model, in tokens -- see soc-skill-cloud/src/app.py's
+# CONTEXT_WINDOW for the verification source/date; reused here rather than
+# re-derived.
+CHAT_CONTEXT_WINDOW = {
+    "claude-opus-5": 1_000_000,
+    "claude-sonnet-5": 1_000_000,
+    "claude-haiku-4-5": 200_000,
+    "claude-haiku-4-5-20251001": 200_000,
+}
+
+
+def _chat_context_usage_pct(usage_list: list[dict | None], model: str) -> int | None:
+    """Same methodology as soc-skill-cloud's _context_usage_pct -- derived
+    from the most recent assistant turn's own usage entry (input+cache_write+
+    cache_read+output), not summed across the session. See that function's
+    own docstring for the full reasoning."""
+    window = CHAT_CONTEXT_WINDOW.get(model)
+    if not window:
+        return None
+    for usage in reversed(usage_list):
+        if not usage:
+            continue
+        total = usage.get("input", 0) + usage.get("cache_write", 0) + usage.get("cache_read", 0) + usage.get("output", 0)
+        return round(100 * total / window)
+    return None
+
+
+def _chat_context_window_label(model: str) -> str | None:
+    window = CHAT_CONTEXT_WINDOW.get(model)
+    if not window:
+        return None
+    return f"{window // 1_000_000}M" if window >= 1_000_000 else f"{window // 1_000}K"
+
 anthropic_client = anthropic.Anthropic()
+
+# Same pattern as soc-skill-cloud's SKILL_VERSION -- surfaced in the About
+# dialog, read directly from the prompt's own "## Version" table rather
+# than maintaining a second number that could drift from what's actually
+# loaded.
+_CHAT_VERSION_RE = re.compile(r"\|\s*\*\*Version\*\*\s*\|\s*([\d.]+)\s*\|")
 
 try:
     _raw_chat_prompt = CHAT_PROMPT_PATH.read_text()
     CHAT_SYSTEM_PROMPT = re.sub(r"^---\n.*?\n---\n", "", _raw_chat_prompt, count=1, flags=re.DOTALL).strip()
     log.info(f"Loaded Vuln-Skill Cloud Assistant prompt: {len(CHAT_SYSTEM_PROMPT)} chars")
+    _chat_version_match = _CHAT_VERSION_RE.search(_raw_chat_prompt)
+    CHAT_PROMPT_VERSION = _chat_version_match.group(1) if _chat_version_match else "unknown"
 except Exception as e:
     CHAT_SYSTEM_PROMPT = None
+    CHAT_PROMPT_VERSION = None
     log.error(f"Chat assistant prompt not available ({e}) -- /chat will report itself disabled")
 
 
@@ -214,6 +256,9 @@ def _chat_context() -> dict:
         "chat_pending_tool": _chat_state["pending_tool"],
         "chat_available": CHAT_SYSTEM_PROMPT is not None,
         "chat_model": CHAT_MODEL if CHAT_SYSTEM_PROMPT is not None else None,
+        "chat_prompt_version": CHAT_PROMPT_VERSION if CHAT_SYSTEM_PROMPT is not None else None,
+        "context_pct": _chat_context_usage_pct(_chat_state["usage"], CHAT_MODEL),
+        "context_window": _chat_context_window_label(CHAT_MODEL),
     }
 
 
@@ -1179,6 +1224,7 @@ def chat_route(request: Request, message: str = Form(...)):
         return templates.TemplateResponse(request, "_chat_swap.html", {
             "messages": _chat_display_messages(), "error": "Chat assistant unavailable -- system prompt not mounted.",
             "totals": _chat_state["totals"], "pending_tool": None, "state_changed": False,
+            "context_pct": None, "context_window": None,
         })
 
     message = message.strip()[:MAX_CHAT_MESSAGE_CHARS]
@@ -1213,6 +1259,8 @@ def chat_route(request: Request, message: str = Form(...)):
             "messages": _chat_display_messages(), "error": error,
             "totals": _chat_state["totals"], "pending_tool": _chat_state["pending_tool"],
             "state_changed": state_changed,
+            "context_pct": _chat_context_usage_pct(_chat_state["usage"], CHAT_MODEL),
+            "context_window": _chat_context_window_label(CHAT_MODEL),
             **(_pipeline_results_context() if state_changed else {}),
         })
 
@@ -1228,6 +1276,7 @@ def chat_reset_route(request: Request):
         _chat_save()
         return templates.TemplateResponse(request, "_chat_swap.html", {
             "messages": [], "error": None, "totals": _chat_state["totals"], "pending_tool": None, "state_changed": False,
+            "context_pct": None, "context_window": _chat_context_window_label(CHAT_MODEL),
         })
 
 

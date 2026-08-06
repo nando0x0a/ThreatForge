@@ -497,3 +497,10 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 .reset-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .token-totals { font-size: 0.68rem; color: var(--muted); text-align: left; margin-top: 0.4rem; white-space: nowrap; overflow-x: auto; }
+/* Context-window-usage percentage, appended to .token-totals (added
+   2026-08-06) -- reuses this app's own existing --warn/--danger-text
+   tokens rather than importing soc-skill-cloud's differently-named risk
+   tokens, which don't exist here. Default (under 70%) inherits
+   .token-totals' own muted color, no extra class needed. */
+.context-pct-medium { color: var(--warn); font-weight: 700; }
+.context-pct-high { color: var(--danger-text); font-weight: 700; }

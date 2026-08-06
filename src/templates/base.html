@@ -102,6 +102,7 @@
     <div class="about-warning">⚠ Don't submit sensitive data — content sent through the Vuln-Skill Assistant is sent to the LLM provider.</div>
     <p>Vulnerability Intelligence Assistant — runs CVE (Common Vulnerabilities and Exposures) scoring, security advisories, detection rules, and IoC (indicator of compromise) generation over public vulnerability intelligence feeds.</p>
     <p class="muted">Chat Model: {{ chat_model or "unavailable" }}</p>
+    <p class="muted">Assistant Prompt Version: {{ chat_prompt_version or "unavailable" }}</p>
     <form method="dialog"><button class="reset-btn">Close</button></form>
   </dialog>
 
@@ -128,7 +129,7 @@
           <button type="submit" disabled>Send</button>
         </div>
       </form>
-      <footer id="chat-token-totals" class="token-totals">Session tokens: {{ chat_totals.input }} in / {{ chat_totals.output }} out / {{ chat_totals.input + chat_totals.output }} total — ${{ "%.4f"|format(chat_totals.cost) }}</footer>
+      <footer id="chat-token-totals" class="token-totals">Session tokens: {{ chat_totals.input }} in / {{ chat_totals.output }} out / {{ chat_totals.input + chat_totals.output }} total — ${{ "%.4f"|format(chat_totals.cost) }}{% if context_pct is not none %} — Context: <span class="{{ 'context-pct-high' if context_pct >= 90 else ('context-pct-medium' if context_pct >= 70 else '') }}">{{ context_pct }}%</span> of {{ context_window }}{% endif %}</footer>
     </section>
     {% endif %}
   </main>
