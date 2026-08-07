@@ -35,6 +35,36 @@ today it's only checked once per web-UI run, not continuously.
 
 ## Done
 
+**Restyled to adopt claude-code-stats' visual language (2026-08-06),
+mirrored from the identical soc-skill-cloud pass the same day.** New
+tokens (`--bg`/`--card-bg`/`--accent`/`--accent-text`/`--font-sans`/
+`--font-mono`/`--radius`/`--radius-sm`/`--shadow`) applied the same way;
+full rationale in soc-skill-cloud's own `web-bugs-and-tweaks.md` entry
+and `references/web-design-system.md` §1. Two real bugs found and fixed
+live during this app's own verification pass, both pre-existing (not
+introduced by this restyle, just newly surfaced by it):
+- **Nav/link colors falling back to browser default blue.** `nav a` and
+  a few other bare `<a>` tags (Outputs file list, "View in Outputs",
+  Workspace Canvas file link) had no explicit color, so they fell back
+  to the browser default link blue -- harmless next to the old blue
+  `--accent`, but a real clash once `--accent` became terracotta (found
+  via a live screenshot, not code review). Fixed with a base `a { color:
+  var(--accent-text); }` plus `nav a { color: inherit; }` so navigation
+  stays neutral text while genuine content links pick up the accent.
+- **`--ok`/`--warn` had no dark-mode override at all**, unlike every
+  other semantic token in this file -- axe-core caught `.entity-kev`
+  ("KEV-listed" in chat prose) at 2.95-3.94:1 in dark mode, a real AA
+  failure that predates this restyle (these tokens were never given a
+  dark-specific value, in either the old or new palette). Added
+  `--ok: #34c77f` / `--warn: #e0993d` for dark mode, verified >=5.04:1
+  against every real dark background they're used on.
+
+Verified live via Playwright + axe-core against the deployed container
+in both themes after the fixes: zero color-contrast violations, only
+the favicon.ico 404 (pre-existing, this app's icon is inline SVG not a
+`/favicon.ico` route) in the console. Screenshots:
+`screenshots/restyle-vuln-light.png` / `-light-fixed.png` / `-dark.png`.
+
 **Raw-source framing surveyed for Vuln-Skill, no work needed (2026-08-06).**
 NJ asked to mirror soc-skill-cloud's new raw-source-framing feature (a
 bordered/labeled UI frame separating verbatim external content from the
