@@ -17,7 +17,12 @@
   --card-bg: #ffffff;
   --text: #14161c;
   --ok: #1a7f37;
-  --warn: #b35900;
+  /* #b35900 (previous value) measured 4.39:1 against --assistant-bg
+     (#f4f4f4) -- a real AA fail caught live via axe-core on .entity-kev,
+     just under the 4.5:1 text threshold. This darker value clears 5.03:1
+     worst-case across every background --warn is used against here
+     (--bg, --card-bg, --assistant-bg), not another hairline pass. */
+  --warn: #a35300;
   /* --accent: solid fills (Run/Produce/Send buttons), decorative borders/
      underlines, the focus ring -- one value in both themes, verified
      5.24:1 white-on-fill and >=3:1 non-text-component contrast against
