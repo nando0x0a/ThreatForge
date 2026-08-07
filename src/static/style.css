@@ -285,7 +285,8 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 /* Banner-strip heading above the canvas card, matching soc-skill-cloud's
    .pane-heading convention (web-design-system.md §3) -- Vuln-Skill has
    no --assistant-bg token (chat-app-specific), so a neutral tint via
-   color-mix substitutes for it. */
+   color-mix substitutes for it. 9% (up from 5%) to match soc-skill-cloud's
+   own pane-heading darkening pass. */
 .pane-heading {
   margin: 0 0 0.75rem;
   padding: 0.5rem 0.75rem;
@@ -294,7 +295,7 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
-  background: color-mix(in srgb, currentColor 5%, transparent);
+  background: color-mix(in srgb, currentColor 9%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
