@@ -60,6 +60,16 @@
   :root:not([data-theme="light"]) {
     --border: #262b33; --muted: #a8afbb; --bg: #0e1014; --card-bg: #181b21; --text: #eef0f4;
     --accent-text: #e27a51;
+    /* --ok/--warn: pre-existing gap, found live via axe-core during this
+       restyle's verification pass (color-contrast, .entity-kev, serious)
+       -- neither token had ever had a dark-mode override at all (unlike
+       every other semantic token in this file), so KEV/success-colored
+       text has been failing AA in dark mode since before this restyle,
+       just newly caught here. #1a7f37/#b35900 (light values) measure
+       only 2.81-3.75:1 against these dark surfaces; lighter values
+       needed for dark mode specifically. */
+    --ok: #34c77f;
+    --warn: #e0993d;
     --shadow: none;
     --user-bg: #1c2b42; --assistant-bg: #262626;
     --danger-bg: #4a1e1c; --danger-text: #ffb4ae;
@@ -72,6 +82,8 @@
   color-scheme: dark;
   --border: #262b33; --muted: #a8afbb; --bg: #0e1014; --card-bg: #181b21; --text: #eef0f4;
   --accent-text: #e27a51;
+  --ok: #34c77f;
+  --warn: #e0993d;
   --shadow: none;
   --user-bg: #1c2b42; --assistant-bg: #262626;
   --danger-bg: #4a1e1c; --danger-text: #ffb4ae;
