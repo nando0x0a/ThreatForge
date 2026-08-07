@@ -35,6 +35,21 @@ today it's only checked once per web-UI run, not continuously.
 
 ## Done
 
+**Raw-source framing surveyed for Vuln-Skill, no work needed (2026-08-06).**
+NJ asked to mirror soc-skill-cloud's new raw-source-framing feature (a
+bordered/labeled UI frame separating verbatim external content from the
+skill's own analysis prose, see soc-skill-cloud's `web-bugs-and-tweaks.md`).
+Checked the chat prompt (`vuln-skill-cloud/prompt/vuln_skill_cloud_assistant.md`
+§6.3/§6.4) and every output template in `config/vuln-skill.yaml` — Vuln-Skill
+never reproduces raw external content (a CVE description, a PoC snippet)
+verbatim inline with its own generated prose the way soc-skill.md's
+Detection Analysis or Raw Payload Evidence blocks do. External facts are
+cited via numbered `[N]` references to a `## Sources` footer instead, and
+the chat assistant is explicitly forbidden from pasting full output content
+into chat at all. Confirmed with NJ: the citation-footnote convention
+already solves the same underlying problem a different way — no raw-source
+frame to add here.
+
 1. **Run button hard to notice** — moved to its own line with a top border and bolder styling, visually separated from the mode radios. Deployed 2026-07-30.
 2. **"KEV Source (added)" column** — added to the candidates table, reuses `orchestrate._format_kev_sources()`. Verified live with real data (e.g. `cisa (2021-12-10), vulncheck (2021-12-06)` for CVE-2021-44228). Deployed 2026-07-30.
 3. **Refresh button on the Outputs tab** — `hx-select`/`hx-target` against the same `/outputs` route, no new backend route needed.

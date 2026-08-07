@@ -1,15 +1,41 @@
 :root {
   color-scheme: light dark;
-  --border: #d9d9d9;
-  /* #767676 measured below WCAG AA's 4.5:1 at the small font sizes --muted
-     is used at (tab labels, position counter) -- #636363 clears it. See
-     ../references/web-design-system.md §1, same fix already applied in
-     soc-skill-cloud. */
-  --muted: #636363;
+  /* Palette below adopted 2026-08-06 from claude-code-stats
+     (github.com/AeternaLabsHQ/claude-code-stats)'s visual language --
+     background/card/border/text/accent/type/shape only, mirrored from the
+     identical soc-skill-cloud pass the same day (see
+     ../references/web-design-system.md §1). Every value re-verified
+     against WCAG AA independently of the source project -- the source's
+     own dark-mode accent (#e27a51 white-on-fill) measures 2.94:1 and
+     would have failed AA had it been copied as-is; --accent below is a
+     deliberately darker value chosen to clear 4.5:1 in both themes
+     instead, same single-accent-across-themes approach this file already
+     used for the previous blue accent and for the same reason. */
+  --border: #e7e9ee;
+  --muted: #5b6473;
+  --bg: #f5f6f8;
+  --card-bg: #ffffff;
+  --text: #14161c;
   --ok: #1a7f37;
   --warn: #b35900;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+  /* --accent: solid fills (Run/Produce/Send buttons), decorative borders/
+     underlines, the focus ring -- one value in both themes, verified
+     5.24:1 white-on-fill and >=3:1 non-text-component contrast against
+     every background it sits on in either theme. */
+  --accent: #b34d29;
+  --accent-hover: #96401f;
+  /* --accent-text: TEXT-only accent uses (.entity-cve, .chat-text a) --
+     these need theme-specific values, unlike --accent above. --accent
+     itself measured only 2.72-3.64:1 as text against dark backgrounds
+     (real fail); this lighter dark value clears well past AA against
+     every dark background it's actually used on, same as soc-skill-cloud's
+     identical token. */
+  --accent-text: #b34d29;
+  --font-sans: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(20, 22, 28, 0.04), 0 8px 20px -12px rgba(20, 22, 28, 0.14);
   /* Chat bubble backgrounds -- same values as soc-skill-cloud's, only
      needed now that the Assistant chat pane exists (web-design-system.md
      §1). */
@@ -19,17 +45,22 @@
   --danger-text: #7a1e1a;
 }
 @media (prefers-color-scheme: dark) {
-  /* --accent/--accent-hover are NOT overridden here (see
-     web-design-system.md §1): the lighter #3b82f6 this block used to set
-     measures only ~3.68:1 white-on-accent (fails WCAG AA's 4.5:1) on the
-     Send button being added now -- the unchanged #2563eb/#1d4ed8 already
-     clear ~5.17:1 in both themes. Fixed now rather than building a new
-     button on a known-bad color. */
+  /* --accent/--accent-hover are NOT overridden here: kept identical
+     across themes on purpose, see the :root comment above -- a lighter
+     dark-mode accent measured a real AA failure (2.94:1) as white-on-fill.
+     --accent-text IS overridden, since it's for text/link use where the
+     lighter, more saturated value actually clears AA against dark
+     backgrounds that the darker --accent value would not. --shadow is
+     dropped in dark mode -- a black diffuse shadow has no visible effect
+     against a near-black page background; the --card-bg/--bg contrast
+     plus --border carries the card separation instead. */
   /* :not([data-theme="light"]) -- an explicit light override (manual
      toggle, added for header parity with soc-skill-cloud) must still win
      even when the OS prefers dark. web-design-system.md §2. */
   :root:not([data-theme="light"]) {
-    --border: #3a3a3a; --muted: #9a9a9a;
+    --border: #262b33; --muted: #a8afbb; --bg: #0e1014; --card-bg: #181b21; --text: #eef0f4;
+    --accent-text: #e27a51;
+    --shadow: none;
     --user-bg: #1c2b42; --assistant-bg: #262626;
     --danger-bg: #4a1e1c; --danger-text: #ffb4ae;
   }
@@ -39,21 +70,25 @@
    vice versa) -- forces dark even when the OS prefers light. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --border: #3a3a3a; --muted: #9a9a9a;
+  --border: #262b33; --muted: #a8afbb; --bg: #0e1014; --card-bg: #181b21; --text: #eef0f4;
+  --accent-text: #e27a51;
+  --shadow: none;
   --user-bg: #1c2b42; --assistant-bg: #262626;
   --danger-bg: #4a1e1c; --danger-text: #ffb4ae;
 }
 :root[data-theme="light"] { color-scheme: light; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
   max-width: 1000px;
   margin: 0 auto;
   padding: 1rem 1.5rem 3rem;
   line-height: 1.5;
 }
 
-.page-header-sticky { position: sticky; top: 0; z-index: 10; background: Canvas; }
+.page-header-sticky { position: sticky; top: 0; z-index: 10; background: var(--bg); }
 
 header { display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1.5rem; }
 header h1 { margin: 0; font-size: 1.3rem; }
@@ -93,7 +128,7 @@ nav a:hover { text-decoration: underline; }
    web-design-system.md §3's alignment trick. */
 .header-nav-group { width: 420px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-shrink: 0; border-left: 1px solid var(--border); padding-left: 2rem; }
 
-dialog { max-width: 500px; border-radius: 10px; border: 1px solid var(--border); color: inherit; background: Canvas; padding: 1.25rem 1.5rem; }
+dialog { max-width: 500px; border-radius: var(--radius); border: 1px solid var(--border); color: inherit; background: var(--card-bg); padding: 1.25rem 1.5rem; }
 dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 dialog h2 { margin-top: 0; font-size: 1.1rem; }
 dialog p { font-size: 0.9rem; line-height: 1.5; }
@@ -111,6 +146,7 @@ dialog p { font-size: 0.9rem; line-height: 1.5; }
 .history-table-wrap, .candidates-table-wrap { overflow-x: auto; }
 .history-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .history-table th, .history-table td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.history-table th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .history-table td:nth-child(2) { white-space: normal; }
 .history-actions { display: flex; gap: 0.4rem; }
 .history-actions form { display: inline; }
@@ -118,11 +154,13 @@ dialog p { font-size: 0.9rem; line-height: 1.5; }
 /* Inline entity highlighting within chat prose (CVE IDs, KEV status,
    IPs, hashes/IoCs, domains) -- see web-design-system.md §8 for the
    shared syntax-highlighting color vocabulary this borrows from. */
-.entity-cve { font-weight: 700; color: var(--accent); }
+/* --accent-text, not --accent -- TEXT color, and --accent's dark value
+   measures a real AA fail as text (see the :root token comment). */
+.entity-cve { font-weight: 700; color: var(--accent-text); }
 .entity-kev { font-weight: 700; color: var(--warn); }
-.entity-ip, .entity-hash, .entity-domain { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0 0.25em; }
+.entity-ip, .entity-hash, .entity-domain { font-family: var(--font-mono); font-size: 0.92em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0 0.25em; }
 
-.card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+.card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card-bg); box-shadow: var(--shadow); padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
 .card h2 { margin-top: 0; font-size: 1.05rem; }
 .card-header-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .muted { color: var(--muted); font-size: 0.9rem; }
@@ -133,6 +171,7 @@ dialog p { font-size: 0.9rem; line-height: 1.5; }
 
 table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
 th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
+th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 
 .tag { display: inline-block; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; padding: 0 0.3rem; margin-right: 0.2rem; }
 .ok { color: var(--ok); }
@@ -161,11 +200,11 @@ fieldset label { display: block; margin: 0.3rem 0; }
    settings field, so a bare number input isn't the only thing on screen. */
 .field-help { display: block; font-size: 0.78rem; color: var(--muted); margin: 0.1rem 0 0.5rem; font-weight: normal; }
 .scoring-example { border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; margin-top: 0.75rem; background: var(--assistant-bg); }
-.scoring-example code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.scoring-example code { font-family: var(--font-mono); }
 .tag-weights-table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.85rem; }
 .tag-weights-table th, .tag-weights-table td { border: 1px solid var(--border); padding: 0.3rem 0.6rem; text-align: left; }
 
-textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; box-sizing: border-box; }
+textarea { width: 100%; font-family: var(--font-mono); font-size: 0.85rem; box-sizing: border-box; }
 
 button { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; background: transparent; color: inherit; }
 button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
@@ -223,11 +262,11 @@ button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--muted);
   background: color-mix(in srgb, currentColor 5%, transparent);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 /* One tier above the output-type tabs inside each canvas -- only rendered
@@ -399,7 +438,7 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 
 #chat-history { flex: 1; min-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.9rem; padding: 0.5rem 0; }
 
-.chat-msg { width: 100%; box-sizing: border-box; border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+.chat-msg { width: 100%; box-sizing: border-box; border-radius: var(--radius); padding: 0.75rem 1rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
 .chat-msg-user { background: var(--user-bg); }
 .chat-msg-assistant { background: var(--assistant-bg); }
 .chat-msg-pending { opacity: 0.6; }
@@ -417,7 +456,7 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chat-msg-question { background: #3a2f0b; color: #ffe69c; } }
 :root[data-theme="dark"] .chat-msg-question { background: #3a2f0b; color: #ffe69c; }
 
-.chat-role { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
+.chat-role { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.35rem; }
 .chat-text { font-size: 0.92rem; overflow-wrap: anywhere; word-break: break-word; }
 /* Only the plain (non-markdown-rendered) user-message variant needs
    manual newline preservation -- the assistant's rendered HTML already
@@ -427,11 +466,12 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 .chat-text p:last-child { margin-bottom: 0; }
 .chat-text ul, .chat-text ol { margin: 0.3em 0 0.6em 1.3em; }
 .chat-text li { margin-bottom: 0.2em; }
-.chat-text code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.88em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0.05em 0.3em; }
+.chat-text code { font-family: var(--font-mono); font-size: 0.88em; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 4px; padding: 0.05em 0.3em; }
 .chat-text pre { background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 6px; padding: 0.6rem 0.75rem; overflow-x: auto; }
 .chat-text pre code { background: none; padding: 0; }
-.chat-text a { color: var(--accent); }
-.chat-usage { margin-top: 0.35rem; font-size: 0.7rem; color: var(--muted); }
+/* --accent-text, not --accent -- see the .entity-cve comment above. */
+.chat-text a { color: var(--accent-text); }
+.chat-usage { margin-top: 0.35rem; font-size: 0.7rem; font-family: var(--font-mono); color: var(--muted); }
 .chat-error { background: var(--danger-bg); color: var(--danger-text); border-radius: 6px; padding: 0.5rem 0.8rem; font-size: 0.9rem; }
 
 /* Shown after the last message when it's a genuinely finished reply (not
@@ -469,16 +509,16 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
   left: 0;
   right: 0;
   margin-bottom: 0.4rem;
-  background: Canvas;
+  background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   z-index: 20;
 }
 .command-menu-item { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.5rem 0.75rem; cursor: pointer; }
 .command-menu-item + .command-menu-item { border-top: 1px solid var(--border); }
-.command-menu-item-name { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; font-size: 0.85rem; }
+.command-menu-item-name { font-family: var(--font-mono); font-weight: 700; font-size: 0.85rem; }
 .command-menu-item-desc { font-size: 0.75rem; color: var(--muted); }
 .command-menu-item.active { background: var(--assistant-bg); }
 .input-toolbar { display: flex; align-items: center; gap: 0.5rem; }
@@ -496,7 +536,7 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 .reset-btn { display: inline-flex; align-items: center; font: inherit; font-size: 0.8rem; box-sizing: border-box; padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: inherit; cursor: pointer; text-decoration: none; }
 .reset-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.token-totals { font-size: 0.68rem; color: var(--muted); text-align: left; margin-top: 0.4rem; white-space: nowrap; overflow-x: auto; }
+.token-totals { font-size: 0.68rem; font-family: var(--font-mono); color: var(--muted); text-align: left; margin-top: 0.4rem; white-space: nowrap; overflow-x: auto; }
 /* Context-window-usage percentage, appended to .token-totals (added
    2026-08-06) -- reuses this app's own existing --warn/--danger-text
    tokens rather than importing soc-skill-cloud's differently-named risk
