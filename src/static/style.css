@@ -88,6 +88,15 @@ body {
   line-height: 1.5;
 }
 
+/* Base link color -- without this, a bare <a> with no class (the
+   Outputs file list, "View in Outputs ->", the Workspace Canvas file
+   link) falls back to the browser's default blue/purple, the same
+   real bug found live in the nav (see the nav a comment below).
+   --accent-text, not --accent, since this is TEXT color. More specific
+   rules (nav a, .chat-text a, .tab-link, .entity-cve) already override
+   this default where a link needs different treatment. */
+a { color: var(--accent-text); }
+
 .page-header-sticky { position: sticky; top: 0; z-index: 10; background: var(--bg); }
 
 header { display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1.5rem; }
@@ -101,7 +110,16 @@ header h1 { margin: 0; font-size: 1.3rem; }
    against. */
 .header-divider { align-self: stretch; width: 1px; background: var(--border); }
 nav { display: flex; gap: 1rem; flex-wrap: wrap; }
-nav a { text-decoration: none; }
+/* color: inherit -- without it, an unstyled <a> falls back to the
+   browser's default link blue/purple. That happened to read fine
+   alongside the app's old blue --accent, but clashes now that --accent
+   is terracotta (found live, 2026-08-06, screenshotted against the new
+   palette -- nav read as a leftover blue theme next to the rest of the
+   restyled page). No route marks itself "current" in this nav (see
+   web-design-system.md §3), so there's no active-state color to
+   preserve here, just the plain neutral-text treatment every other
+   non-link control in the app already uses. */
+nav a { color: inherit; text-decoration: none; }
 nav a:hover { text-decoration: underline; }
 
 /* Theme toggle + About are app-level preferences, not conversation
