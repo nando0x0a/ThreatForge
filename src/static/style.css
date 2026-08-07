@@ -447,17 +447,22 @@ main.app-shell { display: flex; flex: 1; min-height: 0; gap: 1.5rem; }
 .chat-pane .pane-heading { margin-bottom: 0.75rem; }
 
 @media (max-width: 900px) {
-  /* Two independently-scrolling panes stop making sense on a screen this
-     narrow -- revert to the page just scrolling normally, panes stacked. */
-  body:has(main.app-shell) { height: auto; overflow: visible; }
+  /* Bounded stacked layout, not "give up and let the page scroll" -- that
+     earlier approach let the whole page, chat pane included, scroll out
+     of view, same problem this was originally fixed for on desktop.
+     Matches soc-skill-cloud's mobile layout: canvas capped to a fraction
+     of the viewport and independently scrollable, chat-pane fills the
+     rest and only its own message list (#chat-history) scrolls. */
   main.app-shell { flex-direction: column; gap: 1rem; }
-  .canvas-pane { overflow-y: visible; padding-right: 0; }
+  .canvas-pane { flex: 0 1 50vh; max-height: 50vh; overflow-y: auto; padding-right: 0; }
   /* No side panel left to align a divider with at this width. */
   .header-nav-group { width: auto; border-left: none; padding-left: 0; }
   .chat-pane {
     width: 100%;
     max-width: none;
     min-width: 0;
+    flex: 1;
+    min-height: 0;
     border-left: none;
     border-top: 1px solid var(--border);
     padding-left: 0;
