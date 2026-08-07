@@ -132,7 +132,10 @@
           <button type="submit" disabled>Send</button>
         </div>
       </form>
-      <footer id="chat-token-totals" class="token-totals">Session tokens: {{ chat_totals.input }} in / {{ chat_totals.output }} out / {{ chat_totals.input + chat_totals.output }} total — ${{ "%.4f"|format(chat_totals.cost) }}{% if context_pct is not none %} — Context: <span class="{{ 'context-pct-high' if context_pct >= 90 else ('context-pct-medium' if context_pct >= 70 else '') }}">{{ context_pct }}%</span> of {{ context_window }}{% endif %}</footer>
+      <footer id="chat-token-totals" class="token-totals">
+        <div class="token-totals-line">Session tokens: {{ chat_totals.input }} in / {{ chat_totals.output }} out / {{ chat_totals.input + chat_totals.output }} total — ${{ "%.4f"|format(chat_totals.cost) }}</div>
+        {% if context_pct is not none %}<div class="token-totals-line">Context: <span class="{{ 'context-pct-high' if context_pct >= 90 else ('context-pct-medium' if context_pct >= 70 else '') }}">{{ context_pct }}%</span> of {{ context_window }}</div>{% endif %}
+      </footer>
     </section>
     {% endif %}
   </main>
